@@ -18,17 +18,21 @@ class TestHuBERTSeparatorDataModule:
         self.datamodule.setup("fit")
 
         batch_size = self.datamodule.cfg.train.batch_size
-        print(batch_size)
 
         for batch in itertools.islice(self.datamodule.train_dataloader(), 3):
-            print(batch)
+            assert batch["wav_1"].size(0) == batch_size
+            assert batch["wav_2"].size(0) == batch_size
+            assert batch["wav_merged"].size(0) == batch_size
+            assert batch["wav_len"].size(0) == batch_size
 
     def test_val_dataloader(self, init) -> None:
         _ = init
         self.datamodule.setup("fit")
 
         batch_size = self.datamodule.cfg.valid.batch_size
-        print(batch_size)
 
         for batch in itertools.islice(self.datamodule.val_dataloader(), 3):
-            print(batch)
+            assert batch["wav_1"].size(0) == batch_size
+            assert batch["wav_2"].size(0) == batch_size
+            assert batch["wav_merged"].size(0) == batch_size
+            assert batch["wav_len"].size(0) == batch_size

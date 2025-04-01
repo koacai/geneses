@@ -11,6 +11,7 @@ dependencies = [
     "lhotse-dataset",
     "lightning>=2.5.1",
     "torchaudio>=2.6.0",
+    "transformers>=4.50.3",
     "webdataset>=0.2.111",
 ]
 
