@@ -7,7 +7,7 @@ hubert:
   layer: 6
 
 flow_predictor:
-  in_channels: 768
+  in_channels: 1536 # 768*2
   channels: [256, 256]
   dropout: 0.05
   attention_head_dim: 64

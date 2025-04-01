@@ -17,7 +17,8 @@ class TestFlowPredictor:
         batch_size = 4
         x_merged = torch.randn(batch_size, 100, 768)
         x_t = torch.randn(batch_size, 100, 768)
+        mask = torch.ones(batch_size, 1, 100)
         t = torch.rand((batch_size,))
 
-        dx_t = self.flow_predictor(x_merged, x_t, t)
+        dx_t = self.flow_predictor.forward(x_merged, x_t, mask, t)
         print(dx_t.size())

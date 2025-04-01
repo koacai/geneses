@@ -1,7 +1,7 @@
 import math
 
 import torch
-from einops import pack
+from einops import pack, rearrange
 from torch import nn
 
 from .transformer import BasicTransformerBlock
@@ -131,7 +131,11 @@ class FlowPredictor(nn.Module):
             )
 
     def forward(
-        self, x_merged: torch.Tensor, x_t: torch.Tensor, t: torch.Tensor
+        self,
+        x_merged: torch.Tensor,
+        x_t: torch.Tensor,
+        mask: torch.Tensor,
+        t: torch.Tensor,
     ) -> torch.Tensor:
         t = self.time_embeddings(t)
         t = self.time_mlp(t)
@@ -140,5 +144,24 @@ class FlowPredictor(nn.Module):
         x_t = x_t.permute(0, 2, 1)
 
         x = pack([x_merged, x_t], "b * t")[0]
+
+        hiddens = []
+        masks = [mask]
+        for resnet, transformer_blocks, downsample in self.down_blocks:  # type: ignore
+            mask_down = masks[-1]
+            x = resnet(x, mask_down, t)
+            x = rearrange(x, "b c t -> b t c")
+            mask_down = rearrange(mask_down, "b 1 t -> b t")
+            for transformer_block in transformer_blocks:
+                x = transformer_block(
+                    hidden_states=x,
+                    attention_mask=mask_down,
+                    timestep=t,
+                )
+            x = rearrange(x, "b t c -> b c t")
+            mask_down = rearrange(mask_down, "b t -> b 1 t")
+            hiddens.append(x)
+            x = downsample(x * mask_down)
+            masks.append(mask_down[:, :, ::2])
 
         return x
