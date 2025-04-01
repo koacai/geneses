@@ -3,5 +3,5 @@ corpus:
   email: email # NEED TO CHANGE
   pswd: pswd # NEED TO CHANGE
 
-shar_dir: ../corpus/callhome_jp_shar
+shar_dir: shar/callhome_jp
 shard_size: 10
