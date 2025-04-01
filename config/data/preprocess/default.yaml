@@ -1,8 +1,8 @@
 shar_dir: ${data.dataset.shar_dir}
 webdataset_dir: webdataset/callhome_jp
 
-duration: 60
+duration: 30
 train_ratio: 0.9
 shard_size:
-  train: 1e9
-  valid: 1e8
+  train: 2e9
+  valid: 2e8
