@@ -14,11 +14,12 @@ class TestFlowPredictor:
 
     def test_forward(self, init) -> None:
         _ = init
+
         batch_size = 4
-        x_merged = torch.randn(batch_size, 100, 768)
-        x_t = torch.randn(batch_size, 100, 768)
+        x_merged = torch.randn(batch_size, 768, 100)
+        x_t = torch.randn(batch_size, 768, 100)
         mask = torch.ones(batch_size, 1, 100)
         t = torch.rand((batch_size,))
 
-        dx_t = self.flow_predictor.forward(x_merged, x_t, mask, t)
-        print(dx_t.size())
+        dx_t = self.flow_predictor.forward(x_t, mask, x_merged, t)
+        assert dx_t.shape == x_t.shape
