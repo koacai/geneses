@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "lhotse-dataset",
+    "lightning>=2.5.1",
     "webdataset>=0.2.111",
 ]
 
