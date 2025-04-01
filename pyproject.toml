@@ -7,7 +7,9 @@ authors = [
     { name = "Kohei ASAI", email = "ko2001he@gmail.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "lhotse-dataset",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -34,3 +36,6 @@ docstring-code-format = true
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
+
+[tool.uv.sources]
+lhotse-dataset = { git = "ssh://github.com/koacai/lhotse-dataset.git" }
