@@ -71,6 +71,15 @@ class ResnetBlock1D(nn.Module):
         return output
 
 
+class Downsample1D(nn.Module):
+    def __init__(self, dim: int) -> None:
+        super(Downsample1D, self).__init__()
+        self.conv = nn.Conv1d(dim, dim, 3, 2, 1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.conv(x)
+
+
 class FlowPredictor(nn.Module):
     def __init__(self, in_channels: int, channels: tuple[int, int]) -> None:
         super(FlowPredictor, self).__init__()
@@ -86,10 +95,16 @@ class FlowPredictor(nn.Module):
         for i in range(len(channels)):
             input_channel = output_channel
             output_channel = channels[i]
+            is_last = i == len(channels) - 1
             resnet = ResnetBlock1D(
                 dim=input_channel, dim_out=output_channel, time_emb_dim=time_embed_dim
             )
-            self.down_blocks.append(nn.ModuleList([resnet]))
+            downsample = (
+                Downsample1D(output_channel)
+                if not is_last
+                else nn.Conv1d(output_channel, output_channel, 3, padding=1)
+            )
+            self.down_blocks.append(nn.ModuleList([resnet, downsample]))
 
     def forward(
         self, x_merged: torch.Tensor, x_t: torch.Tensor, t: torch.Tensor
