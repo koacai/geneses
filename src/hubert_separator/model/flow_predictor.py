@@ -1,6 +1,7 @@
 import math
 
 import torch
+import torch.nn.functional as F
 from einops import pack, rearrange
 from torch import nn
 
@@ -82,10 +83,48 @@ class Downsample1D(nn.Module):
         return self.conv(x)
 
 
+class Upsample1D(nn.Module):
+    def __init__(
+        self,
+        channels: int,
+        use_conv: bool = False,
+        use_conv_transpose: bool = True,
+        out_channels: int | None = None,
+        name="conv",
+    ):
+        super(Upsample1D, self).__init__()
+        self.channels = channels
+        self.out_channels = out_channels or channels
+        self.use_conv = use_conv
+        self.use_conv_transpose = use_conv_transpose
+        self.name = name
+
+        self.conv = None
+        if use_conv_transpose:
+            self.conv = nn.ConvTranspose1d(channels, self.out_channels, 4, 2, 1)
+        elif use_conv:
+            self.conv = nn.Conv1d(self.channels, self.out_channels, 3, padding=1)
+
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        assert inputs.shape[1] == self.channels
+        if self.use_conv_transpose:
+            assert self.conv is not None
+            return self.conv(inputs)
+
+        outputs = F.interpolate(inputs, scale_factor=2.0, mode="nearest")
+
+        if self.use_conv:
+            assert self.conv is not None
+            outputs = self.conv(outputs)
+
+        return outputs
+
+
 class FlowPredictor(nn.Module):
     def __init__(
         self,
         in_channels: int,
+        out_channels: int,
         channels: tuple[int, int],
         dropout: float,
         attention_head_dim: int,
@@ -96,6 +135,9 @@ class FlowPredictor(nn.Module):
     ) -> None:
         super(FlowPredictor, self).__init__()
 
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+
         self.time_embeddings = SinusoidalPosEmb(in_channels)
         time_embed_dim = channels[0] * 4
         self.time_mlp = TimestepEmbedding(
@@ -103,6 +145,9 @@ class FlowPredictor(nn.Module):
         )
 
         self.down_blocks = nn.ModuleList([])
+        self.mid_blocks = nn.ModuleList([])
+        self.up_blocks = nn.ModuleList([])
+
         output_channel = in_channels
         for i in range(len(channels)):
             input_channel = output_channel
@@ -115,7 +160,7 @@ class FlowPredictor(nn.Module):
                 [
                     BasicTransformerBlock(
                         dim=output_channel,
-                        num_attention_heads=attention_head_dim,
+                        num_attention_heads=num_heads,
                         attention_head_dim=attention_head_dim,
                         dropout=dropout,
                         activation_fn=act_fn,
@@ -132,10 +177,9 @@ class FlowPredictor(nn.Module):
                 nn.ModuleList([resnet, transformer_blocks, downsample])
             )
 
-        self.mid_blocks = nn.ModuleList([])
         for i in range(num_mid_blocks):
             input_channel = channels[-1]
-            _ = channels[-1]
+            out_channels = channels[-1]
 
             resnet = ResnetBlock1D(
                 dim=input_channel, dim_out=output_channel, time_emb_dim=time_embed_dim
@@ -144,8 +188,8 @@ class FlowPredictor(nn.Module):
                 [
                     BasicTransformerBlock(
                         dim=output_channel,
-                        num_attention_heads=attention_head_dim,
-                        attention_head_dim=num_heads,
+                        num_attention_heads=num_heads,
+                        attention_head_dim=attention_head_dim,
                         dropout=dropout,
                         activation_fn=act_fn,
                     )
@@ -154,6 +198,37 @@ class FlowPredictor(nn.Module):
             )
 
             self.mid_blocks.append(nn.ModuleList([resnet, transformer_blocks]))
+
+        channels = channels[::-1] + (channels[0],)  # type: ignore
+        for i in range(len(channels) - 1):
+            input_channel = channels[i]
+            output_channel = channels[i + 1]
+            is_last = i == len(channels) - 2
+
+            resnet = ResnetBlock1D(
+                dim=2 * input_channel,
+                dim_out=output_channel,
+                time_emb_dim=time_embed_dim,
+            )
+            transformer_blocks = nn.ModuleList(
+                [
+                    BasicTransformerBlock(
+                        dim=output_channel,
+                        num_attention_heads=num_heads,
+                        attention_head_dim=attention_head_dim,
+                        dropout=dropout,
+                        activation_fn=act_fn,
+                    )
+                    for _ in range(n_blocks)
+                ]
+            )
+            upsample = (
+                Upsample1D(output_channel, use_conv_transpose=True)
+                if not is_last
+                else nn.Conv1d(output_channel, output_channel, 3, padding=1)
+            )
+
+            self.up_blocks.append(nn.ModuleList([resnet, transformer_blocks, upsample]))
 
     def forward(
         self,
@@ -204,5 +279,20 @@ class FlowPredictor(nn.Module):
                 )
             x = rearrange(x, "b t c -> b c t")
             mask_mid = rearrange(mask_mid, "b t -> b 1 t")
+
+        for resnet, transformer_blocks, upsample in self.up_blocks:  # type: ignore
+            mask_up = masks.pop()
+            x = resnet(pack([x, hiddens.pop()], "b * t")[0], mask_up, t)
+            x = rearrange(x, "b c t -> b t c")
+            mask_up = rearrange(mask_up, "b 1 t -> b t")
+            for transformer_block in transformer_blocks:
+                x = transformer_block(
+                    hidden_states=x,
+                    attention_mask=mask_up,
+                    timestep=t,
+                )
+            x = rearrange(x, "b t c -> b c t")
+            mask_up = rearrange(mask_up, "b t -> b 1 t")
+            x = upsample(x * mask_up)
 
         return x
