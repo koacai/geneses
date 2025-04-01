@@ -90,6 +90,8 @@ class FlowPredictor(nn.Module):
         dropout: float,
         attention_head_dim: int,
         n_blocks: int,
+        num_mid_blocks: int,
+        num_heads: int,
         act_fn: str,
     ) -> None:
         super(FlowPredictor, self).__init__()
@@ -130,6 +132,29 @@ class FlowPredictor(nn.Module):
                 nn.ModuleList([resnet, transformer_blocks, downsample])
             )
 
+        self.mid_blocks = nn.ModuleList([])
+        for i in range(num_mid_blocks):
+            input_channel = channels[-1]
+            _ = channels[-1]
+
+            resnet = ResnetBlock1D(
+                dim=input_channel, dim_out=output_channel, time_emb_dim=time_embed_dim
+            )
+            transformer_blocks = nn.ModuleList(
+                [
+                    BasicTransformerBlock(
+                        dim=output_channel,
+                        num_attention_heads=attention_head_dim,
+                        attention_head_dim=num_heads,
+                        dropout=dropout,
+                        activation_fn=act_fn,
+                    )
+                    for _ in range(n_blocks)
+                ]
+            )
+
+            self.mid_blocks.append(nn.ModuleList([resnet, transformer_blocks]))
+
     def forward(
         self,
         x_merged: torch.Tensor,
@@ -163,5 +188,21 @@ class FlowPredictor(nn.Module):
             hiddens.append(x)
             x = downsample(x * mask_down)
             masks.append(mask_down[:, :, ::2])
+
+        masks = masks[:-1]
+        mask_mid = masks[-1]
+
+        for resnet, transformer_blocks in self.mid_blocks:  # type: ignore
+            x = resnet(x, mask_mid, t)
+            x = rearrange(x, "b c t -> b t c")
+            mask_mid = rearrange(mask_mid, "b 1 t -> b t")
+            for transformer_block in transformer_blocks:
+                x = transformer_block(
+                    hidden_states=x,
+                    attention_mask=mask_mid,
+                    timestep=t,
+                )
+            x = rearrange(x, "b t c -> b c t")
+            mask_mid = rearrange(mask_mid, "b t -> b 1 t")
 
         return x
