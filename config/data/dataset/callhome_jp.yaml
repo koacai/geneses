@@ -1,0 +1,7 @@
+corpus:
+  _target_: lhotse_dataset.CallHomeJP
+  email: email # NEED TO CHANGE
+  pswd: pswd # NEED TO CHANGE
+
+shar_dir: ../corpus/callhome_jp_shar
+shard_size: 10
