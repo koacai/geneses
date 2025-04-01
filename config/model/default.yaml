@@ -9,3 +9,7 @@ hubert:
 flow_predictor:
   in_channels: 768
   channels: [256, 256]
+  dropout: 0.05
+  attention_head_dim: 64
+  n_blocks: 1
+  act_fn: snakebeta

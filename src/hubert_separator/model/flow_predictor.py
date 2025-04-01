@@ -4,6 +4,8 @@ import torch
 from einops import pack
 from torch import nn
 
+from .transformer import BasicTransformerBlock
+
 
 class SinusoidalPosEmb(nn.Module):
     def __init__(self, dim: int) -> None:
@@ -81,7 +83,15 @@ class Downsample1D(nn.Module):
 
 
 class FlowPredictor(nn.Module):
-    def __init__(self, in_channels: int, channels: tuple[int, int]) -> None:
+    def __init__(
+        self,
+        in_channels: int,
+        channels: tuple[int, int],
+        dropout: float,
+        attention_head_dim: int,
+        n_blocks: int,
+        act_fn: str,
+    ) -> None:
         super(FlowPredictor, self).__init__()
 
         self.time_embeddings = SinusoidalPosEmb(in_channels)
@@ -99,12 +109,26 @@ class FlowPredictor(nn.Module):
             resnet = ResnetBlock1D(
                 dim=input_channel, dim_out=output_channel, time_emb_dim=time_embed_dim
             )
+            transformer_blocks = nn.ModuleList(
+                [
+                    BasicTransformerBlock(
+                        dim=output_channel,
+                        num_attention_heads=attention_head_dim,
+                        attention_head_dim=attention_head_dim,
+                        dropout=dropout,
+                        activation_fn=act_fn,
+                    )
+                    for _ in range(n_blocks)
+                ]
+            )
             downsample = (
                 Downsample1D(output_channel)
                 if not is_last
                 else nn.Conv1d(output_channel, output_channel, 3, padding=1)
             )
-            self.down_blocks.append(nn.ModuleList([resnet, downsample]))
+            self.down_blocks.append(
+                nn.ModuleList([resnet, transformer_blocks, downsample])
+            )
 
     def forward(
         self, x_merged: torch.Tensor, x_t: torch.Tensor, t: torch.Tensor
