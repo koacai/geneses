@@ -32,6 +32,9 @@ class HuBERTSeparatorLightningModule(LightningModule):
 
         self.save_hyperparameters(cfg)
 
+    def on_fit_start(self) -> None:
+        self.feature_extractor.to(self.device)
+
     def configure_optimizers(self) -> torch.optim.Optimizer:
         return hydra.utils.instantiate(
             self.cfg.model.optimizer, params=self.parameters()
