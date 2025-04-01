@@ -1,2 +1,3 @@
 defaults:
   - data: default
+  - model: default

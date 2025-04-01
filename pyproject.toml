@@ -8,10 +8,14 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "diffusers>=0.32.2",
+    "einops>=0.8.1",
+    "flow-matching>=1.0.10",
     "lhotse-dataset",
     "lightning>=2.5.1",
     "torchaudio>=2.6.0",
     "transformers>=4.50.3",
+    "wandb>=0.19.8",
     "webdataset>=0.2.111",
 ]
 
@@ -33,6 +37,9 @@ fix = true
 [tool.ruff.lint]
 select = ["E", "F", "I"]
 fixable = ["ALL"]
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 128
 
 [tool.ruff.format]
 docstring-code-format = true

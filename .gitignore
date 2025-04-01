@@ -11,3 +11,4 @@ wheels/
 /outputs
 /shar
 /webdataset
+/wandb
