@@ -2,12 +2,15 @@ from typing import Any
 
 import hydra
 import torch
+import torch.nn.functional as F
 from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
 from lightning.pytorch import LightningModule
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 from omegaconf import DictConfig
 from transformers import HubertModel
+
+from hubert_separator.utils.model import fix_len_compatibility, sequence_mask
 
 from .feature_extractor import FeatureExtractor
 from .flow_predictor import FlowPredictor
@@ -56,13 +59,21 @@ class HuBERTSeparatorLightningModule(LightningModule):
         ).hidden_states[self.cfg.model.hubert.layer]
 
         batch_size = src.size(0)
+
+        orig_len = src.size(1)
+        new_len = fix_len_compatibility(orig_len)
+        src = F.pad(src, (0, 0, 0, new_len - orig_len))
+        src1 = F.pad(src1, (0, 0, 0, new_len - orig_len))
+        src2 = F.pad(src2, (0, 0, 0, new_len - orig_len))
+
+        lengths = orig_len * torch.ones(batch_size, device=self.device).to(self.device)
+        mask = sequence_mask(lengths, new_len).unsqueeze(1).to(self.device)
+
         t = torch.rand((batch_size,), device=self.device)
         noise1 = torch.randn_like(src1)
         path_sample1 = self.path.sample(x_0=noise1, x_1=src1, t=t)
         noise2 = torch.randn_like(src2)
         path_sample2 = self.path.sample(x_0=noise2, x_1=src2, t=t)
-
-        mask = torch.ones(batch_size, 1, src.size(1), device=self.device)
 
         est_dxt_1 = self.flow_predictor_1.forward(path_sample1.x_t, mask, src, t)
         est_dxt_2 = self.flow_predictor_2.forward(path_sample2.x_t, mask, src, t)
