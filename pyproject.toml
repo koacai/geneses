@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "einops>=0.8.1",
     "lhotse-dataset",
     "lightning>=2.5.1",
     "torchaudio>=2.6.0",

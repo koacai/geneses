@@ -1,6 +1,7 @@
 import math
 
 import torch
+from einops import pack
 from torch import nn
 
 
@@ -36,6 +37,40 @@ class TimestepEmbedding(nn.Module):
         return sample
 
 
+class Block1D(nn.Module):
+    def __init__(self, dim: int, dim_out: int, groups: int = 8) -> None:
+        super(Block1D, self).__init__()
+        self.block = nn.Sequential(
+            nn.Conv1d(dim, dim_out, 3, padding=1),
+            nn.GroupNorm(groups, dim_out),
+            nn.Mish(),
+        )
+
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        output = self.block(x * mask)
+        return output * mask
+
+
+class ResnetBlock1D(nn.Module):
+    def __init__(
+        self, dim: int, dim_out: int, time_emb_dim: int, groups: int = 8
+    ) -> None:
+        super(ResnetBlock1D, self).__init__()
+        self.mlp = nn.Sequential(nn.Mish(), nn.Linear(time_emb_dim, dim_out))
+        self.block1 = Block1D(dim, dim_out, groups=groups)
+        self.block2 = Block1D(dim_out, dim_out, groups=groups)
+        self.res_conv = torch.nn.Conv1d(dim, dim_out, 1)
+
+    def forward(
+        self, x: torch.Tensor, mask: torch.Tensor, time_emb: torch.Tensor
+    ) -> torch.Tensor:
+        h = self.block1(x, mask)
+        h += self.mlp(time_emb).unsqueeze(-1)
+        h = self.block2(h, mask)
+        output = h + self.res_conv(x * mask)
+        return output
+
+
 class FlowPredictor(nn.Module):
     def __init__(self, in_channels: int, channels: tuple[int, int]) -> None:
         super(FlowPredictor, self).__init__()
@@ -46,9 +81,25 @@ class FlowPredictor(nn.Module):
             in_channels=in_channels, time_embed_dim=time_embed_dim
         )
 
+        self.down_blocks = nn.ModuleList([])
+        output_channel = in_channels
+        for i in range(len(channels)):
+            input_channel = output_channel
+            output_channel = channels[i]
+            resnet = ResnetBlock1D(
+                dim=input_channel, dim_out=output_channel, time_emb_dim=time_embed_dim
+            )
+            self.down_blocks.append(nn.ModuleList([resnet]))
+
     def forward(
         self, x_merged: torch.Tensor, x_t: torch.Tensor, t: torch.Tensor
     ) -> torch.Tensor:
         t = self.time_embeddings(t)
         t = self.time_mlp(t)
-        return t
+
+        x_merged = x_merged.permute(0, 2, 1)
+        x_t = x_t.permute(0, 2, 1)
+
+        x = pack([x_merged, x_t], "b * t")[0]
+
+        return x
