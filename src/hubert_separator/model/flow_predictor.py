@@ -277,6 +277,9 @@ class FlowPredictor(nn.Module):
         t = self.time_embeddings(t)
         t = self.time_mlp(t)
 
+        x_t = x_t.permute(0, 2, 1)
+        x_merged = x_merged.permute(0, 2, 1)
+
         x_t = pack([x_t, x_merged], "b * t")[0]
 
         hiddens = []
@@ -334,4 +337,5 @@ class FlowPredictor(nn.Module):
         x_t = self.final_block(x_t, mask_up)
         output = self.final_proj(x_t * mask_up)
 
-        return output * mask
+        res = output * mask
+        return res.permute(0, 2, 1)

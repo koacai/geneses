@@ -380,6 +380,20 @@ wheels = [
 ]
 
 [[package]]
+name = "flow-matching"
+version = "1.0.10"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "torch" },
+    { name = "torchdiffeq" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/52/5d/e92c12d1df3d685c595371a9dcae5ce4c79d0e095c07217b80d02bfe5333/flow_matching-1.0.10.tar.gz", hash = "sha256:b9cebb2534a1bead4fd8b6af9269cf75da88335adec629865be41e5f93bf5821", size = 33400 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/05/13/80d356a38b976df17be3fc3208da468488d5af7437aab4a694cd35432610/flow_matching-1.0.10-py3-none-any.whl", hash = "sha256:9e7bb6c51b5804bbb1450f59fbd04e2f843adc0b7665d0f4f341f420dce04136", size = 48680 },
+]
+
+[[package]]
 name = "frozenlist"
 version = "1.5.0"
 source = { registry = "https://pypi.org/simple" }
@@ -454,6 +468,7 @@ source = { editable = "." }
 dependencies = [
     { name = "diffusers" },
     { name = "einops" },
+    { name = "flow-matching" },
     { name = "lhotse-dataset" },
     { name = "lightning" },
     { name = "torchaudio" },
@@ -471,6 +486,7 @@ dev = [
 requires-dist = [
     { name = "diffusers", specifier = ">=0.32.2" },
     { name = "einops", specifier = ">=0.8.1" },
+    { name = "flow-matching", specifier = ">=1.0.10" },
     { name = "lhotse-dataset", git = "ssh://github.com/koacai/lhotse-dataset.git" },
     { name = "lightning", specifier = ">=2.5.1" },
     { name = "torchaudio", specifier = ">=2.6.0" },
@@ -1758,6 +1774,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/d2/f0/daffd9afa60bd835a2d7980eddfe44524adcb3ee0837486ceae4cd1f68e2/torchaudio-2.6.0-cp313-cp313-manylinux1_x86_64.whl", hash = "sha256:52f15185349c370fc1faa84e8b8b2782c007472db9d586a16bba314130b322f2", size = 3380706 },
     { url = "https://files.pythonhosted.org/packages/94/7b/887b91372e34119aa140cf67614e5ba901bf6a0db86f2c39e30ff71eec54/torchaudio-2.6.0-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:b521ea9618fb4c29a6f8071628170c222291f46a48a3bf424cfeb488f54af714", size = 1653553 },
     { url = "https://files.pythonhosted.org/packages/55/c8/3010878a5e7f15d89450e22769697173c6dc244a0647ddc5386c28b6dacc/torchaudio-2.6.0-cp313-cp313-win_amd64.whl", hash = "sha256:393fa74ec40d167f0170728ea21c9b5e0f830648fd02df7db2bf7e62f64245ec", size = 2449350 },
+]
+
+[[package]]
+name = "torchdiffeq"
+version = "0.2.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "scipy" },
+    { name = "torch" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/87/ec/a40aa124660f0ee65e6760cb53df6a82ad91a1a3ef1da5e747f1336644dd/torchdiffeq-0.2.5.tar.gz", hash = "sha256:b50d3760d13fd138dcceac651f4b80396f44fefcebd037a033fecfeaa9cc12e7", size = 31197 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b9/35/537f64f2d0b3cfebaae0f903b4e3a3b239abcc99d0f73cb15b9cee9b8212/torchdiffeq-0.2.5-py3-none-any.whl", hash = "sha256:aa1db4bed13bd04952f28a53cdf4336d1ab60417c1d9698d7a239fec1cf2bcf8", size = 32902 },
 ]
 
 [[package]]

@@ -17,9 +17,6 @@ class TestHuBERTSeparatorLightningModule:
             self.datamodule = HuBERTSeparatorDataModule(cfg.data.datamodule)
             self.datamodule.setup("fit")
 
-    def test_init(self, init) -> None:
-        _ = init
-
     def test_calc_loss(self, init) -> None:
         _ = init
         for batch in itertools.islice(self.datamodule.val_dataloader(), 3):
