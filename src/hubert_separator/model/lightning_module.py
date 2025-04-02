@@ -5,6 +5,7 @@ import torch
 import torch.nn.functional as F
 from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
+from flow_matching.solver import ODESolver
 from lightning.pytorch import LightningModule
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 from omegaconf import DictConfig
@@ -84,6 +85,35 @@ class HuBERTSeparatorLightningModule(LightningModule):
         loss = self.loss(est_dxt_1, est_dxt_2, path_sample1.dx_t, path_sample2.dx_t)
 
         return loss
+
+    def forward(self, batch: dict[str, Any]) -> tuple[torch.Tensor, torch.Tensor]:
+        src1, src2 = self.feature_extractor(batch)
+
+        src = self.hubert_model(
+            **batch["ssl_input_merged"], output_hidden_states=True
+        ).hidden_states[self.cfg.model.hubert.layer]
+
+        orig_len = src.size(1)
+        new_len = fix_len_compatibility(orig_len)
+        src = F.pad(src, (0, 0, 0, new_len - orig_len))
+        src1 = F.pad(src1, (0, 0, 0, new_len - orig_len))
+        src2 = F.pad(src2, (0, 0, 0, new_len - orig_len))
+
+        noise1 = torch.randn_like(src1)
+        noise2 = torch.randn_like(src2)
+
+        step_size = 0.001
+        time_grid = torch.tensor([0.0, 1.0])
+
+        solver_1 = ODESolver(velocity_model=self.flow_predictor_1)
+        res_1 = solver_1.sample(x_init=noise1, step_size=step_size, time_grid=time_grid)
+        assert isinstance(res_1, torch.Tensor)
+
+        solver_2 = ODESolver(velocity_model=self.flow_predictor_2)
+        res_2 = solver_2.sample(x_init=noise2, step_size=step_size, time_grid=time_grid)
+        assert isinstance(res_2, torch.Tensor)
+
+        return res_1, res_2
 
     def loss(
         self,
