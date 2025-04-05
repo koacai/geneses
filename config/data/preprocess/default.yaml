@@ -4,5 +4,5 @@ webdataset_dir: webdataset/callhome_jp
 duration: 30
 train_ratio: 0.9
 shard_size:
-  train: 2e9
-  valid: 2e8
+  train: 2e8
+  valid: 2e7

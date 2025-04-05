@@ -3,10 +3,12 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-import webdataset as wds
+import torch
 from lhotse import CutSet
 from lhotse.cut import Cut
 from omegaconf import DictConfig
+
+import webdataset as wds
 
 
 class Preprocessor:
@@ -46,9 +48,11 @@ class Preprocessor:
         cuts = cut.cut_into_windows(duration=self.cfg.duration)
         res = []
         for c in cuts.data:
+            audio = torch.from_numpy(c.load_audio())
             s = {
                 "__key__": uuid.uuid1().hex,
-                "audio.flac": c.recording.sources[0].source,  # type: ignore
+                "audio.pth": wds.torch_dumps(audio),
+                "sr.cls": c.sampling_rate,
             }
             res.append(s)
         return res

@@ -79,7 +79,8 @@ class HuBERTSeparatorDataModule(LightningDataModule):
         wav_lens = []
 
         for sample in batch:
-            dialogue, sr = sample["audio.flac"]
+            dialogue = sample["audio.pth"]
+            sr = sample["sr.cls"]
 
             dialogue_16000 = torchaudio.functional.resample(dialogue, sr, 16000)
             wav1_16000 = dialogue_16000[0, : 16000 * max_duration].numpy()
