@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from diffusers.models.activations import get_activation
 from einops import pack, rearrange
+from flow_matching.utils import ModelWrapper
 
 from .transformer import BasicTransformerBlock
 
@@ -130,7 +131,7 @@ class Upsample1D(nn.Module):
         return outputs
 
 
-class FlowPredictor(nn.Module):
+class Decoder(nn.Module):
     def __init__(
         self,
         in_channels: int,
@@ -143,7 +144,7 @@ class FlowPredictor(nn.Module):
         num_heads: int = 4,
         act_fn: str = "snake",
     ) -> None:
-        super(FlowPredictor, self).__init__()
+        super(Decoder, self).__init__()
         channels = tuple(channels)
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -339,3 +340,16 @@ class FlowPredictor(nn.Module):
 
         res = output * mask
         return res.permute(0, 2, 1)
+
+
+class FlowPredictor(ModelWrapper):
+    def __init__(self, decoder: Decoder) -> None:
+        super(ModelWrapper, self).__init__()
+        self.model = decoder
+
+    def forward(self, x: torch.Tensor, t: torch.Tensor, **extras) -> torch.Tensor:
+        mask = extras.get("mask", None)
+        assert mask is not None
+        x_merged = extras.get("x_merged", None)
+        assert x_merged is not None
+        return self.model.forward(x, mask, x_merged, t)

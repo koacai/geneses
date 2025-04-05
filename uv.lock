@@ -509,6 +509,22 @@ wheels = [
 ]
 
 [[package]]
+name = "hifigan"
+version = "0.1.0"
+source = { git = "ssh://github.com/koacai/hifigan.git#b1b1fd1e0b3b235f4633334eb39f33b6f32e79a7" }
+dependencies = [
+    { name = "huggingface-hub", extra = ["cli"] },
+    { name = "hydra-core" },
+    { name = "lhotse-dataset" },
+    { name = "lightning" },
+    { name = "omegaconf" },
+    { name = "torchaudio" },
+    { name = "transformers" },
+    { name = "wandb" },
+    { name = "webdataset" },
+]
+
+[[package]]
 name = "hubert-separator"
 version = "0.1.0"
 source = { editable = "." }
@@ -516,6 +532,7 @@ dependencies = [
     { name = "diffusers" },
     { name = "einops" },
     { name = "flow-matching" },
+    { name = "hifigan" },
     { name = "lhotse-dataset" },
     { name = "lightning" },
     { name = "torchaudio" },
@@ -535,6 +552,7 @@ requires-dist = [
     { name = "diffusers", specifier = ">=0.32.2" },
     { name = "einops", specifier = ">=0.8.1" },
     { name = "flow-matching", specifier = ">=1.0.10" },
+    { name = "hifigan", git = "ssh://github.com/koacai/hifigan.git" },
     { name = "lhotse-dataset", git = "ssh://github.com/koacai/lhotse-dataset.git" },
     { name = "lightning", specifier = ">=2.5.1" },
     { name = "torchaudio", specifier = ">=2.6.0" },
@@ -565,6 +583,11 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/78/be/049689a7197630e75c4bb53021cb209a56617c9bf39b3a0950650d1f96e1/huggingface_hub-0.30.1.tar.gz", hash = "sha256:f379e8b8d0791295602538856638460ae3cf679c7f304201eb80fb98c771950e", size = 400784 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/99/e3/2232d0e726d4d6ea69643b9593d97d0e7e6ea69c2fe9ed5de34d476c1c47/huggingface_hub-0.30.1-py3-none-any.whl", hash = "sha256:0f6aa5ec5a4e68e5b9e45d556b4e5ea180c58f5a5ffa734e7f38c9d573028959", size = 481170 },
+]
+
+[package.optional-dependencies]
+cli = [
+    { name = "inquirerpy" },
 ]
 
 [[package]]
@@ -609,6 +632,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f2/97/ebf4da567aa6827c909642694d71c9fcf53e5b504f2d96afea02718862f3/iniconfig-2.1.0.tar.gz", hash = "sha256:3abbd2e30b36733fee78f9c7f7308f2d0050e88f0087fd25c2645f63c773e1c7", size = 4793 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2c/e1/e6716421ea10d38022b952c159d5161ca1193197fb744506875fbb87ea7b/iniconfig-2.1.0-py3-none-any.whl", hash = "sha256:9deba5723312380e77435581c6bf4935c94cbfab9b1ed33ef8d238ea168eb760", size = 6050 },
+]
+
+[[package]]
+name = "inquirerpy"
+version = "0.3.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pfzy" },
+    { name = "prompt-toolkit" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/64/73/7570847b9da026e07053da3bbe2ac7ea6cde6bb2cbd3c7a5a950fa0ae40b/InquirerPy-0.3.4.tar.gz", hash = "sha256:89d2ada0111f337483cb41ae31073108b2ec1e618a49d7110b0d7ade89fc197e", size = 44431 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ce/ff/3b59672c47c6284e8005b42e84ceba13864aa0f39f067c973d1af02f5d91/InquirerPy-0.3.4-py3-none-any.whl", hash = "sha256:c65fdfbac1fa00e3ee4fb10679f4d3ed7a012abf4833910e63c295827fe2a7d4", size = 67677 },
 ]
 
 [[package]]
@@ -1176,6 +1212,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pfzy"
+version = "0.3.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d9/5a/32b50c077c86bfccc7bed4881c5a2b823518f5450a30e639db5d3711952e/pfzy-0.3.4.tar.gz", hash = "sha256:717ea765dd10b63618e7298b2d98efd819e0b30cd5905c9707223dceeb94b3f1", size = 8396 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8c/d7/8ff98376b1acc4503253b685ea09981697385ce344d4e3935c2af49e044d/pfzy-0.3.4-py3-none-any.whl", hash = "sha256:5f50d5b2b3207fa72e7ec0ef08372ef652685470974a107d0d4999fc5a903a96", size = 8537 },
+]
+
+[[package]]
 name = "pillow"
 version = "11.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1243,6 +1288,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c6/77/b3d3e00c696c16cf99af81ef7b1f5fe73bd2a307abca41bd7605429fe6e5/pooch-1.8.2.tar.gz", hash = "sha256:76561f0de68a01da4df6af38e9955c4c9d1a5c90da73f7e40276a5728ec83d10", size = 59353 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a8/87/77cc11c7a9ea9fd05503def69e3d18605852cd0d4b0d3b8f15bbeb3ef1d1/pooch-1.8.2-py3-none-any.whl", hash = "sha256:3529a57096f7198778a5ceefd5ac3ef0e4d06a6ddaf9fc2d609b806f25302c47", size = 64574 },
+]
+
+[[package]]
+name = "prompt-toolkit"
+version = "3.0.50"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "wcwidth" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a1/e1/bd15cb8ffdcfeeb2bdc215de3c3cffca11408d829e4b8416dcfe71ba8854/prompt_toolkit-3.0.50.tar.gz", hash = "sha256:544748f3860a2623ca5cd6d2795e7a14f3d0e1c3c9728359013f79877fc89bab", size = 429087 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e4/ea/d836f008d33151c7a1f62caf3d8dd782e4d15f6a43897f64480c2b8de2ad/prompt_toolkit-3.0.50-py3-none-any.whl", hash = "sha256:9b6427eb19e479d98acff65196a307c555eb567989e6d88ebbb1b509d9779198", size = 387816 },
 ]
 
 [[package]]
@@ -2104,6 +2161,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/d7/bb/28d94b0369f0055dc4aef704971858a414490f6eb23b9bbfa70d090f4b59/wandb-0.19.8-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:82a956150e53df0b4c193933b3e62c3e8255dc8b43bb187270939ef35b03fda3", size = 20872380 },
     { url = "https://files.pythonhosted.org/packages/80/82/9d653fe043d48075342bed7a545611391fc62095fb1e77d6574a8f2091e3/wandb-0.19.8-py3-none-win32.whl", hash = "sha256:9d71f153cb9330e307b1b054be01971a1bd164fb9bd4190d7f57989c2d6b86e8", size = 20165481 },
     { url = "https://files.pythonhosted.org/packages/b6/90/038a64abcbe5f991468f057bd21bead84a5c39d9b0409b652893263a47b4/wandb-0.19.8-py3-none-win_amd64.whl", hash = "sha256:f7da8e6fc6693014c72fb7db3ecd5e1116066198d2aca96f6eb7220cea03081c", size = 20165486 },
+]
+
+[[package]]
+name = "wcwidth"
+version = "0.2.13"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6c/63/53559446a878410fc5a5974feb13d31d78d752eb18aeba59c7fef1af7598/wcwidth-0.2.13.tar.gz", hash = "sha256:72ea0c06399eb286d978fdedb6923a9eb47e1c486ce63e9b4e64fc18303972b5", size = 101301 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fd/84/fd2ba7aafacbad3c4201d395674fc6348826569da3c0937e75505ead3528/wcwidth-0.2.13-py2.py3-none-any.whl", hash = "sha256:3da69048e4540d84af32131829ff948f1e022c1c6bdb8d6102117aac784f6859", size = 34166 },
 ]
 
 [[package]]

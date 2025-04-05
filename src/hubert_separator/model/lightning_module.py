@@ -1,19 +1,24 @@
 from typing import Any
 
 import hydra
+import numpy as np
 import torch
 import torch.nn.functional as F
 from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
-from lightning.pytorch import LightningModule
+from flow_matching.solver import ODESolver
+from hifigan import HiFiGANLightningModule
+from huggingface_hub import hf_hub_download
+from lightning.pytorch import LightningModule, loggers
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 from omegaconf import DictConfig
 from transformers import HubertModel
 
+import wandb
 from hubert_separator.utils.model import fix_len_compatibility, sequence_mask
 
 from .feature_extractor import FeatureExtractor
-from .flow_predictor import FlowPredictor
+from .flow_predictor import Decoder, FlowPredictor
 
 
 class HuBERTSeparatorLightningModule(LightningModule):
@@ -25,8 +30,9 @@ class HuBERTSeparatorLightningModule(LightningModule):
         self.hubert_model = HubertModel.from_pretrained(
             cfg.model.hubert.model_name
         ).train(True)
-        self.flow_predictor_1 = FlowPredictor(**cfg.model.flow_predictor)
-        self.flow_predictor_2 = FlowPredictor(**cfg.model.flow_predictor)
+        decoder = Decoder(**cfg.model.flow_predictor)
+        self.flow_predictor_1 = FlowPredictor(decoder=decoder)
+        self.flow_predictor_2 = FlowPredictor(decoder=decoder)
 
         self.path = AffineProbPath(scheduler=CondOTScheduler())
 
@@ -52,6 +58,38 @@ class HuBERTSeparatorLightningModule(LightningModule):
         loss = self.calc_loss(batch)
 
         self.log("validation_loss", loss)
+
+        sr = 22050
+        if batch_idx < 5 and self.global_rank == 0 and self.local_rank == 0:
+            wav_len = batch["wav_len"][0]
+            source_wav_1 = batch["wav_1"][0][:wav_len].cpu().numpy()
+            source_wav_2 = batch["wav_2"][0][:wav_len].cpu().numpy()
+            source_merged = batch["wav_merged"][0][:wav_len].cpu().numpy()
+
+            self.log_audio(source_wav_1, f"source_wav_1/{batch_idx}", sr)
+            self.log_audio(source_wav_2, f"source_wav_2/{batch_idx}", sr)
+            self.log_audio(source_merged, f"source_merged/{batch_idx}", sr)
+
+            est_src1, est_src2 = self.forward(batch)
+
+            estimated_wav_1 = (
+                self.synthesis(est_src1)[0]
+                .squeeze()[:wav_len]
+                .to(torch.float32)
+                .cpu()
+                .numpy()
+            )
+            estimated_wav_2 = (
+                self.synthesis(est_src2)[0]
+                .squeeze()[:wav_len]
+                .to(torch.float32)
+                .cpu()
+                .numpy()
+            )
+
+            self.log_audio(estimated_wav_1, f"estimated_wav_1/{batch_idx}", sr)
+            self.log_audio(estimated_wav_2, f"estimated_wav_2/{batch_idx}", sr)
+
         return loss
 
     def calc_loss(self, batch: dict[str, Any]) -> torch.Tensor:
@@ -78,12 +116,62 @@ class HuBERTSeparatorLightningModule(LightningModule):
         noise2 = torch.randn_like(src2)
         path_sample2 = self.path.sample(x_0=noise2, x_1=src2, t=t)
 
-        est_dxt_1 = self.flow_predictor_1.forward(path_sample1.x_t, mask, src, t)
-        est_dxt_2 = self.flow_predictor_2.forward(path_sample2.x_t, mask, src, t)
+        est_dxt_1 = self.flow_predictor_1.forward(
+            path_sample1.x_t, t, mask=mask, x_merged=src
+        )
+        est_dxt_2 = self.flow_predictor_2.forward(
+            path_sample2.x_t, t, mask=mask, x_merged=src
+        )
 
         loss = self.loss(est_dxt_1, est_dxt_2, path_sample1.dx_t, path_sample2.dx_t)
 
         return loss
+
+    def forward(self, batch: dict[str, Any]) -> tuple[torch.Tensor, torch.Tensor]:
+        src1, src2 = self.feature_extractor(batch)
+
+        src = self.hubert_model(
+            **batch["ssl_input_merged"], output_hidden_states=True
+        ).hidden_states[self.cfg.model.hubert.layer]
+
+        batch_size = src.size(0)
+
+        orig_len = src.size(1)
+        new_len = fix_len_compatibility(orig_len)
+        src = F.pad(src, (0, 0, 0, new_len - orig_len))
+        src1 = F.pad(src1, (0, 0, 0, new_len - orig_len))
+        src2 = F.pad(src2, (0, 0, 0, new_len - orig_len))
+
+        lengths = orig_len * torch.ones(batch_size, device=self.device).to(self.device)
+        mask = sequence_mask(lengths, new_len).unsqueeze(1).to(self.device)
+
+        noise1 = torch.randn_like(src1)
+        noise2 = torch.randn_like(src2)
+
+        step_size = 0.001
+        time_grid = torch.tensor([0.0, 1.0])
+
+        solver_1 = ODESolver(velocity_model=self.flow_predictor_1)
+        res_1 = solver_1.sample(
+            x_init=noise1,
+            step_size=step_size,
+            time_grid=time_grid,
+            mask=mask,
+            x_merged=src,
+        )
+        assert isinstance(res_1, torch.Tensor)
+
+        solver_2 = ODESolver(velocity_model=self.flow_predictor_2)
+        res_2 = solver_2.sample(
+            x_init=noise2,
+            step_size=step_size,
+            time_grid=time_grid,
+            mask=mask,
+            x_merged=src,
+        )
+        assert isinstance(res_2, torch.Tensor)
+
+        return res_1, res_2
 
     def loss(
         self,
@@ -94,3 +182,16 @@ class HuBERTSeparatorLightningModule(LightningModule):
     ) -> torch.Tensor:
         l1_loss = torch.nn.L1Loss()
         return l1_loss(est_dxt1, dxt_1) + l1_loss(est_dxt2, dxt_2)
+
+    def synthesis(self, hubert_feature: torch.Tensor) -> torch.Tensor:
+        ckpt_path = hf_hub_download(
+            "koacai/hifigan", "hubert_base/JVS/epoch=299-step=499400.ckpt", token=True
+        )
+        hifigan_hubert = HiFiGANLightningModule.load_from_checkpoint(ckpt_path)
+        hifigan_hubert.eval()
+        return hifigan_hubert.generator(hubert_feature)
+
+    def log_audio(self, audio: np.ndarray, name: str, sampling_rate: int) -> None:
+        for logger in self.loggers:
+            if isinstance(logger, loggers.WandbLogger):
+                wandb.log({name: wandb.Audio(audio, sample_rate=sampling_rate)})

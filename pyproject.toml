@@ -11,6 +11,7 @@ dependencies = [
     "diffusers>=0.32.2",
     "einops>=0.8.1",
     "flow-matching>=1.0.10",
+    "hifigan",
     "lhotse-dataset",
     "lightning>=2.5.1",
     "torchaudio>=2.6.0",
@@ -50,3 +51,4 @@ venv = ".venv"
 
 [tool.uv.sources]
 lhotse-dataset = { git = "ssh://github.com/koacai/lhotse-dataset.git" }
+hifigan = { git = "ssh://github.com/koacai/hifigan.git" }
