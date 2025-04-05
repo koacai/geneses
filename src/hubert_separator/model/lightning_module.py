@@ -29,7 +29,7 @@ class HuBERTSeparatorLightningModule(LightningModule):
         self.feature_extractor = FeatureExtractor(**cfg.model.hubert)
         self.hubert_model = HubertModel.from_pretrained(
             cfg.model.hubert.model_name
-        ).train(True)
+        ).train(cfg.model.hubert.train)
         decoder = Decoder(**cfg.model.flow_predictor)
         self.flow_predictor_1 = FlowPredictor(decoder=decoder)
         self.flow_predictor_2 = FlowPredictor(decoder=decoder)
