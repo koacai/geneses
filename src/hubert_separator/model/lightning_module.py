@@ -16,7 +16,7 @@ import wandb
 from hubert_separator.utils.model import fix_len_compatibility, sequence_mask
 
 from .feature_extractor import FeatureExtractor
-from .flow_predictor import Decoder
+from .flow_predictor import Decoder, FlowPredictor
 
 
 class HuBERTSeparatorLightningModule(LightningModule):
@@ -28,8 +28,9 @@ class HuBERTSeparatorLightningModule(LightningModule):
         self.hubert_model = HubertModel.from_pretrained(
             cfg.model.hubert.model_name
         ).train(True)
-        self.decoder_1 = Decoder(**cfg.model.flow_predictor)
-        self.decoder_2 = Decoder(**cfg.model.flow_predictor)
+        decoder = Decoder(**cfg.model.flow_predictor)
+        self.flow_predictor_1 = FlowPredictor(decoder=decoder)
+        self.flow_predictor_2 = FlowPredictor(decoder=decoder)
 
         self.path = AffineProbPath(scheduler=CondOTScheduler())
 
@@ -67,6 +68,9 @@ class HuBERTSeparatorLightningModule(LightningModule):
             self.log_audio(source_wav_2, f"source_wav_2/{batch_idx}", sr)
             self.log_audio(source_merged, f"source_merged/{batch_idx}", sr)
 
+            est_src1, est_src2 = self.forward(batch)
+            print(est_src1.shape, est_src2.shape)
+
         return loss
 
     def calc_loss(self, batch: dict[str, Any]) -> torch.Tensor:
@@ -93,8 +97,12 @@ class HuBERTSeparatorLightningModule(LightningModule):
         noise2 = torch.randn_like(src2)
         path_sample2 = self.path.sample(x_0=noise2, x_1=src2, t=t)
 
-        est_dxt_1 = self.decoder_1.forward(path_sample1.x_t, mask, src, t)
-        est_dxt_2 = self.decoder_2.forward(path_sample2.x_t, mask, src, t)
+        est_dxt_1 = self.flow_predictor_1.forward(
+            path_sample1.x_t, t, mask=mask, x_merged=src
+        )
+        est_dxt_2 = self.flow_predictor_2.forward(
+            path_sample2.x_t, t, mask=mask, x_merged=src
+        )
 
         loss = self.loss(est_dxt_1, est_dxt_2, path_sample1.dx_t, path_sample2.dx_t)
 
@@ -107,11 +115,16 @@ class HuBERTSeparatorLightningModule(LightningModule):
             **batch["ssl_input_merged"], output_hidden_states=True
         ).hidden_states[self.cfg.model.hubert.layer]
 
+        batch_size = src.size(0)
+
         orig_len = src.size(1)
         new_len = fix_len_compatibility(orig_len)
         src = F.pad(src, (0, 0, 0, new_len - orig_len))
         src1 = F.pad(src1, (0, 0, 0, new_len - orig_len))
         src2 = F.pad(src2, (0, 0, 0, new_len - orig_len))
+
+        lengths = orig_len * torch.ones(batch_size, device=self.device).to(self.device)
+        mask = sequence_mask(lengths, new_len).unsqueeze(1).to(self.device)
 
         noise1 = torch.randn_like(src1)
         noise2 = torch.randn_like(src2)
@@ -119,12 +132,24 @@ class HuBERTSeparatorLightningModule(LightningModule):
         step_size = 0.001
         time_grid = torch.tensor([0.0, 1.0])
 
-        solver_1 = ODESolver(velocity_model=self.decoder_1)
-        res_1 = solver_1.sample(x_init=noise1, step_size=step_size, time_grid=time_grid)
+        solver_1 = ODESolver(velocity_model=self.flow_predictor_1)
+        res_1 = solver_1.sample(
+            x_init=noise1,
+            step_size=step_size,
+            time_grid=time_grid,
+            mask=mask,
+            x_merged=src,
+        )
         assert isinstance(res_1, torch.Tensor)
 
-        solver_2 = ODESolver(velocity_model=self.decoder_2)
-        res_2 = solver_2.sample(x_init=noise2, step_size=step_size, time_grid=time_grid)
+        solver_2 = ODESolver(velocity_model=self.flow_predictor_2)
+        res_2 = solver_2.sample(
+            x_init=noise2,
+            step_size=step_size,
+            time_grid=time_grid,
+            mask=mask,
+            x_merged=src,
+        )
         assert isinstance(res_2, torch.Tensor)
 
         return res_1, res_2
