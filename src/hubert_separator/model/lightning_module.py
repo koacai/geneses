@@ -7,6 +7,8 @@ import torch.nn.functional as F
 from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import ODESolver
+from hifigan import HiFiGANLightningModule
+from huggingface_hub import hf_hub_download
 from lightning.pytorch import LightningModule, loggers
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 from omegaconf import DictConfig
@@ -69,7 +71,24 @@ class HuBERTSeparatorLightningModule(LightningModule):
             self.log_audio(source_merged, f"source_merged/{batch_idx}", sr)
 
             est_src1, est_src2 = self.forward(batch)
-            print(est_src1.shape, est_src2.shape)
+
+            estimated_wav_1 = (
+                self.synthesis(est_src1)[0]
+                .squeeze()[:wav_len]
+                .to(torch.float32)
+                .cpu()
+                .numpy()
+            )
+            estimated_wav_2 = (
+                self.synthesis(est_src2)[0]
+                .squeeze()[:wav_len]
+                .to(torch.float32)
+                .cpu()
+                .numpy()
+            )
+
+            self.log_audio(estimated_wav_1, f"estimated_wav_1/{batch_idx}", sr)
+            self.log_audio(estimated_wav_2, f"estimated_wav_2/{batch_idx}", sr)
 
         return loss
 
@@ -163,6 +182,14 @@ class HuBERTSeparatorLightningModule(LightningModule):
     ) -> torch.Tensor:
         l1_loss = torch.nn.L1Loss()
         return l1_loss(est_dxt1, dxt_1) + l1_loss(est_dxt2, dxt_2)
+
+    def synthesis(self, hubert_feature: torch.Tensor) -> torch.Tensor:
+        ckpt_path = hf_hub_download(
+            "koacai/hifigan", "hubert_base/JVS/epoch=299-step=499400.ckpt", token=True
+        )
+        hifigan_hubert = HiFiGANLightningModule.load_from_checkpoint(ckpt_path)
+        hifigan_hubert.eval()
+        return hifigan_hubert.generator(hubert_feature)
 
     def log_audio(self, audio: np.ndarray, name: str, sampling_rate: int) -> None:
         for logger in self.loggers:
