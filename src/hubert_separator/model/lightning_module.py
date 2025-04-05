@@ -1,16 +1,18 @@
 from typing import Any
 
 import hydra
+import numpy as np
 import torch
 import torch.nn.functional as F
 from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import ODESolver
-from lightning.pytorch import LightningModule
+from lightning.pytorch import LightningModule, loggers
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 from omegaconf import DictConfig
 from transformers import HubertModel
 
+import wandb
 from hubert_separator.utils.model import fix_len_compatibility, sequence_mask
 
 from .feature_extractor import FeatureExtractor
@@ -53,6 +55,18 @@ class HuBERTSeparatorLightningModule(LightningModule):
         loss = self.calc_loss(batch)
 
         self.log("validation_loss", loss)
+
+        sr = 22050
+        if batch_idx < 5 and self.global_rank == 0 and self.local_rank == 0:
+            wav_len = batch["wav_len"][0]
+            source_wav_1 = batch["wav_1"][0][:wav_len].cpu().numpy()
+            source_wav_2 = batch["wav_2"][0][:wav_len].cpu().numpy()
+            source_merged = batch["wav_merged"][0][:wav_len].cpu().numpy()
+
+            self.log_audio(source_wav_1, f"source_wav_1/{batch_idx}", sr)
+            self.log_audio(source_wav_2, f"source_wav_2/{batch_idx}", sr)
+            self.log_audio(source_merged, f"source_merged/{batch_idx}", sr)
+
         return loss
 
     def calc_loss(self, batch: dict[str, Any]) -> torch.Tensor:
@@ -124,3 +138,8 @@ class HuBERTSeparatorLightningModule(LightningModule):
     ) -> torch.Tensor:
         l1_loss = torch.nn.L1Loss()
         return l1_loss(est_dxt1, dxt_1) + l1_loss(est_dxt2, dxt_2)
+
+    def log_audio(self, audio: np.ndarray, name: str, sampling_rate: int) -> None:
+        for logger in self.loggers:
+            if isinstance(logger, loggers.WandbLogger):
+                wandb.log({name: wandb.Audio(audio, sample_rate=sampling_rate)})
