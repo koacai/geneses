@@ -1,10 +1,9 @@
-import io
 import random
 import uuid
 from pathlib import Path
 from typing import Any
 
-import soundfile as sf
+import torch
 from lhotse import CutSet
 from lhotse.cut import Cut
 from omegaconf import DictConfig
@@ -49,11 +48,11 @@ class Preprocessor:
         cuts = cut.cut_into_windows(duration=self.cfg.duration)
         res = []
         for c in cuts.data:
-            audio = c.load_audio()
-            buf = io.BytesIO()
-            sf.write(
-                buf, audio, samplerate=c.sampling_rate, format="FLAC", subtype="PCM_16"
-            )
-            s = {"__key__": uuid.uuid1().hex, "audio.wav": buf.getvalue()}
+            audio = torch.from_numpy(c.load_audio())
+            s = {
+                "__key__": uuid.uuid1().hex,
+                "audio.pth": wds.torch_dumps(audio),
+                "sr.cls": c.sampling_rate,
+            }
             res.append(s)
         return res
