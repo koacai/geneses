@@ -5,7 +5,8 @@ optimizer:
 hubert:
   model_name: ${data.datamodule.hubert_model_name}
   layer: 6
-  train: true
+
+train_hubert: true
 
 flow_predictor:
   in_channels: 1536 # 768*2
