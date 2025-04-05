@@ -1,12 +1,15 @@
+import io
 import random
 import uuid
 from pathlib import Path
 from typing import Any
 
-import webdataset as wds
+import soundfile as sf
 from lhotse import CutSet
 from lhotse.cut import Cut
 from omegaconf import DictConfig
+
+import webdataset as wds
 
 
 class Preprocessor:
@@ -46,9 +49,11 @@ class Preprocessor:
         cuts = cut.cut_into_windows(duration=self.cfg.duration)
         res = []
         for c in cuts.data:
-            s = {
-                "__key__": uuid.uuid1().hex,
-                "audio.flac": c.recording.sources[0].source,  # type: ignore
-            }
+            audio = c.load_audio()
+            buf = io.BytesIO()
+            sf.write(
+                buf, audio, samplerate=c.sampling_rate, format="FLAC", subtype="PCM_16"
+            )
+            s = {"__key__": uuid.uuid1().hex, "audio.wav": buf.getvalue()}
             res.append(s)
         return res
