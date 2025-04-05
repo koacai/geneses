@@ -16,7 +16,7 @@ import wandb
 from hubert_separator.utils.model import fix_len_compatibility, sequence_mask
 
 from .feature_extractor import FeatureExtractor
-from .flow_predictor import FlowPredictor
+from .flow_predictor import Decoder
 
 
 class HuBERTSeparatorLightningModule(LightningModule):
@@ -28,8 +28,8 @@ class HuBERTSeparatorLightningModule(LightningModule):
         self.hubert_model = HubertModel.from_pretrained(
             cfg.model.hubert.model_name
         ).train(True)
-        self.flow_predictor_1 = FlowPredictor(**cfg.model.flow_predictor)
-        self.flow_predictor_2 = FlowPredictor(**cfg.model.flow_predictor)
+        self.decoder_1 = Decoder(**cfg.model.flow_predictor)
+        self.decoder_2 = Decoder(**cfg.model.flow_predictor)
 
         self.path = AffineProbPath(scheduler=CondOTScheduler())
 
@@ -93,8 +93,8 @@ class HuBERTSeparatorLightningModule(LightningModule):
         noise2 = torch.randn_like(src2)
         path_sample2 = self.path.sample(x_0=noise2, x_1=src2, t=t)
 
-        est_dxt_1 = self.flow_predictor_1.forward(path_sample1.x_t, mask, src, t)
-        est_dxt_2 = self.flow_predictor_2.forward(path_sample2.x_t, mask, src, t)
+        est_dxt_1 = self.decoder_1.forward(path_sample1.x_t, mask, src, t)
+        est_dxt_2 = self.decoder_2.forward(path_sample2.x_t, mask, src, t)
 
         loss = self.loss(est_dxt_1, est_dxt_2, path_sample1.dx_t, path_sample2.dx_t)
 
@@ -119,11 +119,11 @@ class HuBERTSeparatorLightningModule(LightningModule):
         step_size = 0.001
         time_grid = torch.tensor([0.0, 1.0])
 
-        solver_1 = ODESolver(velocity_model=self.flow_predictor_1)
+        solver_1 = ODESolver(velocity_model=self.decoder_1)
         res_1 = solver_1.sample(x_init=noise1, step_size=step_size, time_grid=time_grid)
         assert isinstance(res_1, torch.Tensor)
 
-        solver_2 = ODESolver(velocity_model=self.flow_predictor_2)
+        solver_2 = ODESolver(velocity_model=self.decoder_2)
         res_2 = solver_2.sample(x_init=noise2, step_size=step_size, time_grid=time_grid)
         assert isinstance(res_2, torch.Tensor)
 

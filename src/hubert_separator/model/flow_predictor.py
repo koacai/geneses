@@ -130,7 +130,7 @@ class Upsample1D(nn.Module):
         return outputs
 
 
-class FlowPredictor(nn.Module):
+class Decoder(nn.Module):
     def __init__(
         self,
         in_channels: int,
@@ -143,7 +143,7 @@ class FlowPredictor(nn.Module):
         num_heads: int = 4,
         act_fn: str = "snake",
     ) -> None:
-        super(FlowPredictor, self).__init__()
+        super(Decoder, self).__init__()
         channels = tuple(channels)
         self.in_channels = in_channels
         self.out_channels = out_channels
