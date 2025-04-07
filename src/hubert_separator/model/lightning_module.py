@@ -4,7 +4,6 @@ import hydra
 import numpy as np
 import torch
 import torch.nn.functional as F
-import wandb
 from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import ODESolver
@@ -15,6 +14,7 @@ from lightning.pytorch.utilities.types import STEP_OUTPUT
 from omegaconf import DictConfig
 from transformers import HubertModel
 
+import wandb
 from hubert_separator.utils.model import fix_len_compatibility, sequence_mask
 
 from .feature_extractor import FeatureExtractor
@@ -30,9 +30,10 @@ class HuBERTSeparatorLightningModule(LightningModule):
         self.hubert_model = HubertModel.from_pretrained(
             cfg.model.hubert.model_name
         ).train(cfg.model.train_hubert)
-        decoder = Decoder(**cfg.model.flow_predictor)
-        self.flow_predictor_1 = FlowPredictor(decoder=decoder)
-        self.flow_predictor_2 = FlowPredictor(decoder=decoder)
+        decoder_1 = Decoder(**cfg.model.flow_predictor)
+        self.flow_predictor_1 = FlowPredictor(decoder_1)
+        decoder_2 = Decoder(**cfg.model.flow_predictor)
+        self.flow_predictor_2 = FlowPredictor(decoder_2)
 
         self.path = AffineProbPath(scheduler=CondOTScheduler())
 

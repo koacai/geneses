@@ -343,10 +343,6 @@ class Decoder(nn.Module):
 
 
 class FlowPredictor(ModelWrapper):
-    def __init__(self, decoder: Decoder) -> None:
-        super(ModelWrapper, self).__init__()
-        self.model = decoder
-
     def forward(self, x: torch.Tensor, t: torch.Tensor, **extras) -> torch.Tensor:
         mask = extras.get("mask", None)
         assert mask is not None
