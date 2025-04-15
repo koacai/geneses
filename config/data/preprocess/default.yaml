@@ -1,5 +1,12 @@
 shar_dir: ${data.dataset.shar_dir}
-webdataset_dir: webdataset/callhome_jp
+webdataset_dir: /groups/gag51394/users/asai/webdataset/hubert-separator/callhome_jp
+model_name: sarulab-speech/hubert-base-jtube
+layer: 6
+device: cuda
+
+tokenizer:
+  repo: koacai/hifigan
+  filename: hubert_base_token/JVS/tokenizer.pkl
 
 duration: 30
 train_ratio: 0.9
