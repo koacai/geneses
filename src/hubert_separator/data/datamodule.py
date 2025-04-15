@@ -2,19 +2,16 @@ from typing import Any
 
 import torch
 import torchaudio
+import webdataset as wds
 from lightning.pytorch import LightningDataModule
 from omegaconf import DictConfig
 from torch.nn.utils.rnn import pad_sequence
-from transformers import AutoFeatureExtractor
-
-import webdataset as wds
 
 
 class HuBERTSeparatorDataModule(LightningDataModule):
     def __init__(self, cfg: DictConfig) -> None:
         super(HuBERTSeparatorDataModule, self).__init__()
         self.cfg = cfg
-        self.processor = AutoFeatureExtractor.from_pretrained(cfg.hubert_model_name)
 
     def setup(self, stage: str) -> None:
         nodesplitter = wds.split_by_worker if self.cfg.use_ddp else wds.single_node_only
@@ -65,29 +62,20 @@ class HuBERTSeparatorDataModule(LightningDataModule):
         return x[0]
 
     def collate_fn(self, batch) -> dict[str, Any]:
-        sr_ssl = self.processor.sampling_rate
-        assert sr_ssl == 16000, "Sampling rate of HuBERT must be 16000"
-
         max_duration = self.cfg.max_duration
 
-        wav1_16000s = []
-        wav2_16000s = []
-        wav_merged_16000s = []
         wav1_22050s = []
         wav2_22050s = []
         wav_merged_22050s = []
         wav_lens = []
 
-        for sample in batch:
-            dialogue = sample["audio.pth"]
-            sr = sample["sr.cls"]
+        token_1s = []
+        token_2s = []
+        token_mergeds = []
 
-            dialogue_16000 = torchaudio.functional.resample(dialogue, sr, 16000)
-            wav1_16000 = dialogue_16000[0, : 16000 * max_duration].numpy()
-            wav2_16000 = dialogue_16000[1, : 16000 * max_duration].numpy()
-            wav1_16000s.append(wav1_16000)
-            wav2_16000s.append(wav2_16000)
-            wav_merged_16000s.append(wav1_16000 + wav2_16000)
+        for sample in batch:
+            dialogue = sample["resampled_audio.pth"]
+            sr = 16000
 
             dialogue_22050 = torchaudio.functional.resample(dialogue, sr, 22050)
             wav1_22050 = dialogue_22050[0, : 22050 * max_duration].numpy()
@@ -98,24 +86,13 @@ class HuBERTSeparatorDataModule(LightningDataModule):
 
             wav_lens.append(wav1_22050s[-1].shape[0])
 
-        ssl_input_1 = self.processor(
-            wav1_16000s,
-            return_tensors="pt",
-            sampling_rate=sr_ssl,
-            padding=True,
-        )
-        ssl_input_2 = self.processor(
-            wav2_16000s,
-            return_tensors="pt",
-            sampling_rate=sr_ssl,
-            padding=True,
-        )
-        ssl_input_merged = self.processor(
-            wav_merged_16000s,
-            return_tensors="pt",
-            sampling_rate=sr_ssl,
-            padding=True,
-        )
+            token_1 = sample["token_1.pth"]
+            token_1s.append(token_1)
+            token_2 = sample["token_2.pth"]
+            token_2s.append(token_2)
+            token_merged = sample["token_merged.pth"]
+            token_mergeds.append(token_merged)
+
         wav1_22050s_padded = pad_sequence(
             [torch.tensor(w) for w in wav1_22050s], batch_first=True
         )
@@ -125,14 +102,23 @@ class HuBERTSeparatorDataModule(LightningDataModule):
         wav_merged_22050s_padded = pad_sequence(
             [torch.tensor(w) for w in wav_merged_22050s], batch_first=True
         )
+        token_1s_padded = pad_sequence(
+            [torch.tensor(t) for t in token_1s], batch_first=True
+        )
+        token_2s_padded = pad_sequence(
+            [torch.tensor(t) for t in token_2s], batch_first=True
+        )
+        token_mergeds_padded = pad_sequence(
+            [torch.tensor(t) for t in token_mergeds], batch_first=True
+        )
 
         output = {
             "wav_1": wav1_22050s_padded,
             "wav_2": wav2_22050s_padded,
             "wav_merged": wav_merged_22050s_padded,
-            "ssl_input_1": ssl_input_1,
-            "ssl_input_2": ssl_input_2,
-            "ssl_input_merged": ssl_input_merged,
+            "token_1": token_1s_padded,
+            "token_2": token_2s_padded,
+            "token_merged": token_mergeds_padded,
             "wav_len": torch.tensor(wav_lens),
         }
 
