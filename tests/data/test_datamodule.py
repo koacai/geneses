@@ -28,6 +28,8 @@ class TestHuBERTSeparatorDataModule:
             assert batch["token_2"].size(0) == batch_size
             assert batch["token_merged"].size(0) == batch_size
             assert batch["token_len"].size(0) == batch_size
+            assert batch["xvector_1"].size(0) == batch_size
+            assert batch["xvector_2"].size(0) == batch_size
 
     def test_val_dataloader(self, init) -> None:
         _ = init
@@ -44,3 +46,5 @@ class TestHuBERTSeparatorDataModule:
             assert batch["token_2"].size(0) == batch_size
             assert batch["token_merged"].size(0) == batch_size
             assert batch["token_len"].size(0) == batch_size
+            assert batch["xvector_1"].size(0) == batch_size
+            assert batch["xvector_2"].size(0) == batch_size

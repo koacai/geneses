@@ -74,6 +74,9 @@ class HuBERTSeparatorDataModule(LightningDataModule):
         token_merged = []
         token_len = []
 
+        xvector_1 = []
+        xvector_2 = []
+
         for sample in batch:
             dialogue = sample["resampled_audio.pth"]
             sr = 16000
@@ -96,34 +99,37 @@ class HuBERTSeparatorDataModule(LightningDataModule):
 
             token_len.append(token_1_.shape[0])
 
-        wav1_22050s_padded = pad_sequence(
+            xvector_1_ = sample["x_vector.pth"][0]
+            xvector_1.append(xvector_1_)
+            xvector_2_ = sample["x_vector.pth"][1]
+            xvector_2.append(xvector_2_)
+
+        wav1_22050_padded = pad_sequence(
             [torch.tensor(w) for w in wav1_22050], batch_first=True
         )
-        wav2_22050s_padded = pad_sequence(
+        wav2_22050_padded = pad_sequence(
             [torch.tensor(w) for w in wav2_22050], batch_first=True
         )
-        wav_merged_22050s_padded = pad_sequence(
+        wav_merged_22050_padded = pad_sequence(
             [torch.tensor(w) for w in wav_merged_22050], batch_first=True
         )
-        token_1s_padded = pad_sequence(
-            [torch.tensor(t) for t in token_1], batch_first=True
-        )
-        token_2s_padded = pad_sequence(
-            [torch.tensor(t) for t in token_2], batch_first=True
-        )
-        token_mergeds_padded = pad_sequence(
-            [torch.tensor(t) for t in token_merged], batch_first=True
-        )
+        token_1_padded = pad_sequence(token_1, batch_first=True)
+        token_2_padded = pad_sequence(token_2, batch_first=True)
+        token_merged_padded = pad_sequence(token_merged, batch_first=True)
+        xvector_1_padded = pad_sequence(xvector_1, batch_first=True)
+        xvector_2_padded = pad_sequence(xvector_2, batch_first=True)
 
         output = {
-            "wav_1": wav1_22050s_padded,
-            "wav_2": wav2_22050s_padded,
-            "wav_merged": wav_merged_22050s_padded,
-            "token_1": token_1s_padded,
-            "token_2": token_2s_padded,
-            "token_merged": token_mergeds_padded,
+            "wav_1": wav1_22050_padded,
+            "wav_2": wav2_22050_padded,
+            "wav_merged": wav_merged_22050_padded,
+            "token_1": token_1_padded,
+            "token_2": token_2_padded,
+            "token_merged": token_merged_padded,
             "wav_len": torch.tensor(wav_len),
             "token_len": torch.tensor(token_len),
+            "xvector_1": xvector_1_padded,
+            "xvector_2": xvector_2_padded,
         }
 
         return output
