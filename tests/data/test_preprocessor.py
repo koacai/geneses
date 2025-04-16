@@ -3,7 +3,6 @@ from pathlib import Path
 
 import pytest
 import torch
-import webdataset as wds
 from hydra import compose, initialize
 from lhotse import CutSet
 
@@ -30,11 +29,24 @@ class TestPreprocessor:
             res = self.preprocessor.process_cut(cut)
             assert isinstance(res, list)
             assert isinstance(res[0], dict)
-            token_1 = wds.torch_loads(res[0]["token_1.pth"])
+
+    def test_get_audio_tokens(self, init) -> None:
+        _ = init
+
+        for cut in itertools.islice(self.cuts.data, 3):
+            audio, token_1, token_2, token_merged = self.preprocessor.get_audio_tokens(
+                cut
+            )
+            assert isinstance(audio, torch.Tensor)
             assert isinstance(token_1, torch.Tensor)
-            token_2 = wds.torch_loads(res[0]["token_2.pth"])
             assert isinstance(token_2, torch.Tensor)
-            token_merged = wds.torch_loads(res[0]["token_merged.pth"])
             assert isinstance(token_merged, torch.Tensor)
 
             assert token_1.shape == token_2.shape == token_merged.shape
+
+    def test_get_xvector(self, init) -> None:
+        _ = init
+
+        for cut in itertools.islice(self.cuts.data, 3):
+            xvector = self.preprocessor.get_xvector(cut)
+            assert isinstance(xvector, torch.Tensor)

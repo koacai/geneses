@@ -12,6 +12,7 @@ from lhotse import CutSet
 from lhotse.cut import Cut
 from omegaconf import DictConfig
 from sklearn.cluster import MiniBatchKMeans
+from speechbrain.inference.speaker import EncoderClassifier
 from transformers import AutoFeatureExtractor, HubertModel
 
 
@@ -28,6 +29,10 @@ class Preprocessor:
         )
         with open(tokenizer_path, "rb") as f:
             self.tokenizer: MiniBatchKMeans = pickle.load(f)
+
+        self.xvector = EncoderClassifier.from_hparams(
+            cfg.xvector.model_name, run_opts={"device": cfg.device}
+        )
 
     def write_webdataset(self) -> None:
         shar_dir = Path(self.cfg.shar_dir)
@@ -62,41 +67,8 @@ class Preprocessor:
         cuts = cut.cut_into_windows(duration=self.cfg.duration)
         res = []
         for c in cuts.data:
-            audio = torch.from_numpy(c.load_audio())
-
-            if cut.sampling_rate != self.processor.sampling_rate:
-                audio = torchaudio.functional.resample(
-                    audio,
-                    orig_freq=cut.sampling_rate,
-                    new_freq=self.processor.sampling_rate,
-                )
-
-            audio_1 = audio[0]
-            audio_2 = audio[1]
-            audio_merged = audio_1 + audio_2
-
-            audio_stack = torch.stack([audio_1, audio_2, audio_merged], dim=0)
-
-            with torch.no_grad():
-                input = self.processor(
-                    audio_stack,
-                    return_tensors="pt",
-                    sampling_rate=self.processor.sampling_rate,
-                ).input_values
-                hidden_states = (
-                    self.ssl_model(
-                        input.to(self.device).squeeze(), output_hidden_states=True
-                    )
-                    .hidden_states[self.cfg.layer]
-                    .squeeze()
-                )
-
-            token_1 = self.tokenizer.predict(hidden_states[0].cpu().numpy())
-            token_1 = torch.from_numpy(token_1)
-            token_2 = self.tokenizer.predict(hidden_states[1].cpu().numpy())
-            token_2 = torch.from_numpy(token_2)
-            token_merged = self.tokenizer.predict(hidden_states[2].cpu().numpy())
-            token_merged = torch.from_numpy(token_merged)
+            audio, token_1, token_2, token_merged = self.get_audio_tokens(c)
+            x_vector = self.get_xvector(c)
 
             s = {
                 "__key__": uuid.uuid1().hex,
@@ -104,7 +76,61 @@ class Preprocessor:
                 "token_1.pth": wds.torch_dumps(token_1),
                 "token_2.pth": wds.torch_dumps(token_2),
                 "token_merged.pth": wds.torch_dumps(token_merged),
+                "x_vector.pth": wds.torch_dumps(x_vector),
             }
             res.append(s)
 
         return res
+
+    def get_audio_tokens(
+        self, cut: Cut
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        audio = torch.from_numpy(cut.load_audio())
+
+        if cut.sampling_rate != self.processor.sampling_rate:
+            audio = torchaudio.functional.resample(
+                audio,
+                orig_freq=cut.sampling_rate,
+                new_freq=self.processor.sampling_rate,
+            )
+
+        audio_1 = audio[0]
+        audio_2 = audio[1]
+        audio_merged = audio_1 + audio_2
+
+        audio_stack = torch.stack([audio_1, audio_2, audio_merged], dim=0)
+
+        with torch.no_grad():
+            input = self.processor(
+                audio_stack,
+                return_tensors="pt",
+                sampling_rate=self.processor.sampling_rate,
+            ).input_values
+            hidden_states = (
+                self.ssl_model(
+                    input.to(self.device).squeeze(), output_hidden_states=True
+                )
+                .hidden_states[self.cfg.layer]
+                .squeeze()
+            )
+
+        token_1 = self.tokenizer.predict(hidden_states[0].cpu().numpy())
+        token_1 = torch.from_numpy(token_1)
+        token_2 = self.tokenizer.predict(hidden_states[1].cpu().numpy())
+        token_2 = torch.from_numpy(token_2)
+        token_merged = self.tokenizer.predict(hidden_states[2].cpu().numpy())
+        token_merged = torch.from_numpy(token_merged)
+
+        return audio, token_1, token_2, token_merged
+
+    def get_xvector(self, cut: Cut) -> torch.Tensor:
+        audio = torch.from_numpy(cut.load_audio())
+        if cut.sampling_rate != self.cfg.xvector.sr:
+            audio = torchaudio.functional.resample(
+                audio, orig_freq=cut.sampling_rate, new_freq=self.cfg.xvector.sr
+            )
+
+        with torch.no_grad():
+            xvector = self.xvector.encode_batch(audio.to(self.device))  # type: ignore
+
+        return xvector.squeeze()
