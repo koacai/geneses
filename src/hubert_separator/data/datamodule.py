@@ -64,52 +64,55 @@ class HuBERTSeparatorDataModule(LightningDataModule):
     def collate_fn(self, batch) -> dict[str, Any]:
         max_duration = self.cfg.max_duration
 
-        wav1_22050s = []
-        wav2_22050s = []
-        wav_merged_22050s = []
-        wav_lens = []
+        wav1_22050 = []
+        wav2_22050 = []
+        wav_merged_22050 = []
+        wav_len = []
 
-        token_1s = []
-        token_2s = []
-        token_mergeds = []
+        token_1 = []
+        token_2 = []
+        token_merged = []
+        token_len = []
 
         for sample in batch:
             dialogue = sample["resampled_audio.pth"]
             sr = 16000
 
             dialogue_22050 = torchaudio.functional.resample(dialogue, sr, 22050)
-            wav1_22050 = dialogue_22050[0, : 22050 * max_duration].numpy()
-            wav2_22050 = dialogue_22050[1, : 22050 * max_duration].numpy()
-            wav1_22050s.append(wav1_22050)
-            wav2_22050s.append(wav2_22050)
-            wav_merged_22050s.append(wav1_22050 + wav2_22050)
+            wav1_22050_ = dialogue_22050[0, : 22050 * max_duration].numpy()
+            wav2_22050_ = dialogue_22050[1, : 22050 * max_duration].numpy()
+            wav1_22050.append(wav1_22050_)
+            wav2_22050.append(wav2_22050_)
+            wav_merged_22050.append(wav1_22050_ + wav2_22050_)
 
-            wav_lens.append(wav1_22050s[-1].shape[0])
+            wav_len.append(wav1_22050_.shape[0])
 
-            token_1 = sample["token_1.pth"]
-            token_1s.append(token_1)
-            token_2 = sample["token_2.pth"]
-            token_2s.append(token_2)
-            token_merged = sample["token_merged.pth"]
-            token_mergeds.append(token_merged)
+            token_1_ = sample["token_1.pth"]
+            token_1.append(token_1_)
+            token_2_ = sample["token_2.pth"]
+            token_2.append(token_2_)
+            token_merged_ = sample["token_merged.pth"]
+            token_merged.append(token_merged_)
+
+            token_len.append(token_1_.shape[0])
 
         wav1_22050s_padded = pad_sequence(
-            [torch.tensor(w) for w in wav1_22050s], batch_first=True
+            [torch.tensor(w) for w in wav1_22050], batch_first=True
         )
         wav2_22050s_padded = pad_sequence(
-            [torch.tensor(w) for w in wav2_22050s], batch_first=True
+            [torch.tensor(w) for w in wav2_22050], batch_first=True
         )
         wav_merged_22050s_padded = pad_sequence(
-            [torch.tensor(w) for w in wav_merged_22050s], batch_first=True
+            [torch.tensor(w) for w in wav_merged_22050], batch_first=True
         )
         token_1s_padded = pad_sequence(
-            [torch.tensor(t) for t in token_1s], batch_first=True
+            [torch.tensor(t) for t in token_1], batch_first=True
         )
         token_2s_padded = pad_sequence(
-            [torch.tensor(t) for t in token_2s], batch_first=True
+            [torch.tensor(t) for t in token_2], batch_first=True
         )
         token_mergeds_padded = pad_sequence(
-            [torch.tensor(t) for t in token_mergeds], batch_first=True
+            [torch.tensor(t) for t in token_merged], batch_first=True
         )
 
         output = {
@@ -119,7 +122,8 @@ class HuBERTSeparatorDataModule(LightningDataModule):
             "token_1": token_1s_padded,
             "token_2": token_2s_padded,
             "token_merged": token_mergeds_padded,
-            "wav_len": torch.tensor(wav_lens),
+            "wav_len": torch.tensor(wav_len),
+            "token_len": torch.tensor(token_len),
         }
 
         return output
