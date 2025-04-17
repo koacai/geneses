@@ -22,6 +22,7 @@ def main(cfg: DictConfig) -> None:
         logger=wandb_logger,
         check_val_every_n_epoch=1,
         precision="16-mixed",
+        fast_dev_run=True,
     )
 
     hubert_separator = HuBERTSeparatorLightningModule(cfg)

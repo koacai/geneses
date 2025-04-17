@@ -42,7 +42,7 @@ class HuBERTSeparatorDataModule(LightningDataModule):
         return wds.WebLoader(
             self.train_dataset,
             num_workers=self.cfg.num_workers,
-            pin_memory=False,
+            pin_memory=True,
             shuffle=False,
             collate_fn=self.identity,
             drop_last=True,
@@ -52,7 +52,7 @@ class HuBERTSeparatorDataModule(LightningDataModule):
         return wds.WebLoader(
             self.valid_dataset,
             num_workers=self.cfg.num_workers,
-            pin_memory=False,
+            pin_memory=True,
             shuffle=False,
             collate_fn=self.identity,
             drop_last=True,

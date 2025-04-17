@@ -2,15 +2,12 @@ optimizer:
   _target_: torch.optim.AdamW
   lr: 1e-4
 
-hubert:
-  model_name: ${data.datamodule.hubert_model_name}
-  layer: 6
-
-train_hubert: true
+vocab_size: 500
+scheduler_n: 2.0
 
 flow_predictor:
-  in_channels: 1536 # 768*2
-  out_channels: 768
+  vocab_size: ${model.vocab_size}
+  hidden_size: 512
   channels: [256, 256]
   dropout: 0.05
   attention_head_dim: 64

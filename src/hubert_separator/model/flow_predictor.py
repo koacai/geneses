@@ -134,8 +134,8 @@ class Upsample1D(nn.Module):
 class Decoder(nn.Module):
     def __init__(
         self,
-        in_channels: int,
-        out_channels: int,
+        vocab_size: int,
+        hidden_size: int,
         channels: tuple = (256, 256),
         dropout: float = 0.05,
         attention_head_dim: int = 64,
@@ -146,13 +146,17 @@ class Decoder(nn.Module):
     ) -> None:
         super(Decoder, self).__init__()
         channels = tuple(channels)
-        self.in_channels = in_channels
-        self.out_channels = out_channels
 
-        self.time_embeddings = SinusoidalPosEmb(in_channels)
+        self.in_channels = 2 * hidden_size
+        self.out_channels = hidden_size
+
+        self.x_t_embedding = nn.Embedding(vocab_size, hidden_size)
+        self.x_merged_embedding = nn.Embedding(vocab_size, hidden_size)
+
+        self.time_embeddings = SinusoidalPosEmb(self.in_channels)
         time_embed_dim = channels[0] * 4
         self.time_mlp = TimestepEmbedding(
-            in_channels=in_channels,
+            in_channels=self.in_channels,
             time_embed_dim=time_embed_dim,
             act_fn="silu",
         )
@@ -161,7 +165,7 @@ class Decoder(nn.Module):
         self.mid_blocks = nn.ModuleList([])
         self.up_blocks = nn.ModuleList([])
 
-        output_channel = in_channels
+        output_channel = self.in_channels
         for i in range(len(channels)):
             input_channel = output_channel
             output_channel = channels[i]
@@ -193,7 +197,6 @@ class Decoder(nn.Module):
 
         for i in range(num_mid_blocks):
             input_channel = channels[-1]
-            out_channels = channels[-1]
 
             resnet = ResnetBlock1D(
                 dim=input_channel, dim_out=output_channel, time_emb_dim=time_embed_dim
@@ -248,6 +251,8 @@ class Decoder(nn.Module):
         self.final_block = Block1D(channels[-1], channels[-1])
         self.final_proj = nn.Conv1d(channels[-1], self.out_channels, 1)
 
+        self.output_head = nn.Linear(self.out_channels, vocab_size)
+
         self.initialize_weights()
 
     def initialize_weights(self) -> None:
@@ -275,6 +280,9 @@ class Decoder(nn.Module):
         x_merged: torch.Tensor,
         t: torch.Tensor,
     ) -> torch.Tensor:
+        x_t = self.x_t_embedding(x_t)
+        x_merged = self.x_merged_embedding(x_merged)
+
         t = self.time_embeddings(t)
         t = self.time_mlp(t)
 
@@ -339,7 +347,7 @@ class Decoder(nn.Module):
         output = self.final_proj(x_t * mask_up)
 
         res = output * mask
-        return res.permute(0, 2, 1)
+        return self.output_head(res.permute(0, 2, 1))
 
 
 class FlowPredictor(ModelWrapper):
@@ -348,4 +356,4 @@ class FlowPredictor(ModelWrapper):
         assert mask is not None
         x_merged = extras.get("x_merged", None)
         assert x_merged is not None
-        return self.model.forward(x, mask, x_merged, t)
+        return torch.softmax(self.model.forward(x, mask, x_merged, t), dim=-1)
