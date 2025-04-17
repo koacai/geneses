@@ -2,7 +2,6 @@ import hydra
 import numpy as np
 import torch
 import torch.nn.functional as F
-import wandb
 from flow_matching.loss import MixturePathGeneralizedKL
 from flow_matching.path import MixtureDiscreteProbPath
 from flow_matching.path.scheduler import PolynomialConvexScheduler
@@ -13,6 +12,7 @@ from lightning.pytorch import LightningModule, loggers
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 from omegaconf import DictConfig
 
+import wandb
 from hubert_separator.utils.model import fix_len_compatibility, sequence_mask
 
 from .flow_predictor import Decoder, FlowPredictor
@@ -69,17 +69,43 @@ class HuBERTSeparatorLightningModule(LightningModule):
             self.log_audio(source_wav_2, f"source_wav_2/{batch_idx}", sr)
             self.log_audio(source_merged, f"source_merged/{batch_idx}", sr)
 
+            reconstructed_wav_1 = (
+                self.synthesis(
+                    batch["token_1"][0].unsqueeze(0), batch["xvector_1"][0].unsqueeze(0)
+                )
+                .squeeze()[:wav_len]
+                .to(torch.float32)
+                .cpu()
+                .numpy()
+            )
+            reconstructed_wav_2 = (
+                self.synthesis(
+                    batch["token_1"][0].unsqueeze(0), batch["xvector_2"][0].unsqueeze(0)
+                )
+                .squeeze()[:wav_len]
+                .to(torch.float32)
+                .cpu()
+                .numpy()
+            )
+
+            self.log_audio(reconstructed_wav_1, f"reconstructed_wav_1/{batch_idx}", sr)
+            self.log_audio(reconstructed_wav_2, f"reconstructed_wav_2/{batch_idx}", sr)
+
             est_src1, est_src2 = self.forward(batch)
 
             estimated_wav_1 = (
-                self.synthesis(est_src1, batch["xvector_1"])[0]
+                self.synthesis(
+                    est_src1[0].unsqueeze(0), batch["xvector_1"][0].unsqueeze(0)
+                )
                 .squeeze()[:wav_len]
                 .to(torch.float32)
                 .cpu()
                 .numpy()
             )
             estimated_wav_2 = (
-                self.synthesis(est_src2, batch["xvector_2"])[0]
+                self.synthesis(
+                    est_src2[0].unsqueeze(0), batch["xvector_2"][0].unsqueeze(0)
+                )
                 .squeeze()[:wav_len]
                 .to(torch.float32)
                 .cpu()
