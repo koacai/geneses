@@ -218,7 +218,7 @@ class HuBERTSeparatorLightningModule(LightningModule):
     def synthesis(self, token: torch.Tensor, xvector: torch.Tensor) -> torch.Tensor:
         ckpt_path = hf_hub_download(
             "koacai/hifigan",
-            "hubert_base_token/JVS/epoch=479-step=400880.ckpt",
+            "hubert_base_token/HQYouTube/epoch=14-step=1118540.ckpt",
             token=True,
         )
         hifigan = HiFiGANLightningModule.load_from_checkpoint(ckpt_path)
