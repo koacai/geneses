@@ -22,3 +22,10 @@ class TestHuBERTSeparatorLightningModule:
         for batch in itertools.islice(self.datamodule.val_dataloader(), 3):
             loss = self.lightning_module.calc_loss(batch)
             assert isinstance(loss, torch.Tensor)
+
+    def test_forward(self, init) -> None:
+        _ = init
+        for batch in itertools.islice(self.datamodule.val_dataloader(), 3):
+            res1, res2 = self.lightning_module.forward(batch)
+            assert isinstance(res1, torch.Tensor)
+            assert isinstance(res2, torch.Tensor)

@@ -1,11 +1,10 @@
 train:
-  dataset_path: ${data.preprocess.webdataset_dir}/train/data-{000000..000050}.tar
-  batch_size: 8
+  dataset_path: ${data.preprocess.webdataset_dir}/train/data-{000000..000067}.tar
+  batch_size: 16
 valid:
-  dataset_path: ${data.preprocess.webdataset_dir}/valid/data-{000000..000058}.tar
+  dataset_path: ${data.preprocess.webdataset_dir}/valid/data-{000000..000080}.tar
   batch_size: 4
 num_workers: 16
 use_ddp: false
 
 max_duration: ${data.preprocess.duration}
-hubert_model_name: sarulab-speech/hubert-base-jtube

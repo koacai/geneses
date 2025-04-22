@@ -2,19 +2,16 @@ from typing import Any
 
 import torch
 import torchaudio
+import webdataset as wds
 from lightning.pytorch import LightningDataModule
 from omegaconf import DictConfig
 from torch.nn.utils.rnn import pad_sequence
-from transformers import AutoFeatureExtractor
-
-import webdataset as wds
 
 
 class HuBERTSeparatorDataModule(LightningDataModule):
     def __init__(self, cfg: DictConfig) -> None:
         super(HuBERTSeparatorDataModule, self).__init__()
         self.cfg = cfg
-        self.processor = AutoFeatureExtractor.from_pretrained(cfg.hubert_model_name)
 
     def setup(self, stage: str) -> None:
         nodesplitter = wds.split_by_worker if self.cfg.use_ddp else wds.single_node_only
@@ -45,7 +42,7 @@ class HuBERTSeparatorDataModule(LightningDataModule):
         return wds.WebLoader(
             self.train_dataset,
             num_workers=self.cfg.num_workers,
-            pin_memory=False,
+            pin_memory=True,
             shuffle=False,
             collate_fn=self.identity,
             drop_last=True,
@@ -55,7 +52,7 @@ class HuBERTSeparatorDataModule(LightningDataModule):
         return wds.WebLoader(
             self.valid_dataset,
             num_workers=self.cfg.num_workers,
-            pin_memory=False,
+            pin_memory=True,
             shuffle=False,
             collate_fn=self.identity,
             drop_last=True,
@@ -65,75 +62,74 @@ class HuBERTSeparatorDataModule(LightningDataModule):
         return x[0]
 
     def collate_fn(self, batch) -> dict[str, Any]:
-        sr_ssl = self.processor.sampling_rate
-        assert sr_ssl == 16000, "Sampling rate of HuBERT must be 16000"
-
         max_duration = self.cfg.max_duration
 
-        wav1_16000s = []
-        wav2_16000s = []
-        wav_merged_16000s = []
-        wav1_22050s = []
-        wav2_22050s = []
-        wav_merged_22050s = []
-        wav_lens = []
+        wav1_22050 = []
+        wav2_22050 = []
+        wav_merged_22050 = []
+        wav_len = []
+
+        token_1 = []
+        token_2 = []
+        token_merged = []
+        token_len = []
+
+        xvector_1 = []
+        xvector_2 = []
 
         for sample in batch:
-            dialogue = sample["audio.pth"]
-            sr = sample["sr.cls"]
-
-            dialogue_16000 = torchaudio.functional.resample(dialogue, sr, 16000)
-            wav1_16000 = dialogue_16000[0, : 16000 * max_duration].numpy()
-            wav2_16000 = dialogue_16000[1, : 16000 * max_duration].numpy()
-            wav1_16000s.append(wav1_16000)
-            wav2_16000s.append(wav2_16000)
-            wav_merged_16000s.append(wav1_16000 + wav2_16000)
+            dialogue = sample["resampled_audio.pth"]
+            sr = 16000
 
             dialogue_22050 = torchaudio.functional.resample(dialogue, sr, 22050)
-            wav1_22050 = dialogue_22050[0, : 22050 * max_duration].numpy()
-            wav2_22050 = dialogue_22050[1, : 22050 * max_duration].numpy()
-            wav1_22050s.append(wav1_22050)
-            wav2_22050s.append(wav2_22050)
-            wav_merged_22050s.append(wav1_22050 + wav2_22050)
+            wav1_22050_ = dialogue_22050[0, : 22050 * max_duration].numpy()
+            wav2_22050_ = dialogue_22050[1, : 22050 * max_duration].numpy()
+            wav1_22050.append(wav1_22050_)
+            wav2_22050.append(wav2_22050_)
+            wav_merged_22050.append(wav1_22050_ + wav2_22050_)
 
-            wav_lens.append(wav1_22050s[-1].shape[0])
+            wav_len.append(wav1_22050_.shape[0])
 
-        ssl_input_1 = self.processor(
-            wav1_16000s,
-            return_tensors="pt",
-            sampling_rate=sr_ssl,
-            padding=True,
+            token_1_ = sample["token_1.pth"]
+            token_1.append(token_1_)
+            token_2_ = sample["token_2.pth"]
+            token_2.append(token_2_)
+            token_merged_ = sample["token_merged.pth"]
+            token_merged.append(token_merged_)
+
+            token_len.append(token_1_.shape[0])
+
+            xvector_1_ = sample["x_vector.pth"][0]
+            xvector_1.append(xvector_1_)
+            xvector_2_ = sample["x_vector.pth"][1]
+            xvector_2.append(xvector_2_)
+
+        wav1_22050_padded = pad_sequence(
+            [torch.tensor(w) for w in wav1_22050], batch_first=True
         )
-        ssl_input_2 = self.processor(
-            wav2_16000s,
-            return_tensors="pt",
-            sampling_rate=sr_ssl,
-            padding=True,
+        wav2_22050_padded = pad_sequence(
+            [torch.tensor(w) for w in wav2_22050], batch_first=True
         )
-        ssl_input_merged = self.processor(
-            wav_merged_16000s,
-            return_tensors="pt",
-            sampling_rate=sr_ssl,
-            padding=True,
+        wav_merged_22050_padded = pad_sequence(
+            [torch.tensor(w) for w in wav_merged_22050], batch_first=True
         )
-        wav1_22050s_padded = pad_sequence(
-            [torch.tensor(w) for w in wav1_22050s], batch_first=True
-        )
-        wav2_22050s_padded = pad_sequence(
-            [torch.tensor(w) for w in wav2_22050s], batch_first=True
-        )
-        wav_merged_22050s_padded = pad_sequence(
-            [torch.tensor(w) for w in wav_merged_22050s], batch_first=True
-        )
+        token_1_padded = pad_sequence(token_1, batch_first=True)
+        token_2_padded = pad_sequence(token_2, batch_first=True)
+        token_merged_padded = pad_sequence(token_merged, batch_first=True)
+        xvector_1_padded = pad_sequence(xvector_1, batch_first=True)
+        xvector_2_padded = pad_sequence(xvector_2, batch_first=True)
 
         output = {
-            "wav_1": wav1_22050s_padded,
-            "wav_2": wav2_22050s_padded,
-            "wav_merged": wav_merged_22050s_padded,
-            "ssl_input_1": ssl_input_1,
-            "ssl_input_2": ssl_input_2,
-            "ssl_input_merged": ssl_input_merged,
-            "wav_len": torch.tensor(wav_lens),
+            "wav_1": wav1_22050_padded,
+            "wav_2": wav2_22050_padded,
+            "wav_merged": wav_merged_22050_padded,
+            "token_1": token_1_padded,
+            "token_2": token_2_padded,
+            "token_merged": token_merged_padded,
+            "wav_len": torch.tensor(wav_len),
+            "token_len": torch.tensor(token_len),
+            "xvector_1": xvector_1_padded,
+            "xvector_2": xvector_2_padded,
         }
 
         return output
