@@ -105,9 +105,9 @@ class HuBERTSeparatorDataModule(LightningDataModule):
 
             token_len.append(token_1_.shape[0])
 
-            xvector_1_ = sample["x_vector.pth"][0]
+            xvector_1_ = sample["x_vector_1.pth"]
             xvector_1.append(xvector_1_)
-            xvector_2_ = sample["x_vector.pth"][1]
+            xvector_2_ = sample["x_vector_2.pth"]
             xvector_2.append(xvector_2_)
 
         wav1_22050_padded = pad_sequence(

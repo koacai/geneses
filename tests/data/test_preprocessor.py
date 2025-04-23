@@ -48,5 +48,6 @@ class TestPreprocessor:
         _ = init
 
         for cut in itertools.islice(self.cuts.data, 3):
-            xvector = self.preprocessor.get_xvector(cut)
-            assert isinstance(xvector, torch.Tensor)
+            xvector1, xvector2 = self.preprocessor.get_xvector(cut)
+            assert isinstance(xvector1, torch.Tensor)
+            assert isinstance(xvector2, torch.Tensor)

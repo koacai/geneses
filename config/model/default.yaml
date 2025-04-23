@@ -18,4 +18,4 @@ flow_predictor:
 
 hifigan:
   repo: koacai/hifigan
-  filename: hubert_base_token/CallHomeJP/epoch=9-step=11160.ckpt
+  filename: hubert_base_token/HQYouTube/epoch=14-step=1118540.ckpt

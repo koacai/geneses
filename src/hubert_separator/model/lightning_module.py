@@ -95,7 +95,7 @@ class HuBERTSeparatorLightningModule(LightningModule):
 
             estimated_wav_1 = (
                 self.synthesis(
-                    est_src1[0, 1:].unsqueeze(0), batch["xvector_1"][0].unsqueeze(0)
+                    est_src1[0].unsqueeze(0), batch["xvector_1"][0].unsqueeze(0)
                 )
                 .squeeze()[:wav_len]
                 .to(torch.float32)
@@ -104,7 +104,7 @@ class HuBERTSeparatorLightningModule(LightningModule):
             )
             estimated_wav_2 = (
                 self.synthesis(
-                    est_src2[0, 1:].unsqueeze(0), batch["xvector_2"][0].unsqueeze(0)
+                    est_src2[0].unsqueeze(0), batch["xvector_2"][0].unsqueeze(0)
                 )
                 .squeeze()[:wav_len]
                 .to(torch.float32)
@@ -221,7 +221,7 @@ class HuBERTSeparatorLightningModule(LightningModule):
         )
         hifigan = HiFiGANLightningModule.load_from_checkpoint(ckpt_path)
         hifigan.eval()
-        return hifigan.generator.forward(token, xvector)
+        return hifigan.generator.forward(token)
 
     def log_audio(self, audio: np.ndarray, name: str, sampling_rate: int) -> None:
         for logger in self.loggers:
