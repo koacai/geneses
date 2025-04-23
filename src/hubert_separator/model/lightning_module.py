@@ -216,6 +216,8 @@ class HuBERTSeparatorLightningModule(LightningModule):
         return res_1, res_2
 
     def synthesis(self, token: torch.Tensor, xvector: torch.Tensor) -> torch.Tensor:
+        # NOTE: xvectorをちゃんと取得できていないので使わない
+        _ = xvector
         ckpt_path = hf_hub_download(
             self.cfg.model.hifigan.repo, self.cfg.model.hifigan.filename, token=True
         )

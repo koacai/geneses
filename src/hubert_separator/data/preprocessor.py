@@ -125,6 +125,7 @@ class Preprocessor:
         return audio, token_1, token_2, token_merged
 
     def get_xvector(self, cut: Cut) -> tuple[torch.Tensor, torch.Tensor]:
+        # TODO: VADしてからxvector取る必要ある？
         audio = torch.from_numpy(cut.load_audio())
         if cut.sampling_rate != self.cfg.xvector.sr:
             audio = torchaudio.functional.resample(
