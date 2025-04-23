@@ -68,15 +68,16 @@ class Preprocessor:
         res = []
         for c in cuts.data:
             audio, token_1, token_2, token_merged = self.get_audio_tokens(c)
-            x_vector = self.get_xvector(c)
+            x_vector_1, x_vector_2 = self.get_xvector(c)
 
             s = {
                 "__key__": uuid.uuid1().hex,
-                "resampled_audio.pth": wds.torch_dumps(audio),
-                "token_1.pth": wds.torch_dumps(token_1),
-                "token_2.pth": wds.torch_dumps(token_2),
-                "token_merged.pth": wds.torch_dumps(token_merged),
-                "x_vector.pth": wds.torch_dumps(x_vector),
+                "resampled_audio.pth": wds.torch_dumps(audio.cpu()),
+                "token_1.pth": wds.torch_dumps(token_1.cpu()),
+                "token_2.pth": wds.torch_dumps(token_2.cpu()),
+                "token_merged.pth": wds.torch_dumps(token_merged.cpu()),
+                "x_vector_1.pth": wds.torch_dumps(x_vector_1.cpu()),
+                "x_vector_2.pth": wds.torch_dumps(x_vector_2.cpu()),
             }
             res.append(s)
 
@@ -123,7 +124,8 @@ class Preprocessor:
 
         return audio, token_1, token_2, token_merged
 
-    def get_xvector(self, cut: Cut) -> torch.Tensor:
+    def get_xvector(self, cut: Cut) -> tuple[torch.Tensor, torch.Tensor]:
+        # TODO: VADしてからxvector取る必要ある？
         audio = torch.from_numpy(cut.load_audio())
         if cut.sampling_rate != self.cfg.xvector.sr:
             audio = torchaudio.functional.resample(
@@ -133,4 +135,4 @@ class Preprocessor:
         with torch.no_grad():
             xvector = self.xvector.encode_batch(audio.to(self.device))  # type: ignore
 
-        return xvector.squeeze()
+        return xvector.squeeze()[0], xvector.squeeze()[1]

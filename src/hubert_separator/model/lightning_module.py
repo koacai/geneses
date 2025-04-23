@@ -216,14 +216,14 @@ class HuBERTSeparatorLightningModule(LightningModule):
         return res_1, res_2
 
     def synthesis(self, token: torch.Tensor, xvector: torch.Tensor) -> torch.Tensor:
+        # NOTE: xvectorをちゃんと取得できていないので使わない
+        _ = xvector
         ckpt_path = hf_hub_download(
-            "koacai/hifigan",
-            "hubert_base_token/HQYouTube/epoch=14-step=1118540.ckpt",
-            token=True,
+            self.cfg.model.hifigan.repo, self.cfg.model.hifigan.filename, token=True
         )
         hifigan = HiFiGANLightningModule.load_from_checkpoint(ckpt_path)
         hifigan.eval()
-        return hifigan.generator.forward(token, xvector)
+        return hifigan.generator.forward(token)
 
     def log_audio(self, audio: np.ndarray, name: str, sampling_rate: int) -> None:
         for logger in self.loggers:

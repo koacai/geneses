@@ -81,9 +81,15 @@ class HuBERTSeparatorDataModule(LightningDataModule):
             dialogue = sample["resampled_audio.pth"]
             sr = 16000
 
-            dialogue_22050 = torchaudio.functional.resample(dialogue, sr, 22050)
-            wav1_22050_ = dialogue_22050[0, : 22050 * max_duration].numpy()
-            wav2_22050_ = dialogue_22050[1, : 22050 * max_duration].numpy()
+            dialogue_22050 = torchaudio.functional.resample(
+                dialogue, sr, self.cfg.sample_rate
+            )
+            wav1_22050_ = dialogue_22050[
+                0, : self.cfg.sample_rate * max_duration
+            ].numpy()
+            wav2_22050_ = dialogue_22050[
+                1, : self.cfg.sample_rate * max_duration
+            ].numpy()
             wav1_22050.append(wav1_22050_)
             wav2_22050.append(wav2_22050_)
             wav_merged_22050.append(wav1_22050_ + wav2_22050_)
@@ -99,9 +105,9 @@ class HuBERTSeparatorDataModule(LightningDataModule):
 
             token_len.append(token_1_.shape[0])
 
-            xvector_1_ = sample["x_vector.pth"][0]
+            xvector_1_ = sample["x_vector_1.pth"]
             xvector_1.append(xvector_1_)
-            xvector_2_ = sample["x_vector.pth"][1]
+            xvector_2_ = sample["x_vector_2.pth"]
             xvector_2.append(xvector_2_)
 
         wav1_22050_padded = pad_sequence(

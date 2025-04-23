@@ -6,7 +6,7 @@ device: cuda
 
 tokenizer:
   repo: koacai/hifigan
-  filename: hubert_base_token/CallHomeJP/tokenizer.pkl
+  filename: hubert_base_token/HQYouTube/tokenizer.pkl
 
 xvector:
   model_name: speechbrain/spkrec-xvect-voxceleb

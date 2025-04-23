@@ -8,3 +8,7 @@ num_workers: 16
 use_ddp: false
 
 max_duration: ${data.preprocess.duration}
+
+sample_rate: 22050
+samples_per_sec: 50 # 22050/256
+bias: 0.0025
