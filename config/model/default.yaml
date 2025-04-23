@@ -15,3 +15,7 @@ flow_predictor:
   num_mid_blocks: 2
   num_heads: 2
   act_fn: snakebeta
+
+hifigan:
+  repo: koacai/hifigan
+  filename: hubert_base_token/CallHomeJP/epoch=9-step=11160.ckpt
