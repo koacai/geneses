@@ -1,7 +1,5 @@
 from typing import Any
 
-import numpy as np
-import pyworld
 import torch
 import torchaudio
 import webdataset as wds
@@ -79,9 +77,6 @@ class HuBERTSeparatorDataModule(LightningDataModule):
         xvector_1 = []
         xvector_2 = []
 
-        logf0_1 = []
-        logf0_2 = []
-
         for sample in batch:
             dialogue = sample["resampled_audio.pth"]
             sr = 16000
@@ -115,12 +110,6 @@ class HuBERTSeparatorDataModule(LightningDataModule):
             xvector_2_ = sample["x_vector.pth"][1]
             xvector_2.append(xvector_2_)
 
-            logf0_1_ = self._get_pitch(torch.from_numpy(wav1_22050_))
-            logf0_1.append(logf0_1_)
-
-            logf0_2_ = self._get_pitch(torch.from_numpy(wav2_22050_))
-            logf0_2.append(logf0_2_)
-
         wav1_22050_padded = pad_sequence(
             [torch.tensor(w) for w in wav1_22050], batch_first=True
         )
@@ -135,8 +124,6 @@ class HuBERTSeparatorDataModule(LightningDataModule):
         token_merged_padded = pad_sequence(token_merged, batch_first=True)
         xvector_1_padded = pad_sequence(xvector_1, batch_first=True)
         xvector_2_padded = pad_sequence(xvector_2, batch_first=True)
-        logf0_1 = pad_sequence(logf0_1, batch_first=True)
-        logf0_2 = pad_sequence(logf0_2, batch_first=True)
 
         output = {
             "wav_1": wav1_22050_padded,
@@ -149,25 +136,6 @@ class HuBERTSeparatorDataModule(LightningDataModule):
             "token_len": torch.tensor(token_len),
             "xvector_1": xvector_1_padded,
             "xvector_2": xvector_2_padded,
-            "logf0_1": logf0_1,
-            "logf0_2": logf0_2,
         }
 
         return output
-
-    def _get_pitch(self, wav: torch.Tensor) -> torch.Tensor:
-        cut_samples = int(self.cfg.bias * self.cfg.sample_rate)
-        wav = wav[cut_samples:-cut_samples]
-        _f0, time = pyworld.dio(  # type: ignore
-            wav.view(-1).numpy().astype(np.double),
-            self.cfg.sample_rate,
-            frame_period=20,
-        )
-        f0 = pyworld.stonemask(  # type: ignore
-            wav.view(-1).numpy().astype(np.double),
-            _f0,
-            time,
-            self.cfg.sample_rate,
-        )
-        logf0 = torch.log10(torch.from_numpy(f0).float())
-        return logf0[1:].view(-1)
