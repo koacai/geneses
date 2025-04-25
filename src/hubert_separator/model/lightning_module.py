@@ -6,6 +6,7 @@ from flow_matching.loss import MixturePathGeneralizedKL
 from flow_matching.path import MixtureDiscreteProbPath
 from flow_matching.path.scheduler import PolynomialConvexScheduler
 from flow_matching.solver import MixtureDiscreteEulerSolver
+from flow_matching.utils import ModelWrapper
 from hifigan import HiFiGANLightningModule
 from huggingface_hub import hf_hub_download
 from lightning.pytorch import LightningModule, loggers
@@ -15,7 +16,16 @@ from omegaconf import DictConfig
 import wandb
 from hubert_separator.utils.model import fix_len_compatibility, sequence_mask
 
-from .flow_predictor import Decoder, FlowPredictor
+from .flow_predictor import Decoder
+
+
+class WrappedDecoder(ModelWrapper):
+    def forward(self, x: torch.Tensor, t: torch.Tensor, **extras) -> torch.Tensor:
+        mask = extras.get("mask", None)
+        assert mask is not None
+        x_merged = extras.get("x_merged", None)
+        assert x_merged is not None
+        return torch.softmax(self.model.forward(x, mask, x_merged, t), dim=-1)
 
 
 class HuBERTSeparatorLightningModule(LightningModule):
@@ -23,10 +33,8 @@ class HuBERTSeparatorLightningModule(LightningModule):
         super(HuBERTSeparatorLightningModule, self).__init__()
         self.cfg = cfg
 
-        decoder_1 = Decoder(**cfg.model.flow_predictor)
-        self.flow_predictor_1 = FlowPredictor(decoder_1)
-        decoder_2 = Decoder(**cfg.model.flow_predictor)
-        self.flow_predictor_2 = FlowPredictor(decoder_2)
+        self.decoder_1 = Decoder(**cfg.model.flow_predictor)
+        self.decoder_2 = Decoder(**cfg.model.flow_predictor)
 
         self.path = MixtureDiscreteProbPath(
             scheduler=PolynomialConvexScheduler(n=cfg.model.scheduler_n)
@@ -147,12 +155,8 @@ class HuBERTSeparatorLightningModule(LightningModule):
         noise_2 = torch.randint_like(token_2, high=self.cfg.model.vocab_size)
         path_sample2 = self.path.sample(x_0=noise_2, x_1=token_2, t=t)
 
-        logits_1 = self.flow_predictor_1.forward(
-            path_sample1.x_t, t, mask=mask, x_merged=token_merged
-        )
-        logits_2 = self.flow_predictor_2.forward(
-            path_sample2.x_t, t, mask=mask, x_merged=token_merged
-        )
+        logits_1 = self.decoder_1.forward(path_sample1.x_t, mask, token_merged, t)
+        logits_2 = self.decoder_2.forward(path_sample2.x_t, mask, token_merged, t)
 
         loss = self.loss_fn(
             logits=logits_1,
@@ -193,8 +197,11 @@ class HuBERTSeparatorLightningModule(LightningModule):
         epsilon = 1e-3
         linspace_to_plot = torch.linspace(0, 1 - epsilon, n_plots)
 
+        wrapped_model_1 = WrappedDecoder(self.decoder_1)
+        wrapped_model_2 = WrappedDecoder(self.decoder_2)
+
         solver_1 = MixtureDiscreteEulerSolver(
-            model=self.flow_predictor_1,
+            model=wrapped_model_1,
             path=self.path,
             vocabulary_size=self.cfg.model.vocab_size,
         )
@@ -208,7 +215,7 @@ class HuBERTSeparatorLightningModule(LightningModule):
         assert isinstance(res_1, torch.Tensor)
 
         solver_2 = MixtureDiscreteEulerSolver(
-            model=self.flow_predictor_2,
+            model=wrapped_model_2,
             path=self.path,
             vocabulary_size=self.cfg.model.vocab_size,
         )
