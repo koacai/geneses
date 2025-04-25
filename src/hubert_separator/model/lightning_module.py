@@ -46,7 +46,7 @@ class HuBERTSeparatorLightningModule(LightningModule):
         return {
             "optimizer": optimizer,
             "lr_scheduler": lr_scheduler,
-            "monitor": "metric_to_track",
+            "monitor": "train_loss",
         }
 
     def training_step(
