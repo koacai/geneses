@@ -1,6 +1,8 @@
 optimizer:
   _target_: torch.optim.AdamW
   lr: 1e-4
+lr_scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
 
 vocab_size: 500
 scheduler_n: 2.0

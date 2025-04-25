@@ -9,7 +9,7 @@ from flow_matching.solver import MixtureDiscreteEulerSolver
 from hifigan import HiFiGANLightningModule
 from huggingface_hub import hf_hub_download
 from lightning.pytorch import LightningModule, loggers
-from lightning.pytorch.utilities.types import STEP_OUTPUT
+from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRSchedulerConfig
 from omegaconf import DictConfig
 
 import wandb
@@ -36,10 +36,18 @@ class HuBERTSeparatorLightningModule(LightningModule):
 
         self.save_hyperparameters(cfg)
 
-    def configure_optimizers(self) -> torch.optim.Optimizer:
-        return hydra.utils.instantiate(
+    def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
+        optimizer = hydra.utils.instantiate(
             self.cfg.model.optimizer, params=self.parameters()
         )
+        lr_scheduler = hydra.utils.instantiate(
+            self.cfg.model.lr_scheduler, optimizer=optimizer
+        )
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": lr_scheduler,
+            "monitor": "train_loss",
+        }
 
     def training_step(
         self, batch: dict[str, torch.Tensor], batch_idx: int
