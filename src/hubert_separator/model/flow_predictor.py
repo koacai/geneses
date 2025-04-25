@@ -5,7 +5,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from diffusers.models.activations import get_activation
 from einops import pack, rearrange
-from flow_matching.utils import ModelWrapper
 
 from .transformer import BasicTransformerBlock
 
@@ -348,12 +347,3 @@ class Decoder(nn.Module):
 
         res = output * mask
         return self.output_head(res.permute(0, 2, 1))
-
-
-class FlowPredictor(ModelWrapper):
-    def forward(self, x: torch.Tensor, t: torch.Tensor, **extras) -> torch.Tensor:
-        mask = extras.get("mask", None)
-        assert mask is not None
-        x_merged = extras.get("x_merged", None)
-        assert x_merged is not None
-        return torch.softmax(self.model.forward(x, mask, x_merged, t), dim=-1)
