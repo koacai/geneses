@@ -14,7 +14,6 @@ dependencies = [
     "lhotse-dataset",
     "lightning>=2.5.1.post0",
     "moshi>=0.2.4",
-    "speechbrain>=1.0.3",
     "torch>=2.6.0",
     "torchaudio>=2.6.0",
     "wandb>=0.19.10",
