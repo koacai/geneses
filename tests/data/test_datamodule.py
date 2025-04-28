@@ -3,15 +3,15 @@ import itertools
 import pytest
 from hydra import compose, initialize
 
-from dialogue_separator.data.datamodule import HuBERTSeparatorDataModule
+from dialogue_separator.data.datamodule import DialogueSeparatorDataModule
 
 
-class TestHuBERTSeparatorDataModule:
+class TestDialogueSeparatorDataModule:
     @pytest.fixture
     def init(self) -> None:
         with initialize(config_path="../../config", version_base=None):
             cfg = compose(config_name="default").data.datamodule
-            self.datamodule = HuBERTSeparatorDataModule(cfg)
+            self.datamodule = DialogueSeparatorDataModule(cfg)
 
     def test_train_dataloader(self, init) -> None:
         _ = init

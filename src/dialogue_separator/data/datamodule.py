@@ -8,9 +8,9 @@ from omegaconf import DictConfig
 from torch.nn.utils.rnn import pad_sequence
 
 
-class HuBERTSeparatorDataModule(LightningDataModule):
+class DialogueSeparatorDataModule(LightningDataModule):
     def __init__(self, cfg: DictConfig) -> None:
-        super(HuBERTSeparatorDataModule, self).__init__()
+        super(DialogueSeparatorDataModule, self).__init__()
         self.cfg = cfg
 
     def setup(self, stage: str) -> None:

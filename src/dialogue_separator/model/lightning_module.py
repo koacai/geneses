@@ -28,9 +28,9 @@ class WrappedDecoder(ModelWrapper):
         return torch.softmax(self.model.forward(x, mask, x_merged, t), dim=-1)
 
 
-class HuBERTSeparatorLightningModule(LightningModule):
+class DialogueSeparatorLightningModule(LightningModule):
     def __init__(self, cfg: DictConfig) -> None:
-        super(HuBERTSeparatorLightningModule, self).__init__()
+        super(DialogueSeparatorLightningModule, self).__init__()
         self.cfg = cfg
 
         self.decoder_1 = Decoder(**cfg.model.flow_predictor)

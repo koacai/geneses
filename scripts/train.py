@@ -4,8 +4,8 @@ import torch
 from lightning.pytorch.loggers import WandbLogger
 from omegaconf import DictConfig
 
-from dialogue_separator.data.datamodule import HuBERTSeparatorDataModule
-from dialogue_separator.model.lightning_module import HuBERTSeparatorLightningModule
+from dialogue_separator.data.datamodule import DialogueSeparatorDataModule
+from dialogue_separator.model.lightning_module import DialogueSeparatorLightningModule
 
 
 @hydra.main(config_path="../config", config_name="default", version_base=None)
@@ -24,8 +24,8 @@ def main(cfg: DictConfig) -> None:
         precision="16-mixed",
     )
 
-    dialogue_separator = HuBERTSeparatorLightningModule(cfg)
-    datamodule = HuBERTSeparatorDataModule(cfg.data.datamodule)
+    dialogue_separator = DialogueSeparatorLightningModule(cfg)
+    datamodule = DialogueSeparatorDataModule(cfg.data.datamodule)
 
     datamodule.setup("fit")
 

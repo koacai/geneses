@@ -1,3 +1,3 @@
-from dialogue_separator.model.lightning_module import HuBERTSeparatorLightningModule
+from dialogue_separator.model.lightning_module import DialogueSeparatorLightningModule
 
-__all__ = ["HuBERTSeparatorLightningModule"]
+__all__ = ["DialogueSeparatorLightningModule"]
