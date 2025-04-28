@@ -54,3 +54,10 @@ venv = ".venv"
 [tool.uv.sources]
 lhotse-dataset = { git = "ssh://github.com/koacai/lhotse-dataset.git" }
 hifigan = { git = "ssh://github.com/koacai/hifigan.git" }
+torch = { index = "torch-aarch", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'"}
+torchaudio = { index = "torch-aarch", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'"}
+
+[[tool.uv.index]]
+name = "torch-aarch"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
