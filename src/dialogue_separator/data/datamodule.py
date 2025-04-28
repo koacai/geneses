@@ -64,9 +64,9 @@ class DialogueSeparatorDataModule(LightningDataModule):
     def collate_fn(self, batch) -> dict[str, Any]:
         max_duration = self.cfg.max_duration
 
-        wav1_22050 = []
-        wav2_22050 = []
-        wav_merged_22050 = []
+        wav1_resample = []
+        wav2_resample = []
+        wav_merged_resample = []
         wav_len = []
 
         token_1 = []
@@ -74,56 +74,47 @@ class DialogueSeparatorDataModule(LightningDataModule):
         token_merged = []
         token_len = []
 
-        xvector_1 = []
-        xvector_2 = []
-
         for sample in batch:
-            dialogue = sample["resampled_audio.pth"]
-            sr = 16000
+            dialogue, sr = sample["audio.flac"]
 
-            dialogue_22050 = torchaudio.functional.resample(
+            dialogue_resample = torchaudio.functional.resample(
                 dialogue, sr, self.cfg.sample_rate
             )
-            wav1_22050_ = dialogue_22050[
+            wav1_resample_ = dialogue_resample[
                 0, : self.cfg.sample_rate * max_duration
             ].numpy()
-            wav2_22050_ = dialogue_22050[
+            wav2_resample_ = dialogue_resample[
                 1, : self.cfg.sample_rate * max_duration
             ].numpy()
-            wav1_22050.append(wav1_22050_)
-            wav2_22050.append(wav2_22050_)
-            wav_merged_22050.append(wav1_22050_ + wav2_22050_)
+            wav1_resample.append(wav1_resample_)
+            wav2_resample.append(wav2_resample_)
+            wav_merged_resample.append(wav1_resample_ + wav2_resample_)
 
-            wav_len.append(wav1_22050_.shape[0])
+            wav_len.append(wav1_resample_.shape[0])
 
             token_1_ = sample["token_1.pth"]
-            token_1.append(token_1_)
+            token_1.append(token_1_.T)
             token_2_ = sample["token_2.pth"]
-            token_2.append(token_2_)
+            token_2.append(token_2_.T)
             token_merged_ = sample["token_merged.pth"]
-            token_merged.append(token_merged_)
+            token_merged.append(token_merged_.T)
 
-            token_len.append(token_1_.shape[0])
-
-            xvector_1_ = sample["x_vector_1.pth"]
-            xvector_1.append(xvector_1_)
-            xvector_2_ = sample["x_vector_2.pth"]
-            xvector_2.append(xvector_2_)
+            token_len.append(token_1_.shape[-1])
 
         wav1_22050_padded = pad_sequence(
-            [torch.tensor(w) for w in wav1_22050], batch_first=True
+            [torch.tensor(w) for w in wav1_resample], batch_first=True
         )
         wav2_22050_padded = pad_sequence(
-            [torch.tensor(w) for w in wav2_22050], batch_first=True
+            [torch.tensor(w) for w in wav2_resample], batch_first=True
         )
         wav_merged_22050_padded = pad_sequence(
-            [torch.tensor(w) for w in wav_merged_22050], batch_first=True
+            [torch.tensor(w) for w in wav_merged_resample], batch_first=True
         )
-        token_1_padded = pad_sequence(token_1, batch_first=True)
-        token_2_padded = pad_sequence(token_2, batch_first=True)
-        token_merged_padded = pad_sequence(token_merged, batch_first=True)
-        xvector_1_padded = pad_sequence(xvector_1, batch_first=True)
-        xvector_2_padded = pad_sequence(xvector_2, batch_first=True)
+        token_1_padded = pad_sequence(token_1, batch_first=True).transpose(1, 2)
+        token_2_padded = pad_sequence(token_2, batch_first=True).transpose(1, 2)
+        token_merged_padded = pad_sequence(token_merged, batch_first=True).transpose(
+            1, 2
+        )
 
         output = {
             "wav_1": wav1_22050_padded,
@@ -134,8 +125,6 @@ class DialogueSeparatorDataModule(LightningDataModule):
             "token_merged": token_merged_padded,
             "wav_len": torch.tensor(wav_len),
             "token_len": torch.tensor(token_len),
-            "xvector_1": xvector_1_padded,
-            "xvector_2": xvector_2_padded,
         }
 
         return output
