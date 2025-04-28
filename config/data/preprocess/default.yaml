@@ -9,5 +9,5 @@ mimi:
 duration: 30
 train_ratio: 0.9
 shard_size:
-  train: 3e8
-  valid: 3e7
+  train: 3e7
+  valid: 3e6
