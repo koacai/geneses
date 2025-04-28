@@ -1,7 +1,5 @@
 shar_dir: ${data.dataset.shar_dir}
 webdataset_dir: /groups/gag51394/users/asai/webdataset/hubert-separator/callhome_jp
-model_name: sarulab-speech/hubert-base-jtube
-layer: 6
 device: cuda
 
 mimi:

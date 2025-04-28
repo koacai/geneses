@@ -1,3 +1,4 @@
+import io
 import random
 import uuid
 from pathlib import Path
@@ -56,10 +57,15 @@ class Preprocessor:
         cuts = cut.cut_into_windows(duration=self.cfg.duration)
         res = []
         for c in cuts.data:
+            buf = io.BytesIO()
+            audio = torch.from_numpy(c.load_audio())
+            torchaudio.save(buf, audio, c.sampling_rate, format="flac")
+
             token_1, token_2, token_merged = self.get_mimi_token(c)
 
             s = {
                 "__key__": uuid.uuid1().hex,
+                "audio.flac": buf.getvalue(),
                 "token_1.pth": wds.torch_dumps(token_1.cpu()),
                 "token_2.pth": wds.torch_dumps(token_2.cpu()),
                 "token_merged.pth": wds.torch_dumps(token_merged.cpu()),
