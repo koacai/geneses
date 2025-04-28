@@ -1,7 +1,7 @@
 import hydra
 from omegaconf import DictConfig
 
-from hubert_separator.data.preprocessor import Preprocessor
+from dialogue_separator.data.preprocessor import Preprocessor
 
 
 @hydra.main(config_path="../config", config_name="default", version_base=None)

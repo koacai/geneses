@@ -4,8 +4,8 @@ import pytest
 import torch
 from hydra import compose, initialize
 
-from hubert_separator.data.datamodule import HuBERTSeparatorDataModule
-from hubert_separator.model.lightning_module import HuBERTSeparatorLightningModule
+from dialogue_separator.data.datamodule import HuBERTSeparatorDataModule
+from dialogue_separator.model.lightning_module import HuBERTSeparatorLightningModule
 
 
 class TestHuBERTSeparatorLightningModule:

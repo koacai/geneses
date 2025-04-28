@@ -1,4 +1,4 @@
-from hubert_separator.utils.model import fix_len_compatibility
+from dialogue_separator.utils.model import fix_len_compatibility
 
 
 def test_fix_len_compatibility() -> None:

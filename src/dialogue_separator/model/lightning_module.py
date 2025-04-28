@@ -14,7 +14,7 @@ from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRSchedulerC
 from omegaconf import DictConfig
 
 import wandb
-from hubert_separator.utils.model import fix_len_compatibility, sequence_mask
+from dialogue_separator.utils.model import fix_len_compatibility, sequence_mask
 
 from .flow_predictor import Decoder
 

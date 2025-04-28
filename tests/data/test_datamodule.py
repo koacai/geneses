@@ -3,7 +3,7 @@ import itertools
 import pytest
 from hydra import compose, initialize
 
-from hubert_separator.data.datamodule import HuBERTSeparatorDataModule
+from dialogue_separator.data.datamodule import HuBERTSeparatorDataModule
 
 
 class TestHuBERTSeparatorDataModule:

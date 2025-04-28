@@ -1,1 +1,1 @@
-# HuBERT Separator
+# Dialogue Separator
