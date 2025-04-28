@@ -4,7 +4,7 @@ optimizer:
 lr_scheduler:
   _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
 
-vocab_size: 500
+vocab_size: 2048
 scheduler_n: 2.0
 
 flow_predictor:
