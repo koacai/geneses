@@ -2,7 +2,7 @@ import pytest
 import torch
 from hydra import compose, initialize
 
-from hubert_separator.model.flow_predictor import Decoder
+from dialogue_separator.model.flow_predictor import Decoder
 
 
 class TestDecoder:

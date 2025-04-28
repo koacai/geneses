@@ -347,6 +347,53 @@ wheels = [
 ]
 
 [[package]]
+name = "dialogue-separator"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "diffusers" },
+    { name = "einops" },
+    { name = "flow-matching" },
+    { name = "hifigan" },
+    { name = "lhotse-dataset" },
+    { name = "lightning" },
+    { name = "speechbrain" },
+    { name = "torch" },
+    { name = "torchaudio" },
+    { name = "transformers" },
+    { name = "wandb" },
+    { name = "webdataset" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "diffusers", specifier = ">=0.32.2" },
+    { name = "einops", specifier = ">=0.8.1" },
+    { name = "flow-matching", specifier = ">=1.0.10" },
+    { name = "hifigan", git = "ssh://github.com/koacai/hifigan.git" },
+    { name = "lhotse-dataset", git = "ssh://github.com/koacai/lhotse-dataset.git" },
+    { name = "lightning", specifier = ">=2.5.1" },
+    { name = "speechbrain", specifier = ">=1.0.3" },
+    { name = "torch", specifier = ">=2.6.0" },
+    { name = "torchaudio", specifier = ">=2.6.0" },
+    { name = "transformers", specifier = ">=4.50.3" },
+    { name = "wandb", specifier = ">=0.19.8" },
+    { name = "webdataset", specifier = ">=0.2.111" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.3.5" },
+    { name = "ruff", specifier = ">=0.11.2" },
+]
+
+[[package]]
 name = "diffusers"
 version = "0.32.2"
 source = { registry = "https://pypi.org/simple" }
@@ -527,53 +574,6 @@ dependencies = [
     { name = "transformers" },
     { name = "wandb" },
     { name = "webdataset" },
-]
-
-[[package]]
-name = "hubert-separator"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "diffusers" },
-    { name = "einops" },
-    { name = "flow-matching" },
-    { name = "hifigan" },
-    { name = "lhotse-dataset" },
-    { name = "lightning" },
-    { name = "speechbrain" },
-    { name = "torch" },
-    { name = "torchaudio" },
-    { name = "transformers" },
-    { name = "wandb" },
-    { name = "webdataset" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "diffusers", specifier = ">=0.32.2" },
-    { name = "einops", specifier = ">=0.8.1" },
-    { name = "flow-matching", specifier = ">=1.0.10" },
-    { name = "hifigan", git = "ssh://github.com/koacai/hifigan.git" },
-    { name = "lhotse-dataset", git = "ssh://github.com/koacai/lhotse-dataset.git" },
-    { name = "lightning", specifier = ">=2.5.1" },
-    { name = "speechbrain", specifier = ">=1.0.3" },
-    { name = "torch", specifier = ">=2.6.0" },
-    { name = "torchaudio", specifier = ">=2.6.0" },
-    { name = "transformers", specifier = ">=4.50.3" },
-    { name = "wandb", specifier = ">=0.19.8" },
-    { name = "webdataset", specifier = ">=0.2.111" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8.3.5" },
-    { name = "ruff", specifier = ">=0.11.2" },
 ]
 
 [[package]]

@@ -6,7 +6,7 @@ import torch
 from hydra import compose, initialize
 from lhotse import CutSet
 
-from hubert_separator.data.preprocessor import Preprocessor
+from dialogue_separator.data.preprocessor import Preprocessor
 
 
 class TestPreprocessor:
