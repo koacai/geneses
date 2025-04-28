@@ -2,7 +2,6 @@ import itertools
 from pathlib import Path
 
 import pytest
-import torch
 from hydra import compose, initialize
 from lhotse import CutSet
 
@@ -30,24 +29,11 @@ class TestPreprocessor:
             assert isinstance(res, list)
             assert isinstance(res[0], dict)
 
-    def test_get_audio_tokens(self, init) -> None:
+    def test_get_mimi_token(self, init) -> None:
         _ = init
 
-        for cut in itertools.islice(self.cuts.data, 3):
-            audio, token_1, token_2, token_merged = self.preprocessor.get_audio_tokens(
-                cut
-            )
-            assert isinstance(audio, torch.Tensor)
-            assert isinstance(token_1, torch.Tensor)
-            assert isinstance(token_2, torch.Tensor)
-            assert isinstance(token_merged, torch.Tensor)
-
-            assert token_1.shape == token_2.shape == token_merged.shape
-
-    def test_get_xvector(self, init) -> None:
-        _ = init
-
-        for cut in itertools.islice(self.cuts.data, 3):
-            xvector1, xvector2 = self.preprocessor.get_xvector(cut)
-            assert isinstance(xvector1, torch.Tensor)
-            assert isinstance(xvector2, torch.Tensor)
+        for cut in self.cuts[0].cut_into_windows(duration=30):
+            token_1, token_2, token_merged = self.preprocessor.get_mimi_token(cut)
+            assert token_1.size(0) == self.preprocessor.cfg.mimi.num_codebooks
+            assert token_2.size(0) == self.preprocessor.cfg.mimi.num_codebooks
+            assert token_merged.size(0) == self.preprocessor.cfg.mimi.num_codebooks

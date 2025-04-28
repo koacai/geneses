@@ -4,13 +4,9 @@ model_name: sarulab-speech/hubert-base-jtube
 layer: 6
 device: cuda
 
-tokenizer:
-  repo: koacai/hifigan
-  filename: hubert_base_token/HQYouTube/tokenizer.pkl
-
-xvector:
-  model_name: speechbrain/spkrec-xvect-voxceleb
-  sr: 16000
+mimi:
+  num_codebooks: 8
+  sr: 24000
 
 duration: 30
 train_ratio: 0.9
