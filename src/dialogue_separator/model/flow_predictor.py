@@ -279,7 +279,11 @@ class Decoder(nn.Module):
         x_merged: torch.Tensor,
         t: torch.Tensor,
     ) -> torch.Tensor:
+        _, num_codebooks, length = x_t.size()
+
+        x_t = x_t.reshape(x_t.size(0), -1)
         x_t = self.x_t_embedding(x_t)
+        x_merged = x_merged.reshape(x_merged.size(0), -1)
         x_merged = self.x_merged_embedding(x_merged)
 
         t = self.time_embeddings(t)
@@ -289,6 +293,9 @@ class Decoder(nn.Module):
         x_merged = x_merged.permute(0, 2, 1)
 
         x_t = pack([x_t, x_merged], "b * t")[0]
+
+        mask = mask.expand(-1, 8, -1)
+        mask = mask.reshape(mask.size(0), -1).unsqueeze(1)
 
         hiddens = []
         masks = [mask]
@@ -346,4 +353,5 @@ class Decoder(nn.Module):
         output = self.final_proj(x_t * mask_up)
 
         res = output * mask
-        return self.output_head(res.permute(0, 2, 1))
+        res = self.output_head(res.permute(0, 2, 1))
+        return res.view(res.size(0), num_codebooks, length, -1)

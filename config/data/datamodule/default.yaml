@@ -1,14 +1,12 @@
 train:
-  dataset_path: ${data.preprocess.webdataset_dir}/train/data-{000000..000067}.tar
-  batch_size: 16
-valid:
-  dataset_path: ${data.preprocess.webdataset_dir}/valid/data-{000000..000080}.tar
+  dataset_path: ${data.preprocess.webdataset_dir}/train/data-{000000..000073}.tar
   batch_size: 4
-num_workers: 16
+valid:
+  dataset_path: ${data.preprocess.webdataset_dir}/valid/data-{000000..000082}.tar
+  batch_size: 4
+num_workers: 4
 use_ddp: false
 
 max_duration: ${data.preprocess.duration}
 
-sample_rate: 22050
-samples_per_sec: 50 # 22050/256
-bias: 0.0025
+sample_rate: ${data.preprocess.mimi.sr}
