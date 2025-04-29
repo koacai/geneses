@@ -31,17 +31,12 @@ class DialogueSeparatorLightningModule(LightningModule):
     def __init__(self, cfg: DictConfig) -> None:
         super(DialogueSeparatorLightningModule, self).__init__()
         self.cfg = cfg
-        mimi_weight = hf_hub_download(loaders.DEFAULT_REPO, loaders.MIMI_NAME)
-        self.mimi = loaders.get_mimi(mimi_weight, device=self.device)
-        self.mimi.set_num_codebooks(cfg.model.mimi.num_codebooks)
 
         self.decoder = Decoder(**cfg.model.flow_predictor)
 
         self.path = MixtureDiscreteProbPath(
             scheduler=PolynomialConvexScheduler(n=cfg.model.scheduler_n)
         )
-
-        self.loss_fn = MixturePathGeneralizedKL(path=self.path)
 
         self.save_hyperparameters(cfg)
 
@@ -75,6 +70,10 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         self.log("validation_loss", loss)
 
+        mimi_weight = hf_hub_download(loaders.DEFAULT_REPO, loaders.MIMI_NAME)
+        mimi = loaders.get_mimi(mimi_weight, device=self.device)
+        mimi.set_num_codebooks(self.cfg.model.mimi.num_codebooks)
+
         wav_sr = self.cfg.model.mimi.sr
         if batch_idx < 5 and self.global_rank == 0 and self.local_rank == 0:
             wav_len = batch["wav_len"][0]
@@ -88,21 +87,21 @@ class DialogueSeparatorLightningModule(LightningModule):
 
             with torch.no_grad():
                 decoded_1 = (
-                    self.mimi.decode(batch["token_1"])[0]
+                    mimi.decode(batch["token_1"])[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
                     .numpy()
                 )
                 decoded_2 = (
-                    self.mimi.decode(batch["token_2"])[0]
+                    mimi.decode(batch["token_2"])[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
                     .numpy()
                 )
                 decoded_merged = (
-                    self.mimi.decode(batch["token_merged"])[0]
+                    mimi.decode(batch["token_merged"])[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
@@ -117,14 +116,14 @@ class DialogueSeparatorLightningModule(LightningModule):
 
             with torch.no_grad():
                 estimated_1 = (
-                    self.mimi.decode(est_src1)[0]
+                    mimi.decode(est_src1)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
                     .numpy()
                 )
                 estimated_2 = (
-                    self.mimi.decode(est_src2)[0]
+                    mimi.decode(est_src2)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
@@ -153,7 +152,9 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         logits = self.decoder.forward(path_sample.x_t, mask, token_merged, t)
 
-        loss = self.loss_fn(
+        loss_fn = MixturePathGeneralizedKL(path=self.path)
+
+        loss = loss_fn(
             logits=logits,
             x_1=token_cat.to(torch.int64),
             x_t=path_sample.x_t.to(torch.int64),
