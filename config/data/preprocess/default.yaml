@@ -1,12 +1,12 @@
 shar_dir: ${data.dataset.shar_dir}
-webdataset_dir: /groups/gag51394/users/asai/webdataset/hubert-separator/callhome_jp
+webdataset_dir: /groups/gag51394/users/asai/webdataset/dialogue-separator/callhome_jp
 device: cuda
 
 mimi:
   num_codebooks: 8
   sr: 24000
 
-duration: 30
+duration: 10
 train_ratio: 0.9
 shard_size:
   train: 3e7

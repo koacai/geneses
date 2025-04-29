@@ -18,10 +18,15 @@ class TestDecoder:
 
         batch_size = 4
         token_merged = torch.randint(0, 2047, (batch_size, 8, 100))
-        token_t = torch.randint(0, 2047, (batch_size, 8, 100))
+        token_t_1 = torch.randint(0, 2047, (batch_size, 8, 100))
+        token_t_2 = torch.randint(0, 2047, (batch_size, 8, 100))
         mask = sequence_mask(torch.tensor([95, 96, 97, 98]), 100).unsqueeze(1)
         t = torch.rand((batch_size,))
 
-        output = self.decoder.forward(token_t, mask, token_merged, t)
-        assert output.size(0) == batch_size
-        assert output.size(-1) == 2048
+        token_t = torch.cat([token_t_1, token_t_2], dim=-1)
+
+        res = self.decoder.forward(token_t, mask, token_merged, t)
+        assert res.size(0) == batch_size
+        assert res.size(1) == 8
+        assert res.size(2) == 200
+        assert res.size(3) == 2048

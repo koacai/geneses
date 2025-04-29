@@ -31,18 +31,12 @@ class DialogueSeparatorLightningModule(LightningModule):
     def __init__(self, cfg: DictConfig) -> None:
         super(DialogueSeparatorLightningModule, self).__init__()
         self.cfg = cfg
-        mimi_weight = hf_hub_download(loaders.DEFAULT_REPO, loaders.MIMI_NAME)
-        self.mimi = loaders.get_mimi(mimi_weight, device=self.device)
-        self.mimi.set_num_codebooks(cfg.model.mimi.num_codebooks)
 
-        self.decoder_1 = Decoder(**cfg.model.flow_predictor)
-        self.decoder_2 = Decoder(**cfg.model.flow_predictor)
+        self.decoder = Decoder(**cfg.model.flow_predictor)
 
         self.path = MixtureDiscreteProbPath(
             scheduler=PolynomialConvexScheduler(n=cfg.model.scheduler_n)
         )
-
-        self.loss_fn = MixturePathGeneralizedKL(path=self.path)
 
         self.save_hyperparameters(cfg)
 
@@ -78,6 +72,10 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         wav_sr = self.cfg.model.mimi.sr
         if batch_idx < 5 and self.global_rank == 0 and self.local_rank == 0:
+            mimi_weight = hf_hub_download(loaders.DEFAULT_REPO, loaders.MIMI_NAME)
+            mimi = loaders.get_mimi(mimi_weight, device=self.device)
+            mimi.set_num_codebooks(self.cfg.model.mimi.num_codebooks)
+
             wav_len = batch["wav_len"][0]
             source_1 = batch["wav_1"][0][:wav_len].cpu().numpy()
             source_2 = batch["wav_2"][0][:wav_len].cpu().numpy()
@@ -89,21 +87,21 @@ class DialogueSeparatorLightningModule(LightningModule):
 
             with torch.no_grad():
                 decoded_1 = (
-                    self.mimi.decode(batch["token_1"])[0]
+                    mimi.decode(batch["token_1"])[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
                     .numpy()
                 )
                 decoded_2 = (
-                    self.mimi.decode(batch["token_2"])[0]
+                    mimi.decode(batch["token_2"])[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
                     .numpy()
                 )
                 decoded_merged = (
-                    self.mimi.decode(batch["token_merged"])[0]
+                    mimi.decode(batch["token_merged"])[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
@@ -118,14 +116,14 @@ class DialogueSeparatorLightningModule(LightningModule):
 
             with torch.no_grad():
                 estimated_1 = (
-                    self.mimi.decode(est_src1)[0]
+                    mimi.decode(est_src1)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
                     .numpy()
                 )
                 estimated_2 = (
-                    self.mimi.decode(est_src2)[0]
+                    mimi.decode(est_src2)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
@@ -148,26 +146,20 @@ class DialogueSeparatorLightningModule(LightningModule):
         mask = sequence_mask(lengths, torch.max(lengths)).unsqueeze(1).to(self.device)
 
         t = torch.rand((batch_size,), device=self.device)
-        noise_1 = torch.randint_like(token_1, high=self.cfg.model.vocab_size)
-        path_sample1 = self.path.sample(x_0=noise_1, x_1=token_1, t=t)
-        noise_2 = torch.randint_like(token_2, high=self.cfg.model.vocab_size)
-        path_sample2 = self.path.sample(x_0=noise_2, x_1=token_2, t=t)
+        token_cat = torch.cat([token_1, token_2], dim=-1)
+        noise = torch.randint_like(token_cat, high=self.cfg.model.vocab_size)
+        path_sample = self.path.sample(x_0=noise, x_1=token_cat, t=t)
 
-        logits_1 = self.decoder_1.forward(path_sample1.x_t, mask, token_merged, t)
-        logits_2 = self.decoder_2.forward(path_sample2.x_t, mask, token_merged, t)
+        logits = self.decoder.forward(path_sample.x_t, mask, token_merged, t)
 
-        loss = self.loss_fn(
-            logits=logits_1,
-            x_1=token_1.to(torch.int64),
-            x_t=path_sample1.x_t.to(torch.int64),
-            t=path_sample1.t,
-        ) + self.loss_fn(
-            logits=logits_2,
-            x_1=token_2.to(torch.int64),
-            x_t=path_sample2.x_t.to(torch.int64),
-            t=path_sample2.t,
+        loss_fn = MixturePathGeneralizedKL(path=self.path)
+
+        loss = loss_fn(
+            logits=logits,
+            x_1=token_cat.to(torch.int64),
+            x_t=path_sample.x_t.to(torch.int64),
+            t=path_sample.t,
         )
-
         return loss
 
     def forward(
@@ -178,12 +170,8 @@ class DialogueSeparatorLightningModule(LightningModule):
         lengths = batch["token_len"]
         mask = sequence_mask(lengths, torch.max(lengths)).unsqueeze(1).to(self.device)
 
-        noise_1 = torch.randint_like(
-            token_merged, high=self.cfg.model.vocab_size
-        ).long()
-        noise_2 = torch.randint_like(
-            token_merged, high=self.cfg.model.vocab_size
-        ).long()
+        token_cat = torch.cat([token_merged, token_merged], dim=-1)
+        noise = torch.randint_like(token_cat, high=self.cfg.model.vocab_size).long()
 
         nfe = 64
         step_size = 1 / nfe
@@ -191,36 +179,23 @@ class DialogueSeparatorLightningModule(LightningModule):
         epsilon = 1e-3
         linspace_to_plot = torch.linspace(0, 1 - epsilon, n_plots)
 
-        wrapped_model_1 = WrappedDecoder(self.decoder_1)
-        wrapped_model_2 = WrappedDecoder(self.decoder_2)
+        wrapped_model = WrappedDecoder(self.decoder)
 
-        solver_1 = MixtureDiscreteEulerSolver(
-            model=wrapped_model_1,
+        solver = MixtureDiscreteEulerSolver(
+            model=wrapped_model,
             path=self.path,
             vocabulary_size=self.cfg.model.vocab_size,
         )
-        res_1 = solver_1.sample(
-            x_init=noise_1,
+        res = solver.sample(
+            x_init=noise,
             step_size=step_size,
             time_grid=linspace_to_plot,
             mask=mask,
             x_merged=token_merged,
         )
-        assert isinstance(res_1, torch.Tensor)
+        assert isinstance(res, torch.Tensor)
 
-        solver_2 = MixtureDiscreteEulerSolver(
-            model=wrapped_model_2,
-            path=self.path,
-            vocabulary_size=self.cfg.model.vocab_size,
-        )
-        res_2 = solver_2.sample(
-            x_init=noise_2,
-            step_size=step_size,
-            time_grid=linspace_to_plot,
-            mask=mask,
-            x_merged=token_merged,
-        )
-        assert isinstance(res_2, torch.Tensor)
+        res_1, res_2 = torch.chunk(res, 2, dim=-1)
 
         return res_1, res_2
 
