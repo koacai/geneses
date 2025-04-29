@@ -70,12 +70,12 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         self.log("validation_loss", loss)
 
-        mimi_weight = hf_hub_download(loaders.DEFAULT_REPO, loaders.MIMI_NAME)
-        mimi = loaders.get_mimi(mimi_weight, device=self.device)
-        mimi.set_num_codebooks(self.cfg.model.mimi.num_codebooks)
-
         wav_sr = self.cfg.model.mimi.sr
         if batch_idx < 5 and self.global_rank == 0 and self.local_rank == 0:
+            mimi_weight = hf_hub_download(loaders.DEFAULT_REPO, loaders.MIMI_NAME)
+            mimi = loaders.get_mimi(mimi_weight, device=self.device)
+            mimi.set_num_codebooks(self.cfg.model.mimi.num_codebooks)
+
             wav_len = batch["wav_len"][0]
             source_1 = batch["wav_1"][0][:wav_len].cpu().numpy()
             source_2 = batch["wav_2"][0][:wav_len].cpu().numpy()
