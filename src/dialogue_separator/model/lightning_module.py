@@ -117,15 +117,15 @@ class DialogueSeparatorLightningModule(LightningModule):
             est_src1, est_src2 = self.forward(batch)
 
             with torch.no_grad():
-                estimated_2 = (
-                    self.mimi.decode(est_src2)[0]
+                estimated_1 = (
+                    self.mimi.decode(est_src1)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
                     .numpy()
                 )
-                estimated_1 = (
-                    self.mimi.decode(est_src1)[0]
+                estimated_2 = (
+                    self.mimi.decode(est_src2)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
