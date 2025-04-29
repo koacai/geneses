@@ -3,6 +3,7 @@ import torch
 from hydra import compose, initialize
 
 from dialogue_separator.model.flow_predictor import Decoder
+from dialogue_separator.utils.model import sequence_mask
 
 
 class TestDecoder:
@@ -16,10 +17,11 @@ class TestDecoder:
         _ = init
 
         batch_size = 4
-        x_merged = torch.randn(batch_size, 100, 768)
-        x_t = torch.randn(batch_size, 100, 768)
-        mask = torch.ones(batch_size, 1, 100)
+        token_merged = torch.randint(0, 2047, (batch_size, 8, 100))
+        token_t = torch.randint(0, 2047, (batch_size, 8, 100))
+        mask = sequence_mask(torch.tensor([95, 96, 97, 98]), 100).unsqueeze(1)
         t = torch.rand((batch_size,))
 
-        dx_t = self.decoder.forward(x_t, mask, x_merged, t)
-        assert dx_t.shape == x_t.shape
+        output = self.decoder.forward(token_t, mask, token_merged, t)
+        assert output.size(0) == batch_size
+        assert output.size(-1) == 2048
