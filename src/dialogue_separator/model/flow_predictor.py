@@ -281,9 +281,9 @@ class Decoder(nn.Module):
     ) -> torch.Tensor:
         _, num_codebooks, length = x_t.size()
 
-        x_t = x_t.view(x_t.size(0), -1)
+        x_t = x_t.reshape(x_t.size(0), -1)
         x_t = self.x_t_embedding(x_t)
-        x_merged = x_merged.view(x_merged.size(0), -1)
+        x_merged = x_merged.reshape(x_merged.size(0), -1)
         x_merged = self.x_merged_embedding(x_merged)
 
         t = self.time_embeddings(t)

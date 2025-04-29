@@ -9,6 +9,4 @@ use_ddp: false
 
 max_duration: ${data.preprocess.duration}
 
-sample_rate: 22050
-samples_per_sec: 50 # 22050/256
-bias: 0.0025
+sample_rate: ${data.preprocess.mimi.sr}

@@ -101,13 +101,13 @@ class DialogueSeparatorDataModule(LightningDataModule):
 
             token_len.append(token_1_.shape[-1])
 
-        wav1_22050_padded = pad_sequence(
+        wav1_resample_padded = pad_sequence(
             [torch.tensor(w) for w in wav1_resample], batch_first=True
         )
-        wav2_22050_padded = pad_sequence(
+        wav2_resample_padded = pad_sequence(
             [torch.tensor(w) for w in wav2_resample], batch_first=True
         )
-        wav_merged_22050_padded = pad_sequence(
+        wav_merged_resample_padded = pad_sequence(
             [torch.tensor(w) for w in wav_merged_resample], batch_first=True
         )
         token_1_padded = pad_sequence(token_1, batch_first=True).transpose(1, 2)
@@ -117,9 +117,9 @@ class DialogueSeparatorDataModule(LightningDataModule):
         )
 
         output = {
-            "wav_1": wav1_22050_padded,
-            "wav_2": wav2_22050_padded,
-            "wav_merged": wav_merged_22050_padded,
+            "wav_1": wav1_resample_padded,
+            "wav_2": wav2_resample_padded,
+            "wav_merged": wav_merged_resample_padded,
             "token_1": token_1_padded,
             "token_2": token_2_padded,
             "token_merged": token_merged_padded,
