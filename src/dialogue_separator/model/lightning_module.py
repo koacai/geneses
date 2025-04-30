@@ -159,15 +159,39 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         logits = self.decoder.forward(path_sample.x_t, mask, token_merged, t)
 
-        loss_fn = MixturePathGeneralizedKL(path=self.path)
-
-        loss = loss_fn(
+        loss = self.loss_fn(
             logits=logits,
             x_1=token_both.to(torch.int64),
             x_t=path_sample.x_t.to(torch.int64),
             t=path_sample.t,
         )
         return loss
+
+    def loss_fn(
+        self,
+        logits: torch.Tensor,
+        x_1: torch.Tensor,
+        x_t: torch.Tensor,
+        t: torch.Tensor,
+    ) -> torch.Tensor:
+        loss_fn = MixturePathGeneralizedKL(path=self.path)
+
+        losses = []
+        for i in range(self.cfg.model.mimi.num_codebooks):
+            _logits = logits[:, :, i, :, :]
+            _x_1 = x_1[:, :, i, :]
+            _x_t = x_t[:, :, i, :]
+            _loss = loss_fn(
+                logits=_logits, x_1=_x_1.to(torch.int64), x_t=_x_t.to(torch.int64), t=t
+            )
+
+            if i == 0:
+                alpha = 100
+            else:
+                alpha = 1
+            losses.append(_loss * alpha)
+
+        return torch.sum(torch.stack(losses), dim=0) / len(losses)
 
     def forward(
         self, batch: dict[str, torch.Tensor]
