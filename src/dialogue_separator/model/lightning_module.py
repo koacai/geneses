@@ -15,7 +15,7 @@ from omegaconf import DictConfig
 import wandb
 from dialogue_separator.utils.model import sequence_mask
 
-from .flow_predictor import Decoder
+from .decoder import Decoder
 
 
 class WrappedDecoder(ModelWrapper):
