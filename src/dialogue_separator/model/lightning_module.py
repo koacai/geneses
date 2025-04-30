@@ -51,7 +51,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         return {
             "optimizer": optimizer,
             "lr_scheduler": lr_scheduler,
-            "monitor": "validation_loss",
+            "monitor": "train_loss",
         }
 
     def training_step(
