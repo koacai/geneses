@@ -158,6 +158,7 @@ class Decoder(nn.Module):
         self,
         vocab_size: int,
         hidden_size: int,
+        num_codebooks: int,
         channels: tuple = (256, 256),
         dropout: float = 0.05,
         attention_head_dim: int = 64,
