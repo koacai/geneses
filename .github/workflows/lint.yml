@@ -1,4 +1,4 @@
-name: Lint
+name: Check
 
 on: [pull_request]
 
@@ -13,6 +13,8 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
       - name: Install dependencies
-        run: uv sync --only-dev
+        run: uv sync
       - name: Lint
         run: make lint
+      - name: Test
+        run: make test
