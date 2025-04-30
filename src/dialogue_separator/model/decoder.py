@@ -307,7 +307,7 @@ class Decoder(nn.Module):
         t: torch.Tensor,
     ) -> torch.Tensor:
         """
-        x_t: (batch_size, num_codebooks, length, 2)
+        x_t: (batch_size, 2,  num_codebooks, length)
         """
 
         x_t_1 = x_t[:, 0, :, :]
