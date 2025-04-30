@@ -51,7 +51,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         return {
             "optimizer": optimizer,
             "lr_scheduler": lr_scheduler,
-            "monitor": "train_loss",
+            "monitor": "validation_loss",
         }
 
     def training_step(
@@ -206,7 +206,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         )
         assert isinstance(res, torch.Tensor)
 
-        return res[:, :, :, 0], res[:, :, :, 1]
+        return res[:, 0, :, :], res[:, 1, :, :]
 
     def log_audio(self, audio: np.ndarray, name: str, sampling_rate: int) -> None:
         for logger in self.loggers:
