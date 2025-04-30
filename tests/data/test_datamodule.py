@@ -6,6 +6,7 @@ from hydra import compose, initialize
 from dialogue_separator.data.datamodule import DialogueSeparatorDataModule
 
 
+@pytest.mark.skip("ローカルで実行するためのテスト")
 class TestDialogueSeparatorDataModule:
     @pytest.fixture
     def init(self) -> None:

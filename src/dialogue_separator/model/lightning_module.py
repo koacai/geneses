@@ -1,6 +1,7 @@
 import hydra
 import numpy as np
 import torch
+import torch.nn.functional as F
 from flow_matching.loss import MixturePathGeneralizedKL
 from flow_matching.path import MixtureDiscreteProbPath
 from flow_matching.path.scheduler import PolynomialConvexScheduler
@@ -13,9 +14,9 @@ from moshi.models import loaders
 from omegaconf import DictConfig
 
 import wandb
-from dialogue_separator.utils.model import sequence_mask
+from dialogue_separator.utils.model import fix_len_compatibility, sequence_mask
 
-from .flow_predictor import Decoder
+from .decoder import Decoder
 
 
 class WrappedDecoder(ModelWrapper):
@@ -32,7 +33,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         super(DialogueSeparatorLightningModule, self).__init__()
         self.cfg = cfg
 
-        self.decoder = Decoder(**cfg.model.flow_predictor)
+        self.decoder = Decoder(**cfg.model.decoder)
 
         self.path = MixtureDiscreteProbPath(
             scheduler=PolynomialConvexScheduler(n=cfg.model.scheduler_n)
@@ -142,13 +143,19 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         batch_size = token_merged.size(0)
 
+        orig_len = token_merged.size(-1)
+        new_len = fix_len_compatibility(orig_len)
+        token_merged = F.pad(token_merged, (0, new_len - orig_len))
+        token_1 = F.pad(token_1, (0, new_len - orig_len))
+        token_2 = F.pad(token_2, (0, new_len - orig_len))
+
         lengths = batch["token_len"]
-        mask = sequence_mask(lengths, torch.max(lengths)).unsqueeze(1).to(self.device)
+        mask = sequence_mask(lengths, new_len).unsqueeze(1).to(self.device)
 
         t = torch.rand((batch_size,), device=self.device)
-        token_cat = torch.cat([token_1, token_2], dim=-1)
-        noise = torch.randint_like(token_cat, high=self.cfg.model.vocab_size)
-        path_sample = self.path.sample(x_0=noise, x_1=token_cat, t=t)
+        token_both = torch.stack([token_1, token_2], dim=1)
+        noise = torch.randint_like(token_both, high=self.cfg.model.vocab_size)
+        path_sample = self.path.sample(x_0=noise, x_1=token_both, t=t)
 
         logits = self.decoder.forward(path_sample.x_t, mask, token_merged, t)
 
@@ -156,7 +163,7 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         loss = loss_fn(
             logits=logits,
-            x_1=token_cat.to(torch.int64),
+            x_1=token_both.to(torch.int64),
             x_t=path_sample.x_t.to(torch.int64),
             t=path_sample.t,
         )
@@ -167,11 +174,15 @@ class DialogueSeparatorLightningModule(LightningModule):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         token_merged = batch["token_merged"]
 
-        lengths = batch["token_len"]
-        mask = sequence_mask(lengths, torch.max(lengths)).unsqueeze(1).to(self.device)
+        orig_len = token_merged.size(-1)
+        new_len = fix_len_compatibility(orig_len)
+        token_merged = F.pad(token_merged, (0, new_len - orig_len))
 
-        token_cat = torch.cat([token_merged, token_merged], dim=-1)
-        noise = torch.randint_like(token_cat, high=self.cfg.model.vocab_size).long()
+        lengths = batch["token_len"]
+        mask = sequence_mask(lengths, new_len).unsqueeze(1).to(self.device)
+
+        token_both = torch.stack([token_merged, token_merged], dim=1)
+        noise = torch.randint_like(token_both, high=self.cfg.model.vocab_size).long()
 
         nfe = 64
         step_size = 1 / nfe
@@ -195,9 +206,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         )
         assert isinstance(res, torch.Tensor)
 
-        res_1, res_2 = torch.chunk(res, 2, dim=-1)
-
-        return res_1, res_2
+        return res[:, :, :, 0], res[:, :, :, 1]
 
     def log_audio(self, audio: np.ndarray, name: str, sampling_rate: int) -> None:
         for logger in self.loggers:

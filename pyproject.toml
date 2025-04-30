@@ -58,3 +58,6 @@ torchaudio = { index = "torch-aarch", marker = "sys_platform == 'linux' and plat
 name = "torch-aarch"
 url = "https://download.pytorch.org/whl/cu126"
 explicit = true
+
+[tool.pytest.ini_options]
+addopts = "-vv --tb=short -s"
