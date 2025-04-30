@@ -130,6 +130,29 @@ class Upsample1D(nn.Module):
         return outputs
 
 
+class MimiTokenEmbedding(nn.Module):
+    def __init__(self, num_codebooks: int, vocab_size: int, hidden_size: int) -> None:
+        super(MimiTokenEmbedding, self).__init__()
+        self.num_codebooks = num_codebooks
+        self.linears = nn.ModuleList(
+            [nn.Embedding(vocab_size, hidden_size) for _ in range(num_codebooks)]
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        x: (batch_size, num_codebooks, length)
+        """
+        assert x.size(1) == len(self.linears)
+
+        embeddings = []
+
+        for i in range(x.size(1)):
+            _embedding = self.linears[i](x[:, i, :])
+            embeddings.append(_embedding)
+
+        return torch.sum(torch.stack(embeddings), dim=0) / self.num_codebooks
+
+
 class Decoder(nn.Module):
     def __init__(
         self,

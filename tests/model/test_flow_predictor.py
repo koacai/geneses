@@ -2,7 +2,7 @@ import pytest
 import torch
 from hydra import compose, initialize
 
-from dialogue_separator.model.flow_predictor import Decoder
+from dialogue_separator.model.flow_predictor import Decoder, MimiTokenEmbedding
 from dialogue_separator.utils.model import sequence_mask
 
 
@@ -30,3 +30,12 @@ class TestDecoder:
         assert res.size(1) == 8
         assert res.size(2) == 200
         assert res.size(3) == 2048
+
+
+def test_mimi_token_embedding_forward() -> None:
+    mimi_token_embedding = MimiTokenEmbedding(
+        num_codebooks=8, vocab_size=2048, hidden_size=512
+    )
+    token = torch.randint(0, 2047, (4, 8, 100))
+    embedding = mimi_token_embedding.forward(token)
+    assert embedding.size() == (4, 100, 512)
