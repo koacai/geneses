@@ -32,7 +32,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         super(DialogueSeparatorLightningModule, self).__init__()
         self.cfg = cfg
 
-        self.decoder = Decoder(**cfg.model.flow_predictor)
+        self.decoder = Decoder(**cfg.model.decoder)
 
         self.path = MixtureDiscreteProbPath(
             scheduler=PolynomialConvexScheduler(n=cfg.model.scheduler_n)

@@ -7,7 +7,7 @@ from dialogue_separator.utils.model import sequence_mask
 
 def test_decoder_forward() -> None:
     with initialize(config_path="../../config", version_base=None):
-        cfg = compose(config_name="default").model.flow_predictor
+        cfg = compose(config_name="default").model.decoder
         decoder = Decoder(**cfg)
 
     batch_size = 4

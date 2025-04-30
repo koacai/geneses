@@ -7,7 +7,7 @@ lr_scheduler:
 vocab_size: 2048
 scheduler_n: 2.0
 
-flow_predictor:
+decoder:
   vocab_size: ${model.vocab_size}
   hidden_size: 512
   num_codebooks: ${data.preprocess.mimi.num_codebooks}
