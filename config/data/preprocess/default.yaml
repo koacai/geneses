@@ -6,7 +6,7 @@ mimi:
   num_codebooks: 8
   sr: 24000
 
-duration: 10
+duration: 30
 train_ratio: 0.9
 shard_size:
   train: 3e7
