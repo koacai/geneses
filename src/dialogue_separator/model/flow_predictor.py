@@ -133,7 +133,6 @@ class Upsample1D(nn.Module):
 class MimiTokenEmbedding(nn.Module):
     def __init__(self, num_codebooks: int, vocab_size: int, hidden_size: int) -> None:
         super(MimiTokenEmbedding, self).__init__()
-        self.num_codebooks = num_codebooks
         self.linears = nn.ModuleList(
             [nn.Embedding(vocab_size, hidden_size) for _ in range(num_codebooks)]
         )
@@ -150,7 +149,7 @@ class MimiTokenEmbedding(nn.Module):
             _embedding = self.linears[i](x[:, i, :])
             embeddings.append(_embedding)
 
-        return torch.sum(torch.stack(embeddings), dim=0) / self.num_codebooks
+        return torch.sum(torch.stack(embeddings), dim=0)
 
 
 class Decoder(nn.Module):
@@ -173,8 +172,7 @@ class Decoder(nn.Module):
         self.in_channels = 2 * hidden_size
         self.out_channels = hidden_size
 
-        self.x_t_embedding = nn.Embedding(vocab_size, hidden_size)
-        self.x_merged_embedding = nn.Embedding(vocab_size, hidden_size)
+        self.mimi_embedding = MimiTokenEmbedding(num_codebooks, vocab_size, hidden_size)
 
         self.time_embeddings = SinusoidalPosEmb(self.in_channels)
         time_embed_dim = channels[0] * 4
@@ -274,7 +272,12 @@ class Decoder(nn.Module):
         self.final_block = Block1D(channels[-1], channels[-1])
         self.final_proj = nn.Conv1d(channels[-1], self.out_channels, 1)
 
-        self.output_head = nn.Linear(self.out_channels, vocab_size)
+        self.output_heads_1 = nn.ModuleList(
+            [nn.Linear(self.out_channels, vocab_size) for _ in range(num_codebooks)]
+        )
+        self.output_heads_2 = nn.ModuleList(
+            [nn.Linear(self.out_channels, vocab_size) for _ in range(num_codebooks)]
+        )
 
         self.initialize_weights()
 
@@ -304,24 +307,20 @@ class Decoder(nn.Module):
         t: torch.Tensor,
     ) -> torch.Tensor:
         """
-        x_t: x_t^1とx_t^2をcatしたもの
+        x_t: (batch_size, num_codebooks, length, 2)
         """
 
-        _, num_codebooks, length = x_t.size()
-
-        x_t = x_t.reshape(x_t.size(0), -1)
-        x_t = self.x_t_embedding(x_t)
-        x_merged = torch.cat([x_merged, x_merged], dim=-1)
-        x_merged = x_merged.reshape(x_merged.size(0), -1)
-        x_merged = self.x_merged_embedding(x_merged)
-
+        x_t_1 = x_t[:, :, :, 0]
+        x_t_1 = self.mimi_embedding(x_t_1)
+        x_t_2 = x_t[:, :, :, 1]
+        x_t_2 = self.mimi_embedding(x_t_2)
+        x_t = x_t_1 + x_t_2
         x_t = x_t.permute(0, 2, 1)
+
+        x_merged = self.mimi_embedding(x_merged)
         x_merged = x_merged.permute(0, 2, 1)
 
         x_t = pack([x_t, x_merged], "b * t")[0]
-
-        mask = mask.expand(-1, num_codebooks * 2, -1)
-        mask = mask.reshape(mask.size(0), -1).unsqueeze(1)
 
         t = self.time_embeddings(t)
         t = self.time_mlp(t)
@@ -382,7 +381,19 @@ class Decoder(nn.Module):
         output = self.final_proj(x_t * mask_up)
 
         res = output * mask
-        res = self.output_head(res.permute(0, 2, 1))
-        res = res.view(res.size(0), num_codebooks, length, -1)
 
-        return res
+        logits_1_list = []
+        for layer in self.output_heads_1:
+            _logit = layer(res.permute(0, 2, 1))
+            logits_1_list.append(_logit)
+
+        logits_1 = torch.stack(logits_1_list, dim=1)
+
+        logits_2_list = []
+        for layer in self.output_heads_2:
+            _logit = layer(res.permute(0, 2, 1))
+            logits_2_list.append(_logit)
+
+        logits_2 = torch.stack(logits_2_list, dim=1)
+
+        return torch.stack([logits_1, logits_2], dim=-1)
