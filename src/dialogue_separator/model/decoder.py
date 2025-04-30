@@ -310,9 +310,9 @@ class Decoder(nn.Module):
         x_t: (batch_size, num_codebooks, length, 2)
         """
 
-        x_t_1 = x_t[:, :, :, 0]
+        x_t_1 = x_t[:, 0, :, :]
         x_t_1 = self.mimi_embedding(x_t_1)
-        x_t_2 = x_t[:, :, :, 1]
+        x_t_2 = x_t[:, 1, :, :]
         x_t_2 = self.mimi_embedding(x_t_2)
         x_t = x_t_1 + x_t_2
         x_t = x_t.permute(0, 2, 1)
@@ -396,4 +396,4 @@ class Decoder(nn.Module):
 
         logits_2 = torch.stack(logits_2_list, dim=1)
 
-        return torch.stack([logits_1, logits_2], dim=-1)
+        return torch.stack([logits_1, logits_2], dim=1)

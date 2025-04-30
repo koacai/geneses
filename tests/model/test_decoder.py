@@ -17,10 +17,10 @@ def test_decoder_forward() -> None:
     mask = sequence_mask(torch.tensor([95, 96, 97, 98]), 100).unsqueeze(1)
     t = torch.rand((batch_size,))
 
-    token_t = torch.stack([token_t_1, token_t_2], dim=-1)
+    token_t = torch.stack([token_t_1, token_t_2], dim=1)
 
     res = decoder.forward(token_t, mask, token_merged, t)
-    assert res.size() == (batch_size, 8, 100, 2048, 2)
+    assert res.size() == (batch_size, 2, 8, 100, 2048)
 
 
 def test_mimi_token_embedding_forward() -> None:
