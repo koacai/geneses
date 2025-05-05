@@ -16,10 +16,10 @@ from omegaconf import DictConfig
 import wandb
 from dialogue_separator.utils.model import fix_len_compatibility, sequence_mask
 
-from .decoder import Decoder
+from .flow_predictor import FlowPredictor
 
 
-class WrappedDecoder(ModelWrapper):
+class WrappedModel(ModelWrapper):
     def forward(self, x: torch.Tensor, t: torch.Tensor, **extras) -> torch.Tensor:
         mask = extras.get("mask", None)
         assert mask is not None
@@ -33,7 +33,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         super(DialogueSeparatorLightningModule, self).__init__()
         self.cfg = cfg
 
-        self.decoder = Decoder(**cfg.model.decoder)
+        self.flow_predictor = FlowPredictor(cfg.model.flow_predictor)
 
         self.path = MixtureDiscreteProbPath(
             scheduler=PolynomialConvexScheduler(n=cfg.model.scheduler_n)
@@ -157,7 +157,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         noise = torch.randint_like(token_both, high=self.cfg.model.vocab_size)
         path_sample = self.path.sample(x_0=noise, x_1=token_both, t=t)
 
-        logits = self.decoder.forward(path_sample.x_t, mask, token_merged, t)
+        logits = self.flow_predictor.forward(path_sample.x_t, mask, token_merged, t)
 
         loss = self.loss_fn(
             logits=logits,
@@ -214,7 +214,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         epsilon = 1e-3
         linspace_to_plot = torch.linspace(0, 1 - epsilon, n_plots)
 
-        wrapped_model = WrappedDecoder(self.decoder)
+        wrapped_model = WrappedModel(self.flow_predictor)
 
         solver = MixtureDiscreteEulerSolver(
             model=wrapped_model,

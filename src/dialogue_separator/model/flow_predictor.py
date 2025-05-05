@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from diffusers.models.activations import get_activation
 from einops import pack, rearrange
+from omegaconf import DictConfig
 
 from .transformer import BasicTransformerBlock
 
@@ -130,34 +131,10 @@ class Upsample1D(nn.Module):
         return outputs
 
 
-class MimiTokenEmbedding(nn.Module):
-    def __init__(self, num_codebooks: int, vocab_size: int, hidden_size: int) -> None:
-        super(MimiTokenEmbedding, self).__init__()
-        self.linears = nn.ModuleList(
-            [nn.Embedding(vocab_size, hidden_size) for _ in range(num_codebooks)]
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        x: (batch_size, num_codebooks, length)
-        """
-        assert x.size(1) == len(self.linears)
-
-        embeddings = []
-
-        for i in range(x.size(1)):
-            _embedding = self.linears[i](x[:, i, :])
-            embeddings.append(_embedding)
-
-        return torch.sum(torch.stack(embeddings), dim=0)
-
-
 class Decoder(nn.Module):
     def __init__(
         self,
-        vocab_size: int,
         hidden_size: int,
-        num_codebooks: int,
         channels: tuple = (256, 256),
         dropout: float = 0.05,
         attention_head_dim: int = 64,
@@ -171,8 +148,6 @@ class Decoder(nn.Module):
 
         self.in_channels = 2 * hidden_size
         self.out_channels = hidden_size
-
-        self.mimi_embedding = MimiTokenEmbedding(num_codebooks, vocab_size, hidden_size)
 
         self.time_embeddings = SinusoidalPosEmb(self.in_channels)
         time_embed_dim = channels[0] * 4
@@ -272,13 +247,6 @@ class Decoder(nn.Module):
         self.final_block = Block1D(channels[-1], channels[-1])
         self.final_proj = nn.Conv1d(channels[-1], self.out_channels, 1)
 
-        self.output_heads_1 = nn.ModuleList(
-            [nn.Linear(self.out_channels, vocab_size) for _ in range(num_codebooks)]
-        )
-        self.output_heads_2 = nn.ModuleList(
-            [nn.Linear(self.out_channels, vocab_size) for _ in range(num_codebooks)]
-        )
-
         self.initialize_weights()
 
     def initialize_weights(self) -> None:
@@ -301,6 +269,125 @@ class Decoder(nn.Module):
 
     def forward(
         self,
+        x: torch.Tensor,
+        mu: torch.Tensor,
+        mask: torch.Tensor,
+        t: torch.Tensor,
+    ) -> torch.Tensor:
+        x = pack([x, mu], "b * t")[0]
+
+        t = self.time_embeddings(t)
+        t = self.time_mlp(t)
+
+        hiddens = []
+        masks = [mask]
+        for resnet, transformer_blocks, downsample in self.down_blocks:  # type: ignore
+            mask_down = masks[-1]
+            x = resnet(x, mask_down, t)
+            x = rearrange(x, "b c t -> b t c")
+            mask_down = rearrange(mask_down, "b 1 t -> b t")
+            for transformer_block in transformer_blocks:
+                x = transformer_block(
+                    hidden_states=x,
+                    attention_mask=mask_down,
+                    timestep=t,
+                )
+            x = rearrange(x, "b t c -> b c t")
+            mask_down = rearrange(mask_down, "b t -> b 1 t")
+            hiddens.append(x)
+            x = downsample(x * mask_down)
+            masks.append(mask_down[:, :, ::2])
+
+        masks = masks[:-1]
+        mask_mid = masks[-1]
+
+        for resnet, transformer_blocks in self.mid_blocks:  # type: ignore
+            x = resnet(x, mask_mid, t)
+            x = rearrange(x, "b c t -> b t c")
+            mask_mid = rearrange(mask_mid, "b 1 t -> b t")
+            for transformer_block in transformer_blocks:
+                x = transformer_block(
+                    hidden_states=x,
+                    attention_mask=mask_mid,
+                    timestep=t,
+                )
+            x = rearrange(x, "b t c -> b c t")
+            mask_mid = rearrange(mask_mid, "b t -> b 1 t")
+
+        mask_up = None
+        for resnet, transformer_blocks, upsample in self.up_blocks:  # type: ignore
+            mask_up = masks.pop()
+            x = resnet(pack([x, hiddens.pop()], "b * t")[0], mask_up, t)
+            x = rearrange(x, "b c t -> b t c")
+            mask_up = rearrange(mask_up, "b 1 t -> b t")
+            for transformer_block in transformer_blocks:
+                x = transformer_block(
+                    hidden_states=x,
+                    attention_mask=mask_up,
+                    timestep=t,
+                )
+            x = rearrange(x, "b t c -> b c t")
+            mask_up = rearrange(mask_up, "b t -> b 1 t")
+            x = upsample(x * mask_up)
+
+        assert mask_up is not None
+        x = self.final_block(x, mask_up)
+        output = self.final_proj(x * mask_up)
+
+        res = output * mask
+
+        return res
+
+
+class MimiEmbedding(nn.Module):
+    def __init__(self, num_codebooks: int, vocab_size: int, hidden_size: int) -> None:
+        super(MimiEmbedding, self).__init__()
+        self.layers = nn.ModuleList(
+            [nn.Embedding(vocab_size, hidden_size) for _ in range(num_codebooks)]
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        x: (batch_size, num_codebooks, length)
+        """
+        assert x.size(1) == len(self.layers)
+
+        embeddings = []
+
+        for i in range(x.size(1)):
+            _embedding = self.layers[i](x[:, i, :])
+            embeddings.append(_embedding)
+
+        return torch.sum(torch.stack(embeddings), dim=0)
+
+
+class LogitsHead(nn.Module):
+    def __init__(self, num_codebooks: int, vocab_size: int, hidden_size: int) -> None:
+        super(LogitsHead, self).__init__()
+        self.linears = nn.ModuleList(
+            [nn.Linear(hidden_size, vocab_size) for _ in range(num_codebooks)]
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        logits_list = []
+        for linear in self.linears:
+            _logit = linear(x.permute(0, 2, 1))
+            logits_list.append(_logit)
+
+        logits = torch.stack(logits_list, dim=1)
+        return logits
+
+
+class FlowPredictor(nn.Module):
+    def __init__(self, cfg: DictConfig) -> None:
+        super(FlowPredictor, self).__init__()
+        self.mimi_embedding = MimiEmbedding(**cfg.mimi_embedding)
+        self.decoder = Decoder(**cfg.decoder)
+        self.logits_head_1 = LogitsHead(**cfg.logits_head)
+        self.logits_head_2 = LogitsHead(**cfg.logits_head)
+
+    def forward(
+        self,
         x_t: torch.Tensor,
         mask: torch.Tensor,
         x_merged: torch.Tensor,
@@ -314,86 +401,15 @@ class Decoder(nn.Module):
         x_t_1 = self.mimi_embedding(x_t_1)
         x_t_2 = x_t[:, 1, :, :]
         x_t_2 = self.mimi_embedding(x_t_2)
-        x_t = x_t_1 + x_t_2
-        x_t = x_t.permute(0, 2, 1)
+        x = x_t_1 + x_t_2
+        x = x.permute(0, 2, 1)
 
-        x_merged = self.mimi_embedding(x_merged)
-        x_merged = x_merged.permute(0, 2, 1)
+        mu = self.mimi_embedding(x_merged)
+        mu = mu.permute(0, 2, 1)
 
-        x_t = pack([x_t, x_merged], "b * t")[0]
+        output = self.decoder.forward(x, mu, mask, t)
 
-        t = self.time_embeddings(t)
-        t = self.time_mlp(t)
-
-        hiddens = []
-        masks = [mask]
-        for resnet, transformer_blocks, downsample in self.down_blocks:  # type: ignore
-            mask_down = masks[-1]
-            x_t = resnet(x_t, mask_down, t)
-            x_t = rearrange(x_t, "b c t -> b t c")
-            mask_down = rearrange(mask_down, "b 1 t -> b t")
-            for transformer_block in transformer_blocks:
-                x_t = transformer_block(
-                    hidden_states=x_t,
-                    attention_mask=mask_down,
-                    timestep=t,
-                )
-            x_t = rearrange(x_t, "b t c -> b c t")
-            mask_down = rearrange(mask_down, "b t -> b 1 t")
-            hiddens.append(x_t)
-            x_t = downsample(x_t * mask_down)
-            masks.append(mask_down[:, :, ::2])
-
-        masks = masks[:-1]
-        mask_mid = masks[-1]
-
-        for resnet, transformer_blocks in self.mid_blocks:  # type: ignore
-            x_t = resnet(x_t, mask_mid, t)
-            x_t = rearrange(x_t, "b c t -> b t c")
-            mask_mid = rearrange(mask_mid, "b 1 t -> b t")
-            for transformer_block in transformer_blocks:
-                x_t = transformer_block(
-                    hidden_states=x_t,
-                    attention_mask=mask_mid,
-                    timestep=t,
-                )
-            x_t = rearrange(x_t, "b t c -> b c t")
-            mask_mid = rearrange(mask_mid, "b t -> b 1 t")
-
-        mask_up = None
-        for resnet, transformer_blocks, upsample in self.up_blocks:  # type: ignore
-            mask_up = masks.pop()
-            x_t = resnet(pack([x_t, hiddens.pop()], "b * t")[0], mask_up, t)
-            x_t = rearrange(x_t, "b c t -> b t c")
-            mask_up = rearrange(mask_up, "b 1 t -> b t")
-            for transformer_block in transformer_blocks:
-                x_t = transformer_block(
-                    hidden_states=x_t,
-                    attention_mask=mask_up,
-                    timestep=t,
-                )
-            x_t = rearrange(x_t, "b t c -> b c t")
-            mask_up = rearrange(mask_up, "b t -> b 1 t")
-            x_t = upsample(x_t * mask_up)
-
-        assert mask_up is not None
-        x_t = self.final_block(x_t, mask_up)
-        output = self.final_proj(x_t * mask_up)
-
-        res = output * mask
-
-        logits_1_list = []
-        for layer in self.output_heads_1:
-            _logit = layer(res.permute(0, 2, 1))
-            logits_1_list.append(_logit)
-
-        logits_1 = torch.stack(logits_1_list, dim=1)
-
-        logits_2_list = []
-        for layer in self.output_heads_2:
-            _logit = layer(res.permute(0, 2, 1))
-            logits_2_list.append(_logit)
-
-        logits_2 = torch.stack(logits_2_list, dim=1)
+        logits_1 = self.logits_head_1.forward(output)
+        logits_2 = self.logits_head_2.forward(output)
 
         return torch.stack([logits_1, logits_2], dim=1)
