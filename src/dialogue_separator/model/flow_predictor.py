@@ -382,6 +382,11 @@ class FlowPredictor(nn.Module):
     def __init__(self, cfg: DictConfig) -> None:
         super(FlowPredictor, self).__init__()
         self.mimi_embedding = MimiEmbedding(**cfg.mimi_embedding)
+        self.fusion = nn.Conv1d(
+            cfg.mimi_embedding.hidden_size * 2,
+            cfg.mimi_embedding.hidden_size,
+            kernel_size=1,
+        )
         self.decoder = Decoder(**cfg.decoder)
         self.logits_head_1 = LogitsHead(**cfg.logits_head)
         self.logits_head_2 = LogitsHead(**cfg.logits_head)
@@ -398,11 +403,11 @@ class FlowPredictor(nn.Module):
         """
 
         x_t_1 = x_t[:, 0, :, :]
-        x_t_1 = self.mimi_embedding(x_t_1)
+        x_t_1 = self.mimi_embedding(x_t_1).permute(0, 2, 1)
         x_t_2 = x_t[:, 1, :, :]
-        x_t_2 = self.mimi_embedding(x_t_2)
-        x = x_t_1 + x_t_2
-        x = x.permute(0, 2, 1)
+        x_t_2 = self.mimi_embedding(x_t_2).permute(0, 2, 1)
+        x = torch.cat([x_t_1, x_t_2], dim=1)
+        x = self.fusion(x)
 
         mu = self.mimi_embedding(x_merged)
         mu = mu.permute(0, 2, 1)
