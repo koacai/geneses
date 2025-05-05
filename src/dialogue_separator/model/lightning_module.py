@@ -16,7 +16,7 @@ from omegaconf import DictConfig
 import wandb
 from dialogue_separator.utils.model import fix_len_compatibility, sequence_mask
 
-from .decoder import FlowPredictor
+from .flow_predictor import FlowPredictor
 
 
 class WrappedModel(ModelWrapper):

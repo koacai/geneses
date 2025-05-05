@@ -1,7 +1,7 @@
 import torch
 from hydra import compose, initialize
 
-from dialogue_separator.model.decoder import FlowPredictor, MimiEmbedding
+from dialogue_separator.model.flow_predictor import FlowPredictor, MimiEmbedding
 from dialogue_separator.utils.model import sequence_mask
 
 
