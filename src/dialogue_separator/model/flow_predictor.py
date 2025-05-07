@@ -404,7 +404,10 @@ class FlowPredictor(nn.Module):
     def __init__(self, cfg: DictConfig) -> None:
         super(FlowPredictor, self).__init__()
         self.mimi_embedding = MimiEmbedding(**cfg.mimi_embedding)
-        self.film_layer = FiLMLayer(
+        self.film_layer_1 = FiLMLayer(
+            cfg.mimi_embedding.hidden_size, cfg.mimi_embedding.hidden_size
+        )
+        self.film_layer_2 = FiLMLayer(
             cfg.mimi_embedding.hidden_size, cfg.mimi_embedding.hidden_size
         )
         self.decoder = Decoder(**cfg.decoder)
@@ -419,22 +422,27 @@ class FlowPredictor(nn.Module):
         t: torch.Tensor,
     ) -> torch.Tensor:
         """
-        x_t: (batch_size, 2,  num_codebooks, length)
+        x_t: (batch_size, 2, num_codebooks, length)
         """
 
         x_t_1 = x_t[:, 0, :, :]
         x_t_1 = self.mimi_embedding(x_t_1)
         x_t_2 = x_t[:, 1, :, :]
         x_t_2 = self.mimi_embedding(x_t_2)
-        x = self.film_layer.forward(x_t_1, x_t_2)
-        x = x.permute(0, 2, 1)
 
         mu = self.mimi_embedding(x_merged)
-        mu = mu.permute(0, 2, 1)
+        mu_1 = self.film_layer_1.forward(mu, x_t_1)
+        mu_2 = self.film_layer_2.forward(mu, x_t_2)
 
-        output = self.decoder.forward(x, mu, mask, t)
+        x_1 = x_t_1.permute(0, 2, 1)
+        x_2 = x_t_2.permute(0, 2, 1)
+        mu_1 = mu_1.permute(0, 2, 1)
+        mu_2 = mu_2.permute(0, 2, 1)
 
-        logits_1 = self.logits_head_1.forward(output)
-        logits_2 = self.logits_head_2.forward(output)
+        output_1 = self.decoder.forward(x_1, mu_1, mask, t)
+        output_2 = self.decoder.forward(x_2, mu_2, mask, t)
+
+        logits_1 = self.logits_head_1.forward(output_1)
+        logits_2 = self.logits_head_2.forward(output_2)
 
         return torch.stack([logits_1, logits_2], dim=1)

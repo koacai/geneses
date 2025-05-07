@@ -181,9 +181,7 @@ class DialogueSeparatorLightningModule(LightningModule):
             _logits = logits[:, :, i, :, :]
             _x_1 = x_1[:, :, i, :]
             _x_t = x_t[:, :, i, :]
-            _loss = loss_fn(
-                logits=_logits, x_1=_x_1.to(torch.int64), x_t=_x_t.to(torch.int64), t=t
-            )
+            _loss = loss_fn(logits=_logits, x_1=_x_1, x_t=_x_t, t=t)
 
             if i == 0:
                 alpha = 100
