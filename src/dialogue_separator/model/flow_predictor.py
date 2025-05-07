@@ -378,14 +378,37 @@ class LogitsHead(nn.Module):
         return logits
 
 
+class FiLMLayer(nn.Module):
+    def __init__(self, input_channels: int, intermediate_channels: int) -> None:
+        super(FiLMLayer, self).__init__()
+        self.conv1 = nn.Conv1d(
+            input_channels, intermediate_channels, kernel_size=3, stride=1, padding=1
+        )
+        self.conv2 = nn.Conv1d(
+            intermediate_channels, input_channels, kernel_size=3, stride=1, padding=1
+        )
+        self.leaky_relu = nn.LeakyReLU(0.1)
+
+    def forward(self, a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+        batch_size, K, D = a.size()
+        a = a.transpose(1, 2)
+        output = self.conv2(
+            (self.leaky_relu(self.conv1(a)).transpose(1, 2) + b).transpose(1, 2)
+        )
+        output = output.permute(0, 2, 1)
+        assert output.size() == (batch_size, K, D)
+        return output
+
+
 class FlowPredictor(nn.Module):
     def __init__(self, cfg: DictConfig) -> None:
         super(FlowPredictor, self).__init__()
         self.mimi_embedding = MimiEmbedding(**cfg.mimi_embedding)
-        self.fusion = nn.Conv1d(
-            cfg.mimi_embedding.hidden_size * 2,
-            cfg.mimi_embedding.hidden_size,
-            kernel_size=1,
+        self.film_layer_1 = FiLMLayer(
+            cfg.mimi_embedding.hidden_size, cfg.mimi_embedding.hidden_size
+        )
+        self.film_layer_2 = FiLMLayer(
+            cfg.mimi_embedding.hidden_size, cfg.mimi_embedding.hidden_size
         )
         self.decoder = Decoder(**cfg.decoder)
         self.logits_head_1 = LogitsHead(**cfg.logits_head)
@@ -399,22 +422,27 @@ class FlowPredictor(nn.Module):
         t: torch.Tensor,
     ) -> torch.Tensor:
         """
-        x_t: (batch_size, 2,  num_codebooks, length)
+        x_t: (batch_size, 2, num_codebooks, length)
         """
 
         x_t_1 = x_t[:, 0, :, :]
-        x_t_1 = self.mimi_embedding(x_t_1).permute(0, 2, 1)
+        x_t_1 = self.mimi_embedding(x_t_1)
         x_t_2 = x_t[:, 1, :, :]
-        x_t_2 = self.mimi_embedding(x_t_2).permute(0, 2, 1)
-        x = torch.cat([x_t_1, x_t_2], dim=1)
-        x = self.fusion(x)
+        x_t_2 = self.mimi_embedding(x_t_2)
 
         mu = self.mimi_embedding(x_merged)
-        mu = mu.permute(0, 2, 1)
+        mu_1 = self.film_layer_1.forward(mu, x_t_1)
+        mu_2 = self.film_layer_2.forward(mu, x_t_2)
 
-        output = self.decoder.forward(x, mu, mask, t)
+        x_1 = x_t_1.permute(0, 2, 1)
+        x_2 = x_t_2.permute(0, 2, 1)
+        mu_1 = mu_1.permute(0, 2, 1)
+        mu_2 = mu_2.permute(0, 2, 1)
 
-        logits_1 = self.logits_head_1.forward(output)
-        logits_2 = self.logits_head_2.forward(output)
+        output_1 = self.decoder.forward(x_1, mu_1, mask, t)
+        output_2 = self.decoder.forward(x_2, mu_2, mask, t)
+
+        logits_1 = self.logits_head_1.forward(output_1)
+        logits_2 = self.logits_head_2.forward(output_2)
 
         return torch.stack([logits_1, logits_2], dim=1)
