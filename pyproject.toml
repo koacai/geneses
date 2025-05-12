@@ -13,6 +13,7 @@ dependencies = [
     "flow-matching>=1.0.10",
     "lhotse-dataset",
     "lightning>=2.5.1.post0",
+    "mmdit>=0.2.2",
     "moshi>=0.2.4",
     "torch>=2.6.0",
     "torchaudio>=2.6.0",
