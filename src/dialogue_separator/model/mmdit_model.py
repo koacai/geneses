@@ -17,7 +17,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from .utils import Attention, Mlp
+from dialogue_separator.model.utils import Attention, Mlp
 
 
 def modulate(x, shift, scale):
