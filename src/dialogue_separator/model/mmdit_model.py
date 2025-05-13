@@ -13,20 +13,8 @@ import math
 
 import mmdit
 import mmdit.mmdit_generalized_pytorch
-import numpy as np
 import torch
 import torch.nn as nn
-
-from dialogue_separator.model.utils import Attention, Mlp
-
-
-def modulate(x, shift, scale):
-    return x * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
-
-
-#################################################################################
-#               Embedding Layers for Timesteps and Class Labels                 #
-#################################################################################
 
 
 class TimestepEmbedder(nn.Module):
@@ -34,8 +22,8 @@ class TimestepEmbedder(nn.Module):
     Embeds scalar timesteps into vector representations.
     """
 
-    def __init__(self, hidden_size, frequency_embedding_size=256):
-        super().__init__()
+    def __init__(self, hidden_size: int, frequency_embedding_size: int = 256):
+        super(TimestepEmbedder, self).__init__()
         self.mlp = nn.Sequential(
             nn.Linear(frequency_embedding_size, hidden_size, bias=True),
             nn.SiLU(),
@@ -44,7 +32,9 @@ class TimestepEmbedder(nn.Module):
         self.frequency_embedding_size = frequency_embedding_size
 
     @staticmethod
-    def timestep_embedding(t, dim, max_period=10000):
+    def timestep_embedding(
+        t: torch.Tensor, dim: int, max_period: int = 10000
+    ) -> torch.Tensor:
         """
         Create sinusoidal timestep embeddings.
         :param t: a 1-D Tensor of N indices, one per batch element.
@@ -68,445 +58,10 @@ class TimestepEmbedder(nn.Module):
             )
         return embedding
 
-    def forward(self, t):
+    def forward(self, t: torch.Tensor) -> torch.Tensor:
         t_freq = self.timestep_embedding(t, self.frequency_embedding_size)
         t_emb = self.mlp(t_freq)
         return t_emb
-
-
-class LabelEmbedder(nn.Module):
-    """
-    Embeds class labels into vector representations. Also handles label dropout for classifier-free guidance.
-    """
-
-    def __init__(self, num_classes, hidden_size, dropout_prob):
-        super().__init__()
-        use_cfg_embedding = dropout_prob > 0
-        self.embedding_table = nn.Embedding(
-            num_classes + use_cfg_embedding, hidden_size
-        )
-        self.num_classes = num_classes
-        self.dropout_prob = dropout_prob
-
-    def token_drop(self, labels, force_drop_ids=None):
-        """
-        Drops labels to enable classifier-free guidance.
-        """
-        if force_drop_ids is None:
-            drop_ids = (
-                torch.rand(labels.shape[0], device=labels.device) < self.dropout_prob
-            )
-        else:
-            drop_ids = force_drop_ids == 1
-        labels = torch.where(drop_ids, self.num_classes, labels)
-        return labels
-
-    def forward(self, labels, train, force_drop_ids=None):
-        use_dropout = self.dropout_prob > 0
-        if (train and use_dropout) or (force_drop_ids is not None):
-            labels = self.token_drop(labels, force_drop_ids)
-        embeddings = self.embedding_table(labels)
-        return embeddings
-
-
-#################################################################################
-#                                 Core DiT Model                                #
-#################################################################################
-
-
-class DiTBlock(nn.Module):
-    """
-    A DiT block with adaptive layer norm zero (adaLN-Zero) conditioning.
-    """
-
-    def __init__(self, hidden_size, num_heads, mlp_ratio=4.0, **block_kwargs):
-        super().__init__()
-        self.norm1 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
-        self.attn = Attention(
-            hidden_size, num_heads=num_heads, qkv_bias=True, **block_kwargs
-        )
-        self.norm2 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
-        mlp_hidden_dim = int(hidden_size * mlp_ratio)
-
-        def approx_gelu():
-            return nn.GELU(approximate="tanh")
-
-        self.mlp = Mlp(
-            in_features=hidden_size,
-            hidden_features=mlp_hidden_dim,
-            act_layer=approx_gelu,  # type: ignore
-            drop=0,
-        )
-        self.adaLN_modulation = nn.Sequential(
-            nn.SiLU(), nn.Linear(hidden_size, 6 * hidden_size, bias=True)
-        )
-
-    def forward(self, x, c):
-        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = (
-            self.adaLN_modulation(c).chunk(6, dim=1)
-        )
-        x = x + gate_msa.unsqueeze(1) * self.attn(
-            modulate(self.norm1(x), shift_msa, scale_msa)
-        )
-        x = x + gate_mlp.unsqueeze(1) * self.mlp(
-            modulate(self.norm2(x), shift_mlp, scale_mlp)
-        )
-        return x
-
-
-class DiTWithMelBlock(DiTBlock):
-    """
-    A DiT block with adaptive layer norm zero (adaLN-Zero) conditioning.
-    """
-
-    def __init__(
-        self,
-        hidden_size,
-        num_heads,
-        mlp_ratio=4.0,
-        mel_size=128,
-        max_mel_len=4096,
-        **block_kwargs,
-    ):
-        super().__init__(hidden_size, num_heads, mlp_ratio=mlp_ratio, **block_kwargs)
-        self.norm3 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
-        self.cross_attn = nn.MultiheadAttention(
-            embed_dim=hidden_size,
-            num_heads=num_heads,
-            batch_first=True,
-            bias=True,
-        )
-        self.mel_linear = nn.Sequential(
-            nn.Linear(mel_size, hidden_size, bias=True),
-            nn.SiLU(),
-            nn.Dropout(0.1),
-            nn.Linear(hidden_size, hidden_size, bias=True),
-        )
-        self.mel_pos_embed = nn.Parameter(
-            torch.zeros(1, max_mel_len, hidden_size), requires_grad=False
-        )  # (1, 1, hidden_size)
-        pos_embed = positionalencoding1d(self.mel_pos_embed.shape[-1], max_mel_len)
-        self.mel_pos_embed.data.copy_(pos_embed.float().unsqueeze(0))
-
-    def forward(self, x, c, mel=None):
-        if mel is None:
-            raise ValueError("mel should not be None")
-        mel = self.mel_linear(mel) + self.mel_pos_embed[:, : mel.shape[1], :]
-        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = (
-            self.adaLN_modulation(c).chunk(6, dim=1)
-        )
-        x = x + gate_msa.unsqueeze(1) * self.attn(
-            modulate(self.norm1(x), shift_msa, scale_msa)
-        )
-        x = (
-            x
-            + self.cross_attn(
-                self.norm3(x),
-                mel,
-                mel,
-                need_weights=False,
-            )[0]
-        )
-        x = x + gate_mlp.unsqueeze(1) * self.mlp(
-            modulate(self.norm2(x), shift_mlp, scale_mlp)
-        )
-        return x
-
-
-class DiTWithMelSSLBlock(DiTWithMelBlock):
-    def __init__(
-        self,
-        hidden_size,
-        num_heads,
-        mlp_ratio=4.0,
-        mel_size=128,
-        max_mel_len=4096,
-        ssl_hidden_size=512,
-        max_ssl_len=4096,
-        **block_kwargs,
-    ):
-        super().__init__(
-            hidden_size, num_heads, mlp_ratio, mel_size, max_mel_len, **block_kwargs
-        )
-        self.ssl_linear = nn.Sequential(
-            nn.Linear(ssl_hidden_size, hidden_size, bias=True),
-            nn.SiLU(),
-            nn.Dropout(0.1),
-            nn.Linear(hidden_size, hidden_size, bias=True),
-        )
-        self.ssl_pos_embed = nn.Parameter(
-            torch.zeros(1, max_ssl_len, hidden_size), requires_grad=False
-        )
-        pos_embed = positionalencoding1d(self.ssl_pos_embed.shape[-1], max_ssl_len)
-        self.ssl_pos_embed.data.copy_(pos_embed.float().unsqueeze(0))
-        self.ssl_attn = nn.MultiheadAttention(
-            embed_dim=hidden_size,
-            num_heads=num_heads,
-            batch_first=True,
-            bias=True,
-        )
-        self.ssl_norm = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
-
-    def forward(self, x, c, mel=None, ssl=None):
-        if mel is None:
-            raise ValueError("mel should not be None")
-        if ssl is None:
-            raise ValueError("ssl should not be None")
-        mel = self.mel_linear(mel) + self.mel_pos_embed[:, : mel.shape[1], :]
-        ssl = self.ssl_linear(ssl) + self.ssl_pos_embed[:, : ssl.shape[1], :]
-        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = (
-            self.adaLN_modulation(c).chunk(6, dim=1)
-        )
-        x = x + gate_msa.unsqueeze(1) * self.attn(
-            modulate(self.norm1(x), shift_msa, scale_msa)
-        )
-        x = (
-            x
-            + self.cross_attn.forward(
-                self.norm3(x),
-                mel,
-                mel,
-                need_weights=False,
-            )[0]
-        )
-        x = (
-            x
-            + self.ssl_attn.forward(
-                self.ssl_norm(x),
-                ssl,
-                ssl,
-                need_weights=False,
-            )[0]
-        )
-        x = x + gate_mlp.unsqueeze(1) * self.mlp(
-            modulate(self.norm2(x), shift_mlp, scale_mlp)
-        )
-        return x
-
-
-class FinalLayer(nn.Module):
-    """
-    The final layer of DiT.
-    """
-
-    def __init__(self, hidden_size, patch_size, out_channels):
-        super().__init__()
-        self.norm_final = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
-        self.linear = nn.Linear(
-            hidden_size, patch_size * patch_size * out_channels, bias=True
-        )
-        self.adaLN_modulation = nn.Sequential(
-            nn.SiLU(), nn.Linear(hidden_size, 2 * hidden_size, bias=True)
-        )
-
-    def forward(self, x, c):
-        shift, scale = self.adaLN_modulation(c).chunk(2, dim=1)
-        x = modulate(self.norm_final(x), shift, scale)
-        x = self.linear(x)
-        return x
-
-
-class DiT(nn.Module):
-    """
-    Diffusion model with a Transformer backbone.
-    """
-
-    def __init__(
-        self,
-        in_channels=4,
-        hidden_size=1152,
-        depth=28,
-        num_heads=16,
-        mlp_ratio=4.0,
-        out_channels=4,
-        max_seq_len=4096,
-    ):
-        super().__init__()
-        self.in_channels = in_channels
-        self.num_heads = num_heads
-        self.out_channels = out_channels
-
-        self.x_embedder = nn.Linear(in_channels, hidden_size)
-        self.t_embedder = nn.Sequential(
-            nn.Linear(1, hidden_size), nn.SiLU(), nn.Linear(hidden_size, hidden_size)
-        )
-        # Will use fixed sin-cos embedding:
-        self.pos_embed = nn.Parameter(
-            torch.zeros(1, max_seq_len, hidden_size), requires_grad=False
-        )
-
-        self.blocks = nn.ModuleList(
-            [
-                DiTBlock(hidden_size, num_heads, mlp_ratio=mlp_ratio)
-                for _ in range(depth)
-            ]
-        )
-        self.final_layer = nn.Linear(hidden_size, self.out_channels)
-        self.max_seq_len = max_seq_len
-        self.initialize_weights()
-
-    def initialize_weights(self):
-        # Initialize transformer layers:
-        def _basic_init(module):
-            if isinstance(module, nn.Linear):
-                torch.nn.init.xavier_uniform_(module.weight)
-                if module.bias is not None:
-                    nn.init.constant_(module.bias, 0)
-
-        self.apply(_basic_init)
-
-        # Initialize (and freeze) pos_embed by sin-cos embedding:
-        pos_embed = positionalencoding1d(self.pos_embed.shape[-1], self.max_seq_len)
-        self.pos_embed.data.copy_(pos_embed.float().unsqueeze(0))
-
-        # Zero-out adaLN modulation layers in DiT blocks:
-        for block in self.blocks:
-            nn.init.constant_(block.adaLN_modulation[-1].weight, 0)  # type:ignore
-            nn.init.constant_(block.adaLN_modulation[-1].bias, 0)  # type:ignore
-
-    def forward(self, x, t, ssl_feature=None, noisy_mel=None):
-        """
-        Forward pass of DiT.
-        x: (N, C, H, W) tensor of spatial inputs (images or latent representations of images)
-        t: (N,) tensor of diffusion timesteps
-        y: (N,) tensor of class labels
-        """
-        x = (
-            self.x_embedder(x) + self.pos_embed[:, : x.shape[1], :]
-        )  # (N, T, D), where T = H * W / patch_size ** 2
-        t = self.t_embedder(t.unsqueeze(1))  # (N, D)
-        c = t
-        for block in self.blocks:
-            x = block(x, c)  # (N, T, D)
-        x = self.final_layer(x)  # (N, T, patch_size ** 2 * out_channels)
-        return x
-
-
-class DiTWithMel(DiT):
-    def __init__(
-        self,
-        in_channels=4,
-        out_channels=4,
-        hidden_size=1152,
-        depth=28,
-        num_heads=16,
-        mlp_ratio=4.0,
-        max_seq_len=4096,
-        mel_size=128,
-        max_mel_len=4096,
-    ):
-        super().__init__(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            hidden_size=hidden_size,
-            depth=depth,
-            num_heads=num_heads,
-            mlp_ratio=mlp_ratio,
-            max_seq_len=max_seq_len,
-        )
-        self.blocks = nn.ModuleList(
-            [
-                DiTWithMelBlock(
-                    hidden_size,
-                    num_heads,
-                    mlp_ratio=mlp_ratio,
-                    mel_size=mel_size,
-                    max_mel_len=max_mel_len,
-                )
-                for _ in range(depth)
-            ]
-        )
-        self.initialize_weights()
-
-    def forward(self, x, t, ssl_feature=None, noisy_mel=None):
-        """
-        Forward pass of DiT.
-        x: (N, C, H, W) tensor of spatial inputs (images or latent representations of images)
-        t: (N,) tensor of diffusion timesteps
-        y: (N,) tensor of class labels
-        """
-        if noisy_mel is None:
-            raise ValueError("noisy_mel should not be None")
-        x = (
-            self.x_embedder(x) + self.pos_embed[:, : x.shape[1], :]
-        )  # (N, T, D), where T = H * W / patch_size ** 2
-        t = self.t_embedder(t.unsqueeze(1))  # (N, D)
-        c = t
-        for block in self.blocks:
-            x = block(
-                x,
-                c,
-                mel=noisy_mel,
-            )  # (N, T, D)
-        x = self.final_layer(x)  # (N, T, patch_size ** 2 * out_channels)
-        return x
-
-
-class DiTWithMelSSL(DiTWithMel):
-    def __init__(
-        self,
-        in_channels=4,
-        out_channels=4,
-        hidden_size=1152,
-        depth=28,
-        num_heads=16,
-        mlp_ratio=4.0,
-        max_seq_len=4096,
-        mel_size=128,
-        max_mel_len=4096,
-        ssl_hidden_size=512,
-        max_ssl_len=4096,
-    ):
-        super().__init__(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            hidden_size=hidden_size,
-            depth=depth,
-            num_heads=num_heads,
-            mlp_ratio=mlp_ratio,
-            max_seq_len=max_seq_len,
-            mel_size=mel_size,
-            max_mel_len=max_mel_len,
-        )
-        self.blocks = nn.ModuleList(
-            [
-                DiTWithMelSSLBlock(
-                    hidden_size,
-                    num_heads,
-                    mlp_ratio=mlp_ratio,
-                    mel_size=mel_size,
-                    max_mel_len=max_mel_len,
-                    ssl_hidden_size=ssl_hidden_size,
-                    max_ssl_len=max_ssl_len,
-                )
-                for _ in range(depth)
-            ]
-        )
-        self.initialize_weights()
-
-    def forward(self, x, t, ssl_feature=None, noisy_mel=None):
-        """
-        Forward pass of DiT.
-        x: (N, C, H, W) tensor of spatial inputs (images or latent representations of images)
-        t: (N,) tensor of diffusion timesteps
-        y: (N,) tensor of class labels
-        """
-        if noisy_mel is None:
-            raise ValueError("noisy_mel should not be None")
-        x = (
-            self.x_embedder(x) + self.pos_embed[:, : x.shape[1], :]
-        )  # (N, T, D), where T = H * W / patch_size ** 2
-        t = self.t_embedder(t.unsqueeze(1))  # (N, D)
-        c = t
-        for block in self.blocks:
-            x = block(
-                x,
-                c,
-                mel=noisy_mel,
-                ssl=ssl_feature,
-            )  # (N, T, D)
-        x = self.final_layer(x)  # (N, T, patch_size ** 2 * out_channels)
-        return x
 
 
 class MMDiT(nn.Module):
@@ -525,7 +80,7 @@ class MMDiT(nn.Module):
         max_ssl_len=4096,
         heads=8,
     ):
-        super().__init__()
+        super(MMDiT, self).__init__()
 
         self.x_embedder = nn.Linear(in_channels, hidden_size)
         self.t_embedder = TimestepEmbedder(hidden_size)
@@ -578,7 +133,13 @@ class MMDiT(nn.Module):
         )
         self.ssl_pos_embed.data.copy_(ssl_pos_embed.float().unsqueeze(0))
 
-    def forward(self, x, t, ssl_feature, mel):
+    def forward(
+        self,
+        x: torch.Tensor,
+        t: torch.Tensor,
+        ssl_feature: torch.Tensor,
+        mel: torch.Tensor,
+    ) -> torch.Tensor:
         """
         Forward pass of DiT.
         x: (N, C, H, W) tensor of spatial inputs (images or latent representations of images)
@@ -612,58 +173,6 @@ class MMDiT(nn.Module):
 # https://github.com/facebookresearch/mae/blob/main/util/pos_embed.py
 
 
-def get_2d_sincos_pos_embed(embed_dim, grid_size, cls_token=False, extra_tokens=0):
-    """
-    grid_size: int of the grid height and width
-    return:
-    pos_embed: [grid_size*grid_size, embed_dim] or [1+grid_size*grid_size, embed_dim] (w/ or w/o cls_token)
-    """
-    grid_h = np.arange(grid_size, dtype=np.float32)
-    grid_w = np.arange(grid_size, dtype=np.float32)
-    grid = np.meshgrid(grid_w, grid_h)  # here w goes first
-    grid = np.stack(grid, axis=0)
-
-    grid = grid.reshape([2, 1, grid_size, grid_size])
-    pos_embed = get_2d_sincos_pos_embed_from_grid(embed_dim, grid)
-    if cls_token and extra_tokens > 0:
-        pos_embed = np.concatenate(
-            [np.zeros([extra_tokens, embed_dim]), pos_embed], axis=0
-        )
-    return pos_embed
-
-
-def get_2d_sincos_pos_embed_from_grid(embed_dim, grid):
-    assert embed_dim % 2 == 0
-
-    # use half of dimensions to encode grid_h
-    emb_h = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[0])  # (H*W, D/2)
-    emb_w = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[1])  # (H*W, D/2)
-
-    emb = np.concatenate([emb_h, emb_w], axis=1)  # (H*W, D)
-    return emb
-
-
-def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
-    """
-    embed_dim: output dimension for each position
-    pos: a list of positions to be encoded: size (M,)
-    out: (M, D)
-    """
-    assert embed_dim % 2 == 0
-    omega = np.arange(embed_dim // 2, dtype=np.float64)
-    omega /= embed_dim / 2.0
-    omega = 1.0 / 10000**omega  # (D/2,)
-
-    pos = pos.reshape(-1)  # (M,)
-    out = np.einsum("m,d->md", pos, omega)  # (M, D/2), outer product
-
-    emb_sin = np.sin(out)  # (M, D/2)
-    emb_cos = np.cos(out)  # (M, D/2)
-
-    emb = np.concatenate([emb_sin, emb_cos], axis=1)  # (M, D)
-    return emb
-
-
 def positionalencoding1d(d_model, length):
     """
     :param d_model: dimension of the model
@@ -688,72 +197,3 @@ def positionalencoding1d(d_model, length):
     pe[:, 1::2] = torch.cos(position.float() * div_term)
 
     return pe
-
-
-#################################################################################
-#                                   DiT Configs                                  #
-#################################################################################
-
-
-def DiT_XL_2(**kwargs):
-    return DiT(depth=28, hidden_size=1152, num_heads=16, **kwargs)
-
-
-def DiT_XL_4(**kwargs):
-    return DiT(depth=28, hidden_size=1152, num_heads=16, **kwargs)
-
-
-def DiT_XL_8(**kwargs):
-    return DiT(depth=28, hidden_size=1152, num_heads=16, **kwargs)
-
-
-def DiT_L_2(**kwargs):
-    return DiT(depth=24, hidden_size=1024, num_heads=16, **kwargs)
-
-
-def DiT_L_4(**kwargs):
-    return DiT(depth=24, hidden_size=1024, num_heads=16, **kwargs)
-
-
-def DiT_L_8(**kwargs):
-    return DiT(depth=24, hidden_size=1024, num_heads=16, **kwargs)
-
-
-def DiT_B_2(**kwargs):
-    return DiT(depth=12, hidden_size=768, num_heads=12, **kwargs)
-
-
-def DiT_B_4(**kwargs):
-    return DiT(depth=12, hidden_size=768, num_heads=12, **kwargs)
-
-
-def DiT_B_8(**kwargs):
-    return DiT(depth=12, hidden_size=768, num_heads=12, **kwargs)
-
-
-def DiT_S_2(**kwargs):
-    return DiT(depth=12, hidden_size=384, num_heads=6, **kwargs)
-
-
-def DiT_S_4(**kwargs):
-    return DiT(depth=12, hidden_size=384, num_heads=6, **kwargs)
-
-
-def DiT_S_8(**kwargs):
-    return DiT(depth=12, hidden_size=384, num_heads=6, **kwargs)
-
-
-DiT_models = {
-    "DiT-XL/2": DiT_XL_2,
-    "DiT-XL/4": DiT_XL_4,
-    "DiT-XL/8": DiT_XL_8,
-    "DiT-L/2": DiT_L_2,
-    "DiT-L/4": DiT_L_4,
-    "DiT-L/8": DiT_L_8,
-    "DiT-B/2": DiT_B_2,
-    "DiT-B/4": DiT_B_4,
-    "DiT-B/8": DiT_B_8,
-    "DiT-S/2": DiT_S_2,
-    "DiT-S/4": DiT_S_4,
-    "DiT-S/8": DiT_S_8,
-}
