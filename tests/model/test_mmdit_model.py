@@ -5,22 +5,17 @@ from dialogue_separator.model.mmdit_model import MMDiT
 
 def test_mmdit() -> None:
     model = MMDiT(
-        in_channels=64,
-        out_channels=64,
-        hidden_size=384,
+        in_channels=512,
+        out_channels=512,
+        hidden_size=512,
+        max_seq_len=1000,
         depth=1,
-        max_seq_len=4096,
-        mel_size=128,
-        mel_hidden_size=512,
-        max_mel_len=4096,
-        ssl_size=512,
-        ssl_hidden_size=512,
-        max_ssl_len=4096,
+        heads=8,
     )
-    x = torch.randn(1, 4, 64)
-    mel = torch.randn(1, 57, 128)
-    ssl = torch.randn(1, 6, 512)
+    x_merged = torch.randn(1, 100, 512)
+    x_1 = torch.randn(1, 100, 512)
+    x_2 = torch.randn(1, 100, 512)
     t = torch.rand((1,))
-    out = model.forward(x, t, ssl_feature=ssl, mel=mel)
-    out.mean().backward()
-    assert out.shape == (1, 4, 64)
+    res1, res2 = model.forward(x_merged, t, x_1, x_2)
+    assert res1.shape == (1, 100, 512)
+    assert res2.shape == (1, 100, 512)

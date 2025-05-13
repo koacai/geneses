@@ -67,104 +67,110 @@ class TimestepEmbedder(nn.Module):
 class MMDiT(nn.Module):
     def __init__(
         self,
-        in_channels=4,
-        out_channels=4,
-        hidden_size=1152,
-        depth=28,
-        max_seq_len=4096,
-        mel_size=128,
-        max_mel_len=4096,
-        mel_hidden_size=512,
-        ssl_size=1536,
-        ssl_hidden_size=512,
-        max_ssl_len=4096,
-        heads=8,
-    ):
+        in_channels: int,
+        out_channels: int,
+        hidden_size: int,
+        max_seq_len: int,
+        depth: int,
+        heads: int,
+    ) -> None:
         super(MMDiT, self).__init__()
-
-        self.x_embedder = nn.Linear(in_channels, hidden_size)
         self.t_embedder = TimestepEmbedder(hidden_size)
-        self.ssl_linear = nn.Sequential(
-            nn.Linear(ssl_size, ssl_hidden_size, bias=True),
+
+        self.x_embedder_merged = nn.Sequential(
+            nn.Linear(in_channels, hidden_size, bias=True),
             nn.SiLU(),
             nn.Dropout(0.1),
-            nn.Linear(ssl_hidden_size, ssl_hidden_size, bias=True),
+            nn.Linear(hidden_size, hidden_size, bias=True),
         )
-        self.mel_linear = nn.Sequential(
-            nn.Linear(mel_size, mel_hidden_size, bias=True),
+        self.x_embedder_1 = nn.Sequential(
+            nn.Linear(in_channels, hidden_size, bias=True),
             nn.SiLU(),
             nn.Dropout(0.1),
-            nn.Linear(mel_hidden_size, mel_hidden_size, bias=True),
+            nn.Linear(hidden_size, hidden_size, bias=True),
         )
-        # Will use fixed sin-cos embedding:
-        self.pos_embed = nn.Parameter(
+        self.x_embedder_2 = nn.Sequential(
+            nn.Linear(in_channels, hidden_size, bias=True),
+            nn.SiLU(),
+            nn.Dropout(0.1),
+            nn.Linear(hidden_size, hidden_size, bias=True),
+        )
+
+        self.x_pos_embed_merged = nn.Parameter(
             torch.zeros(1, max_seq_len, hidden_size), requires_grad=False
         )
-        self.ssl_pos_embed = nn.Parameter(
-            torch.zeros(1, max_ssl_len, ssl_hidden_size), requires_grad=False
+        self.x_pos_embed_1 = nn.Parameter(
+            torch.zeros(1, max_seq_len, hidden_size), requires_grad=False
         )
-        self.mel_pos_embed = nn.Parameter(
-            torch.zeros(1, max_mel_len, mel_hidden_size), requires_grad=False
+        self.x_pos_embed_2 = nn.Parameter(
+            torch.zeros(1, max_seq_len, hidden_size), requires_grad=False
         )
 
         self.mmdit = mmdit.mmdit_generalized_pytorch.MMDiT(
             depth=depth,
-            dim_modalities=(hidden_size, mel_hidden_size, ssl_hidden_size),
+            dim_modalities=(hidden_size, hidden_size, hidden_size),
             dim_cond=hidden_size,
             qk_rmsnorm=True,
             flash_attn=True,
             heads=heads,
         )
-        self.final_layer = nn.Linear(hidden_size, out_channels)
+
+        self.final_layer_1 = nn.Linear(hidden_size, out_channels)
+        self.final_layer_2 = nn.Linear(hidden_size, out_channels)
         self.max_seq_len = max_seq_len
+
         self.initialize_weights()
 
-    def initialize_weights(self):
+    def initialize_weights(self) -> None:
         # Initialize (and freeze) pos_embed by sin-cos embedding:
-        pos_embed = positionalencoding1d(self.pos_embed.shape[-1], self.max_seq_len)
-        self.pos_embed.data.copy_(pos_embed.float().unsqueeze(0))
+        x_pos_embed_merged = positionalencoding1d(
+            self.x_pos_embed_merged.shape[-1], self.max_seq_len
+        )
+        self.x_pos_embed_merged.data.copy_(x_pos_embed_merged.float().unsqueeze(0))
 
-        mel_pos_embed = positionalencoding1d(
-            self.mel_pos_embed.shape[-1], self.mel_pos_embed.shape[1]
+        x_pos_embed_1 = positionalencoding1d(
+            self.x_pos_embed_1.shape[-1], self.x_pos_embed_1.shape[1]
         )
-        self.mel_pos_embed.data.copy_(mel_pos_embed.float().unsqueeze(0))
-        ssl_pos_embed = positionalencoding1d(
-            self.ssl_pos_embed.shape[-1], self.ssl_pos_embed.shape[1]
+        self.x_pos_embed_1.data.copy_(x_pos_embed_1.float().unsqueeze(0))
+
+        x_post_embed_2 = positionalencoding1d(
+            self.x_pos_embed_2.shape[-1], self.x_pos_embed_2.shape[1]
         )
-        self.ssl_pos_embed.data.copy_(ssl_pos_embed.float().unsqueeze(0))
+        self.x_pos_embed_2.data.copy_(x_post_embed_2.float().unsqueeze(0))
 
     def forward(
         self,
-        x: torch.Tensor,
+        x_merged: torch.Tensor,
         t: torch.Tensor,
-        ssl_feature: torch.Tensor,
-        mel: torch.Tensor,
-    ) -> torch.Tensor:
+        x_1: torch.Tensor,
+        x_2: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Forward pass of DiT.
+
+        Args:
+            x_merged: (B, N, C)
+            t: (B,)
+            x_1: (B, N, C)
+            x_2: (B, N, C)
         """
-        Forward pass of DiT.
-        x: (N, C, H, W) tensor of spatial inputs (images or latent representations of images)
-        t: (N,) tensor of diffusion timesteps
-        y: (N,) tensor of class labels
-        """
-        if mel is None:
-            raise ValueError("mel should not be None")
-        if ssl_feature is None:
-            raise ValueError("ssl_feature should not be None")
-        x = self.x_embedder(x) + self.pos_embed[:, : x.shape[1], :]
-        mel = self.mel_linear(mel) + self.mel_pos_embed[:, : mel.shape[1], :]
-        ssl_feature = (
-            self.ssl_linear(ssl_feature)
-            + self.ssl_pos_embed[:, : ssl_feature.shape[1], :]
+        x_merged = (
+            self.x_embedder_merged(x_merged)
+            + self.x_pos_embed_merged[:, : x_merged.shape[1], :]
         )
+        x_1 = self.x_embedder_1(x_1) + self.x_pos_embed_1[:, : x_1.shape[1], :]
+        x_2 = self.x_embedder_2(x_2) + self.x_pos_embed_2[:, : x_2.shape[1], :]
         t = t * 1000
 
         t = self.t_embedder(t)  # (N, D)
-        return self.final_layer(
-            self.mmdit.forward(
-                modality_tokens=(x, mel, ssl_feature),
-                time_cond=t,
-            )[0]
+
+        out = self.mmdit.forward(
+            modality_tokens=(x_merged, x_1, x_2),
+            time_cond=t,
         )
+        res_1 = self.final_layer_1(out[0])
+        res_2 = self.final_layer_2(out[1])
+
+        return res_1, res_2
 
 
 #################################################################################
