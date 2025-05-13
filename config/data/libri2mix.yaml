@@ -1,4 +1,4 @@
 defaults:
   - dataset: libri2mix
   - preprocess: libri2mix
-  - datamodule: default
+  - datamodule: libri2mix
