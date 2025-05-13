@@ -8,8 +8,6 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "diffusers>=0.33.1",
-    "einops>=0.8.1",
     "flow-matching>=1.0.10",
     "lhotse-dataset",
     "lightning>=2.5.1.post0",
