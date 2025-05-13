@@ -8,7 +8,7 @@ from flow_matching.utils import ModelWrapper
 from huggingface_hub import hf_hub_download
 from lightning.pytorch import LightningModule, loggers
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRSchedulerConfig
-from moshi.models import MimiModel, loaders
+from moshi.models import loaders
 from omegaconf import DictConfig
 
 import wandb
@@ -33,6 +33,12 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         self.mmdit = MMDiT(**cfg.model.mmdit)
 
+        mimi_weight = hf_hub_download(loaders.DEFAULT_REPO, loaders.MIMI_NAME)
+        self.mimi = loaders.get_mimi(mimi_weight, device=self.device)
+        self.mimi.set_num_codebooks(self.cfg.model.mimi.num_codebooks)
+        for param in self.mimi.parameters():
+            param.requires_grad = False
+
         self.path = AffineProbPath(scheduler=CondOTScheduler())
 
         self.save_hyperparameters(cfg)
@@ -55,11 +61,7 @@ class DialogueSeparatorLightningModule(LightningModule):
     ) -> STEP_OUTPUT:
         _ = batch_idx
 
-        mimi_weight = hf_hub_download(loaders.DEFAULT_REPO, loaders.MIMI_NAME)
-        mimi = loaders.get_mimi(mimi_weight, device=self.device)
-        mimi.set_num_codebooks(self.cfg.model.mimi.num_codebooks)
-
-        loss = self.calc_loss(batch, mimi)
+        loss = self.calc_loss(batch)
 
         self.log("train_loss", loss)
 
@@ -70,11 +72,7 @@ class DialogueSeparatorLightningModule(LightningModule):
     ) -> STEP_OUTPUT:
         _ = batch_idx
 
-        mimi_weight = hf_hub_download(loaders.DEFAULT_REPO, loaders.MIMI_NAME)
-        mimi = loaders.get_mimi(mimi_weight, device=self.device)
-        mimi.set_num_codebooks(self.cfg.model.mimi.num_codebooks)
-
-        loss = self.calc_loss(batch, mimi)
+        loss = self.calc_loss(batch)
 
         self.log("validation_loss", loss)
 
@@ -91,21 +89,21 @@ class DialogueSeparatorLightningModule(LightningModule):
 
             with torch.no_grad():
                 decoded_1 = (
-                    mimi.decode(batch["token_1"])[0]
+                    self.mimi.decode(batch["token_1"])[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
                     .numpy()
                 )
                 decoded_2 = (
-                    mimi.decode(batch["token_2"])[0]
+                    self.mimi.decode(batch["token_2"])[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
                     .numpy()
                 )
                 decoded_merged = (
-                    mimi.decode(batch["token_merged"])[0]
+                    self.mimi.decode(batch["token_merged"])[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
@@ -116,20 +114,20 @@ class DialogueSeparatorLightningModule(LightningModule):
             self.log_audio(decoded_2, f"decoded_2/{batch_idx}", wav_sr)
             self.log_audio(decoded_merged, f"decoded_merged/{batch_idx}", wav_sr)
 
-            est_src1, est_src2 = self.forward(batch, mimi)
+            est_src1, est_src2 = self.forward(batch)
 
             with torch.no_grad():
-                code_1 = mimi.quantizer.encode(est_src1)
+                code_1 = self.mimi.quantizer.encode(est_src1)
                 estimated_1 = (
-                    mimi.decode(code_1)[0]
+                    self.mimi.decode(code_1)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
                     .numpy()
                 )
-                code_2 = mimi.quantizer.encode(est_src2)
+                code_2 = self.mimi.quantizer.encode(est_src2)
                 estimated_2 = (
-                    mimi.decode(code_2)[0]
+                    self.mimi.decode(code_2)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
@@ -141,16 +139,14 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         return loss
 
-    def calc_loss(
-        self, batch: dict[str, torch.Tensor], mimi: MimiModel
-    ) -> torch.Tensor:
+    def calc_loss(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
         token_1 = batch["token_1"]
         token_2 = batch["token_2"]
         token_merged = batch["token_merged"]
 
-        x_1 = mimi.decode_latent(token_1).permute(0, 2, 1)
-        x_2 = mimi.decode_latent(token_2).permute(0, 2, 1)
-        x_merged = mimi.decode_latent(token_merged).permute(0, 2, 1)
+        x_1 = self.mimi.decode_latent(token_1).permute(0, 2, 1)
+        x_2 = self.mimi.decode_latent(token_2).permute(0, 2, 1)
+        x_merged = self.mimi.decode_latent(token_merged).permute(0, 2, 1)
 
         batch_size = x_merged.size(0)
 
@@ -179,11 +175,11 @@ class DialogueSeparatorLightningModule(LightningModule):
         return l1_loss(est_dxt1, dxt_1) + l1_loss(est_dxt2, dxt_2)
 
     def forward(
-        self, batch: dict[str, torch.Tensor], mimi: MimiModel
+        self, batch: dict[str, torch.Tensor]
     ) -> tuple[torch.Tensor, torch.Tensor]:
         token_merged = batch["token_merged"]
 
-        x_merged = mimi.decode_latent(token_merged).permute(0, 2, 1)
+        x_merged = self.mimi.decode_latent(token_merged).permute(0, 2, 1)
 
         noise_1 = torch.randn_like(x_merged)
         noise_2 = torch.randn_like(x_merged)
