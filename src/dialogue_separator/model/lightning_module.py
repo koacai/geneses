@@ -1,7 +1,6 @@
 import hydra
 import numpy as np
 import torch
-import torch.nn.functional as F
 from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import ODESolver
@@ -13,7 +12,6 @@ from moshi.models import MimiModel, loaders
 from omegaconf import DictConfig
 
 import wandb
-from dialogue_separator.utils.model import fix_len_compatibility
 
 from .mmdit_model import MMDiT
 
@@ -150,17 +148,11 @@ class DialogueSeparatorLightningModule(LightningModule):
         token_2 = batch["token_2"]
         token_merged = batch["token_merged"]
 
-        x_1 = mimi.decode_latent(token_1)
-        x_2 = mimi.decode_latent(token_2)
-        x_merged = mimi.decode_latent(token_merged)
+        x_1 = mimi.decode_latent(token_1).permute(0, 2, 1)
+        x_2 = mimi.decode_latent(token_2).permute(0, 2, 1)
+        x_merged = mimi.decode_latent(token_merged).permute(0, 2, 1)
 
         batch_size = x_merged.size(0)
-
-        orig_len = x_merged.size(-1)
-        new_len = fix_len_compatibility(orig_len)
-        x_merged = F.pad(x_merged, (0, new_len - orig_len)).permute(0, 2, 1)
-        x_1 = F.pad(x_1, (0, new_len - orig_len)).permute(0, 2, 1)
-        x_2 = F.pad(x_2, (0, new_len - orig_len)).permute(0, 2, 1)
 
         t = torch.rand((batch_size,), device=self.device)
         noise_1 = torch.randn_like(x_1)
@@ -191,11 +183,7 @@ class DialogueSeparatorLightningModule(LightningModule):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         token_merged = batch["token_merged"]
 
-        x_merged = mimi.decode_latent(token_merged)
-
-        orig_len = token_merged.size(-1)
-        new_len = fix_len_compatibility(orig_len)
-        x_merged = F.pad(x_merged, (0, new_len - orig_len)).permute(0, 2, 1)
+        x_merged = mimi.decode_latent(token_merged).permute(0, 2, 1)
 
         noise_1 = torch.randn_like(x_merged)
         noise_2 = torch.randn_like(x_merged)
