@@ -1,0 +1,12 @@
+shar_dir: ${data.dataset.shar_dir}
+webdataset_dir: /groups/gag51394/users/asai/webdataset/dialogue-separator/libri2mix
+device: cuda
+
+mimi:
+  num_codebooks: 8
+  sr: 24000
+
+train_ratio: 0.99
+shard_size:
+  train: 3e8
+  valid: 3e6

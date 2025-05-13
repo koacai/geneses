@@ -1,0 +1,5 @@
+corpus:
+  _target_: lhotse_dataset.Libri2Mix
+
+shar_dir: /groups/gag51394/users/asai/shar/libri2mix
+shard_size: 5000
