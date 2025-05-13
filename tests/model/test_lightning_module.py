@@ -10,7 +10,7 @@ from dialogue_separator.data.datamodule import DialogueSeparatorDataModule
 from dialogue_separator.model.lightning_module import DialogueSeparatorLightningModule
 
 
-# @pytest.mark.skip("ローカルで実行するためのテスト")
+@pytest.mark.skip("ローカルで実行するためのテスト")
 class TestDialogueSeparatorLightningModule:
     @pytest.fixture
     def init(self) -> None:
