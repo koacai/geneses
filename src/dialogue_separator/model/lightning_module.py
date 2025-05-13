@@ -1,31 +1,29 @@
 import hydra
 import numpy as np
 import torch
-import torch.nn.functional as F
-from flow_matching.loss import MixturePathGeneralizedKL
-from flow_matching.path import MixtureDiscreteProbPath
-from flow_matching.path.scheduler import PolynomialConvexScheduler
-from flow_matching.solver import MixtureDiscreteEulerSolver
+from flow_matching.path import AffineProbPath
+from flow_matching.path.scheduler import CondOTScheduler
+from flow_matching.solver import ODESolver
 from flow_matching.utils import ModelWrapper
 from huggingface_hub import hf_hub_download
 from lightning.pytorch import LightningModule, loggers
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRSchedulerConfig
-from moshi.models import loaders
+from moshi.models import MimiModel, loaders
 from omegaconf import DictConfig
 
 import wandb
-from dialogue_separator.utils.model import fix_len_compatibility, sequence_mask
 
-from .flow_predictor import FlowPredictor
+from .mmdit_model import MMDiT
 
 
 class WrappedModel(ModelWrapper):
     def forward(self, x: torch.Tensor, t: torch.Tensor, **extras) -> torch.Tensor:
-        mask = extras.get("mask", None)
-        assert mask is not None
         x_merged = extras.get("x_merged", None)
         assert x_merged is not None
-        return torch.softmax(self.model.forward(x, mask, x_merged, t), dim=-1)
+        x_1 = x[:, 0, :, :]
+        x_2 = x[:, 1, :, :]
+        res_1, res_2 = self.model.forward(x_merged, t.unsqueeze(0), x_1, x_2)
+        return torch.stack([res_1, res_2], dim=1)
 
 
 class DialogueSeparatorLightningModule(LightningModule):
@@ -33,11 +31,9 @@ class DialogueSeparatorLightningModule(LightningModule):
         super(DialogueSeparatorLightningModule, self).__init__()
         self.cfg = cfg
 
-        self.flow_predictor = FlowPredictor(cfg.model.flow_predictor)
+        self.mmdit = MMDiT(**cfg.model.mmdit)
 
-        self.path = MixtureDiscreteProbPath(
-            scheduler=PolynomialConvexScheduler(n=cfg.model.scheduler_n)
-        )
+        self.path = AffineProbPath(scheduler=CondOTScheduler())
 
         self.save_hyperparameters(cfg)
 
@@ -58,25 +54,32 @@ class DialogueSeparatorLightningModule(LightningModule):
         self, batch: dict[str, torch.Tensor], batch_idx: int
     ) -> STEP_OUTPUT:
         _ = batch_idx
-        loss = self.calc_loss(batch)
+
+        mimi_weight = hf_hub_download(loaders.DEFAULT_REPO, loaders.MIMI_NAME)
+        mimi = loaders.get_mimi(mimi_weight, device=self.device)
+        mimi.set_num_codebooks(self.cfg.model.mimi.num_codebooks)
+
+        loss = self.calc_loss(batch, mimi)
 
         self.log("train_loss", loss)
+
         return loss
 
     def validation_step(
         self, batch: dict[str, torch.Tensor], batch_idx: int
     ) -> STEP_OUTPUT:
         _ = batch_idx
-        loss = self.calc_loss(batch)
+
+        mimi_weight = hf_hub_download(loaders.DEFAULT_REPO, loaders.MIMI_NAME)
+        mimi = loaders.get_mimi(mimi_weight, device=self.device)
+        mimi.set_num_codebooks(self.cfg.model.mimi.num_codebooks)
+
+        loss = self.calc_loss(batch, mimi)
 
         self.log("validation_loss", loss)
 
         wav_sr = self.cfg.model.mimi.sr
         if batch_idx < 5 and self.global_rank == 0 and self.local_rank == 0:
-            mimi_weight = hf_hub_download(loaders.DEFAULT_REPO, loaders.MIMI_NAME)
-            mimi = loaders.get_mimi(mimi_weight, device=self.device)
-            mimi.set_num_codebooks(self.cfg.model.mimi.num_codebooks)
-
             wav_len = batch["wav_len"][0]
             source_1 = batch["wav_1"][0][:wav_len].cpu().numpy()
             source_2 = batch["wav_2"][0][:wav_len].cpu().numpy()
@@ -113,18 +116,20 @@ class DialogueSeparatorLightningModule(LightningModule):
             self.log_audio(decoded_2, f"decoded_2/{batch_idx}", wav_sr)
             self.log_audio(decoded_merged, f"decoded_merged/{batch_idx}", wav_sr)
 
-            est_src1, est_src2 = self.forward(batch)
+            est_src1, est_src2 = self.forward(batch, mimi)
 
             with torch.no_grad():
+                code_1 = mimi.quantizer.encode(est_src1)
                 estimated_1 = (
-                    mimi.decode(est_src1)[0]
+                    mimi.decode(code_1)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
                     .numpy()
                 )
+                code_2 = mimi.quantizer.encode(est_src2)
                 estimated_2 = (
-                    mimi.decode(est_src2)[0]
+                    mimi.decode(code_2)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
@@ -136,99 +141,68 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         return loss
 
-    def calc_loss(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
+    def calc_loss(
+        self, batch: dict[str, torch.Tensor], mimi: MimiModel
+    ) -> torch.Tensor:
         token_1 = batch["token_1"]
         token_2 = batch["token_2"]
         token_merged = batch["token_merged"]
 
-        batch_size = token_merged.size(0)
+        x_1 = mimi.decode_latent(token_1).permute(0, 2, 1)
+        x_2 = mimi.decode_latent(token_2).permute(0, 2, 1)
+        x_merged = mimi.decode_latent(token_merged).permute(0, 2, 1)
 
-        orig_len = token_merged.size(-1)
-        new_len = fix_len_compatibility(orig_len)
-        token_merged = F.pad(token_merged, (0, new_len - orig_len))
-        token_1 = F.pad(token_1, (0, new_len - orig_len))
-        token_2 = F.pad(token_2, (0, new_len - orig_len))
-
-        lengths = batch["token_len"]
-        mask = sequence_mask(lengths, new_len).unsqueeze(1).to(self.device)
+        batch_size = x_merged.size(0)
 
         t = torch.rand((batch_size,), device=self.device)
-        token_both = torch.stack([token_1, token_2], dim=1)
-        noise = torch.randint_like(token_both, high=self.cfg.model.vocab_size)
-        path_sample = self.path.sample(x_0=noise, x_1=token_both, t=t)
+        noise_1 = torch.randn_like(x_1)
+        path_sample1 = self.path.sample(x_0=noise_1, x_1=x_1, t=t)
+        noise_2 = torch.randn_like(x_2)
+        path_sample2 = self.path.sample(x_0=noise_2, x_1=x_2, t=t)
 
-        logits = self.flow_predictor.forward(path_sample.x_t, mask, token_merged, t)
-
-        loss = self.loss_fn(
-            logits=logits,
-            x_1=token_both.to(torch.int64),
-            x_t=path_sample.x_t.to(torch.int64),
-            t=path_sample.t,
+        est_dxt_1, est_dxt_2 = self.mmdit.forward(
+            x_merged, t, path_sample1.x_t, path_sample2.x_t
         )
+
+        loss = self.loss_fn(est_dxt_1, est_dxt_2, path_sample1.dx_t, path_sample2.dx_t)
+
         return loss
 
     def loss_fn(
         self,
-        logits: torch.Tensor,
-        x_1: torch.Tensor,
-        x_t: torch.Tensor,
-        t: torch.Tensor,
+        est_dxt1: torch.Tensor,
+        est_dxt2: torch.Tensor,
+        dxt_1: torch.Tensor,
+        dxt_2: torch.Tensor,
     ) -> torch.Tensor:
-        loss_fn = MixturePathGeneralizedKL(path=self.path)
-
-        losses = []
-        for i in range(self.cfg.model.mimi.num_codebooks):
-            _logits = logits[:, :, i, :, :]
-            _x_1 = x_1[:, :, i, :]
-            _x_t = x_t[:, :, i, :]
-            _loss = loss_fn(logits=_logits, x_1=_x_1, x_t=_x_t, t=t)
-
-            if i == 0:
-                alpha = 100
-            else:
-                alpha = 1
-            losses.append(_loss * alpha)
-
-        return torch.sum(torch.stack(losses), dim=0) / len(losses)
+        l1_loss = torch.nn.L1Loss()
+        return l1_loss(est_dxt1, dxt_1) + l1_loss(est_dxt2, dxt_2)
 
     def forward(
-        self, batch: dict[str, torch.Tensor]
+        self, batch: dict[str, torch.Tensor], mimi: MimiModel
     ) -> tuple[torch.Tensor, torch.Tensor]:
         token_merged = batch["token_merged"]
 
-        orig_len = token_merged.size(-1)
-        new_len = fix_len_compatibility(orig_len)
-        token_merged = F.pad(token_merged, (0, new_len - orig_len))
+        x_merged = mimi.decode_latent(token_merged).permute(0, 2, 1)
 
-        lengths = batch["token_len"]
-        mask = sequence_mask(lengths, new_len).unsqueeze(1).to(self.device)
+        noise_1 = torch.randn_like(x_merged)
+        noise_2 = torch.randn_like(x_merged)
+        noise = torch.stack([noise_1, noise_2], dim=1)
 
-        token_both = torch.stack([token_merged, token_merged], dim=1)
-        noise = torch.randint_like(token_both, high=self.cfg.model.vocab_size).long()
+        step_size = 0.01
+        time_grid = torch.tensor([0.0, 1.0])
 
-        nfe = 64
-        step_size = 1 / nfe
-        n_plots = 9
-        epsilon = 1e-3
-        linspace_to_plot = torch.linspace(0, 1 - epsilon, n_plots)
+        solver = ODESolver(velocity_model=WrappedModel(self.mmdit))
 
-        wrapped_model = WrappedModel(self.flow_predictor)
-
-        solver = MixtureDiscreteEulerSolver(
-            model=wrapped_model,
-            path=self.path,
-            vocabulary_size=self.cfg.model.vocab_size,
-        )
         res = solver.sample(
             x_init=noise,
             step_size=step_size,
-            time_grid=linspace_to_plot,
-            mask=mask,
-            x_merged=token_merged,
+            time_grid=time_grid,
+            x_merged=x_merged,
         )
         assert isinstance(res, torch.Tensor)
 
-        return res[:, 0, :, :], res[:, 1, :, :]
+        return res[:, 0, :, :].permute(0, 2, 1), res[:, 1, :, :].permute(0, 2, 1)
 
     def log_audio(self, audio: np.ndarray, name: str, sampling_rate: int) -> None:
         for logger in self.loggers:

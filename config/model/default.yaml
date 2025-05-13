@@ -4,26 +4,12 @@ optimizer:
 lr_scheduler:
   _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
 
-vocab_size: 2048
-scheduler_n: 2.0
-
-flow_predictor:
-  mimi_embedding:
-    vocab_size: ${model.vocab_size}
-    hidden_size: 512
-    num_codebooks: ${data.preprocess.mimi.num_codebooks}
-  logits_head:
-    vocab_size: ${model.vocab_size}
-    hidden_size: ${model.flow_predictor.mimi_embedding.hidden_size}
-    num_codebooks: ${data.preprocess.mimi.num_codebooks}
-  decoder:
-    hidden_size: ${model.flow_predictor.mimi_embedding.hidden_size}
-    channels: [256, 256]
-    dropout: 0.05
-    attention_head_dim: 64
-    n_blocks: 1
-    num_mid_blocks: 2
-    num_heads: 2
-    act_fn: snakebeta
+mmdit:
+  in_channels: 512
+  out_channels: 512
+  hidden_size: 512
+  max_seq_len: 1000
+  depth: 1
+  heads: 8
 
 mimi: ${data.preprocess.mimi}
