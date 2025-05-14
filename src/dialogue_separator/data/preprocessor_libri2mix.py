@@ -1,9 +1,11 @@
 import io
+import json
 import random
 import uuid
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import torch
 import torchaudio
 import webdataset as wds
@@ -12,6 +14,7 @@ from lhotse import CutSet
 from lhotse.cut import Cut
 from moshi.models import loaders
 from omegaconf import DictConfig
+from sklearn.preprocessing import StandardScaler
 
 
 class PreprocessorLibri2Mix:
@@ -41,9 +44,19 @@ class PreprocessorLibri2Mix:
             maxsize=self.cfg.shard_size.valid,
         )
 
+        scaler = StandardScaler()
+
         cuts = cuts.shuffle(random.Random(42))
         for i, cut in enumerate(cuts.data):
             sample = self.process_cut(cut)
+
+            feature_1 = wds.torch_loads(sample["feature_1.pth"])
+            scaler.partial_fit(feature_1.numpy().reshape(-1, 1))
+            feature_2 = wds.torch_loads(sample["feature_2.pth"])
+            scaler.partial_fit(feature_2.numpy().reshape(-1, 1))
+            feature_merged = wds.torch_loads(sample["feature_merged.pth"])
+            scaler.partial_fit(feature_merged.numpy().reshape(-1, 1))
+
             if i < self.cfg.train_ratio * len(cuts):
                 train_sink.write(sample)
             else:
@@ -51,6 +64,12 @@ class PreprocessorLibri2Mix:
 
         train_sink.close()
         valid_sink.close()
+
+        with open(f"{self.cfg.stats_path}", "w") as f:
+            assert isinstance(scaler.mean_, np.ndarray)
+            assert isinstance(scaler.scale_, np.ndarray)
+            stats = {"mean": scaler.mean_[0], "std": scaler.scale_[0]}
+            json.dump(stats, f)
 
     def process_cut(self, cut: Cut) -> dict[str, Any]:
         buf = io.BytesIO()
