@@ -7,7 +7,7 @@ mimi:
   sr: 24000
 
 duration: 30
-train_ratio: 0.9
+train_ratio: 0.95
 shard_size:
-  train: 3e7
-  valid: 3e6
+  train: 2e8
+  valid: 1e7

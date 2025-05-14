@@ -8,7 +8,7 @@ from lhotse import CutSet
 from dialogue_separator.data.preprocessor import Preprocessor
 
 
-# @pytest.mark.skip("ローカルで実行するためのテスト")
+@pytest.mark.skip("ローカルで実行するためのテスト")
 class TestPreprocessor:
     @pytest.fixture
     def init(self) -> None:
