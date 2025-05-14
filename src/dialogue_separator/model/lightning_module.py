@@ -201,6 +201,5 @@ class DialogueSeparatorLightningModule(LightningModule):
         return res[:, 0, :, :].permute(0, 2, 1), res[:, 1, :, :].permute(0, 2, 1)
 
     def log_audio(self, audio: np.ndarray, name: str, sampling_rate: int) -> None:
-        for logger in self.loggers:
-            if isinstance(logger, loggers.WandbLogger):
-                wandb.log({name: wandb.Audio(audio, sample_rate=sampling_rate)})
+        if isinstance(self.logger, loggers.WandbLogger):
+            wandb.log({name: wandb.Audio(audio, sample_rate=sampling_rate)})
