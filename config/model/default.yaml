@@ -13,3 +13,4 @@ mmdit:
   heads: 8
 
 mimi: ${data.preprocess.mimi}
+stats_path: ${data.preprocess.stats_path}

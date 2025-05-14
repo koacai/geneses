@@ -30,11 +30,13 @@ class TestPreprocessor:
             assert isinstance(res, list)
             assert isinstance(res[0], dict)
 
-    def test_get_mimi_token(self, init) -> None:
+    def test_get_mimi_feature(self, init) -> None:
         _ = init
 
         for cut in self.cuts[0].cut_into_windows(duration=30):
-            token_1, token_2, token_merged = self.preprocessor.get_mimi_token(cut)
-            assert token_1.size(0) == self.preprocessor.cfg.mimi.num_codebooks
-            assert token_2.size(0) == self.preprocessor.cfg.mimi.num_codebooks
-            assert token_merged.size(0) == self.preprocessor.cfg.mimi.num_codebooks
+            feature_1, feature_2, feature_merged = self.preprocessor.get_mimi_feature(
+                cut
+            )
+            assert feature_1.size(0) == 512
+            assert feature_2.size(0) == 512
+            assert feature_merged.size(0) == 512

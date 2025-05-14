@@ -25,10 +25,10 @@ class TestDialogueSeparatorDataModule:
             assert batch["wav_2"].size(0) == batch_size
             assert batch["wav_merged"].size(0) == batch_size
             assert batch["wav_len"].size(0) == batch_size
-            assert batch["token_1"].size(0) == batch_size
-            assert batch["token_2"].size(0) == batch_size
-            assert batch["token_merged"].size(0) == batch_size
-            assert batch["token_len"].size(0) == batch_size
+            assert batch["feature_1"].size(0) == batch_size
+            assert batch["feature_2"].size(0) == batch_size
+            assert batch["feature_merged"].size(0) == batch_size
+            assert batch["feature_len"].size(0) == batch_size
 
     def test_val_dataloader(self, init) -> None:
         _ = init
@@ -41,7 +41,7 @@ class TestDialogueSeparatorDataModule:
             assert batch["wav_2"].size(0) == batch_size
             assert batch["wav_merged"].size(0) == batch_size
             assert batch["wav_len"].size(0) == batch_size
-            assert batch["token_1"].size(0) == batch_size
-            assert batch["token_2"].size(0) == batch_size
-            assert batch["token_merged"].size(0) == batch_size
-            assert batch["token_len"].size(0) == batch_size
+            assert batch["feature_1"].size(0) == batch_size
+            assert batch["feature_2"].size(0) == batch_size
+            assert batch["feature_merged"].size(0) == batch_size
+            assert batch["feature_len"].size(0) == batch_size

@@ -1,9 +1,11 @@
 import io
+import json
 import random
 import uuid
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import torch
 import torchaudio
 import webdataset as wds
@@ -12,6 +14,7 @@ from lhotse import CutSet
 from lhotse.cut import Cut
 from moshi.models import loaders
 from omegaconf import DictConfig
+from sklearn.preprocessing import StandardScaler
 
 
 class Preprocessor:
@@ -41,10 +44,19 @@ class Preprocessor:
             maxsize=self.cfg.shard_size.valid,
         )
 
+        scaler = StandardScaler()
+
         cuts = cuts.shuffle(random.Random(42))
         for i, cut in enumerate(cuts.data):
             samples = self.process_cut(cut)
             for sample in samples:
+                feature_1 = wds.torch_loads(sample["feature_1.pth"])
+                scaler.partial_fit(feature_1.numpy().reshape(-1, 1))
+                feature_2 = wds.torch_loads(sample["feature_2.pth"])
+                scaler.partial_fit(feature_2.numpy().reshape(-1, 1))
+                feature_merged = wds.torch_loads(sample["feature_merged.pth"])
+                scaler.partial_fit(feature_merged.numpy().reshape(-1, 1))
+
                 if i < self.cfg.train_ratio * len(cuts):
                     train_sink.write(sample)
                 else:
@@ -52,6 +64,12 @@ class Preprocessor:
 
         train_sink.close()
         valid_sink.close()
+
+        with open(f"{self.cfg.stats_path}", "w") as f:
+            assert isinstance(scaler.mean_, np.ndarray)
+            assert isinstance(scaler.scale_, np.ndarray)
+            stats = {"mean": scaler.mean_[0], "std": scaler.scale_[0]}
+            json.dump(stats, f)
 
     def process_cut(self, cut: Cut) -> list[dict[str, Any]]:
         cuts = cut.cut_into_windows(duration=self.cfg.duration)
@@ -61,20 +79,20 @@ class Preprocessor:
             audio = torch.from_numpy(c.load_audio())
             torchaudio.save(buf, audio, c.sampling_rate, format="flac")
 
-            token_1, token_2, token_merged = self.get_mimi_token(c)
+            feature_1, feature_2, feature_merged = self.get_mimi_feature(c)
 
             s = {
                 "__key__": uuid.uuid1().hex,
                 "audio.flac": buf.getvalue(),
-                "token_1.pth": wds.torch_dumps(token_1.cpu()),
-                "token_2.pth": wds.torch_dumps(token_2.cpu()),
-                "token_merged.pth": wds.torch_dumps(token_merged.cpu()),
+                "feature_1.pth": wds.torch_dumps(feature_1.cpu()),
+                "feature_2.pth": wds.torch_dumps(feature_2.cpu()),
+                "feature_merged.pth": wds.torch_dumps(feature_merged.cpu()),
             }
             res.append(s)
 
         return res
 
-    def get_mimi_token(
+    def get_mimi_feature(
         self, cut: Cut
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         audio = torch.from_numpy(cut.load_audio())
@@ -97,6 +115,6 @@ class Preprocessor:
         )
 
         with torch.no_grad():
-            codes = self.mimi.encode(audio_stack)
+            features = self.mimi.encode_to_latent(audio_stack, quantize=False)
 
-        return codes[0], codes[1], codes[2]
+        return features[0], features[1], features[2]

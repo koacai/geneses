@@ -21,17 +21,16 @@ if __name__ == "__main__":
         wav = torch.from_numpy(cut.load_audio())
         wav = torchaudio.functional.resample(wav, cut.sampling_rate, 24000)
         wav = wav[0, :] + wav[1, :]
-        # torchaudio.save("before.wav", wav.unsqueeze(0), 24000)
+        torchaudio.save("before.wav", wav.unsqueeze(0), 24000)
         wav = wav.unsqueeze(0).unsqueeze(0)
 
         with torch.no_grad():
-            codes = mimi.encode(wav)
-            latent = mimi.decode_latent(codes)
+            emb = mimi.encode_to_latent(wav, quantize=False)
+            codes = mimi.quantizer.encode(emb)
             rec = mimi.decode(codes)
 
         print(rec.size())
-        print(latent.size())
 
-        # torchaudio.save("test.wav", rec.squeeze(0), 24000)
+        torchaudio.save("test.wav", rec.squeeze(0), 24000)
 
         break

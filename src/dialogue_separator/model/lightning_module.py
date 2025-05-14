@@ -1,3 +1,5 @@
+import json
+
 import hydra
 import numpy as np
 import torch
@@ -40,6 +42,9 @@ class DialogueSeparatorLightningModule(LightningModule):
             param.requires_grad = False
 
         self.path = AffineProbPath(scheduler=CondOTScheduler())
+
+        with open(f"{cfg.model.stats_path}", "r") as f:
+            self.stats = json.load(f)
 
         self.save_hyperparameters(cfg)
 
@@ -88,22 +93,28 @@ class DialogueSeparatorLightningModule(LightningModule):
             self.log_audio(source_merged, f"source_merged/{batch_idx}", wav_sr)
 
             with torch.no_grad():
+                feature_1 = self.denormalize_feature(batch["feature_1"])
+                code_1 = self.mimi.quantizer.encode(feature_1)
                 decoded_1 = (
-                    self.mimi.decode(batch["token_1"])[0]
+                    self.mimi.decode(code_1)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
                     .numpy()
                 )
+                feature_2 = self.denormalize_feature(batch["feature_2"])
+                code_2 = self.mimi.quantizer.encode(feature_2)
                 decoded_2 = (
-                    self.mimi.decode(batch["token_2"])[0]
+                    self.mimi.decode(code_2)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
                     .numpy()
                 )
+                feature_merged = self.denormalize_feature(batch["feature_merged"])
+                code_merged = self.mimi.quantizer.encode(feature_merged)
                 decoded_merged = (
-                    self.mimi.decode(batch["token_merged"])[0]
+                    self.mimi.decode(code_merged)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
@@ -114,10 +125,10 @@ class DialogueSeparatorLightningModule(LightningModule):
             self.log_audio(decoded_2, f"decoded_2/{batch_idx}", wav_sr)
             self.log_audio(decoded_merged, f"decoded_merged/{batch_idx}", wav_sr)
 
-            est_src1, est_src2 = self.forward(batch)
+            est_feature1, est_feature2 = self.forward(batch)
 
             with torch.no_grad():
-                code_1 = self.mimi.quantizer.encode(est_src1)
+                code_1 = self.mimi.quantizer.encode(est_feature1)
                 estimated_1 = (
                     self.mimi.decode(code_1)[0]
                     .squeeze()[:wav_len]
@@ -125,7 +136,7 @@ class DialogueSeparatorLightningModule(LightningModule):
                     .cpu()
                     .numpy()
                 )
-                code_2 = self.mimi.quantizer.encode(est_src2)
+                code_2 = self.mimi.quantizer.encode(est_feature2)
                 estimated_2 = (
                     self.mimi.decode(code_2)[0]
                     .squeeze()[:wav_len]
@@ -140,13 +151,9 @@ class DialogueSeparatorLightningModule(LightningModule):
         return loss
 
     def calc_loss(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
-        token_1 = batch["token_1"]
-        token_2 = batch["token_2"]
-        token_merged = batch["token_merged"]
-
-        x_1 = self.mimi.decode_latent(token_1).permute(0, 2, 1)
-        x_2 = self.mimi.decode_latent(token_2).permute(0, 2, 1)
-        x_merged = self.mimi.decode_latent(token_merged).permute(0, 2, 1)
+        x_1 = batch["feature_1"].permute(0, 2, 1)
+        x_2 = batch["feature_2"].permute(0, 2, 1)
+        x_merged = batch["feature_merged"].permute(0, 2, 1)
 
         batch_size = x_merged.size(0)
 
@@ -177,9 +184,7 @@ class DialogueSeparatorLightningModule(LightningModule):
     def forward(
         self, batch: dict[str, torch.Tensor]
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        token_merged = batch["token_merged"]
-
-        x_merged = self.mimi.decode_latent(token_merged).permute(0, 2, 1)
+        x_merged = batch["feature_merged"].permute(0, 2, 1)
 
         noise_1 = torch.randn_like(x_merged)
         noise_2 = torch.randn_like(x_merged)
@@ -198,9 +203,14 @@ class DialogueSeparatorLightningModule(LightningModule):
         )
         assert isinstance(res, torch.Tensor)
 
-        return res[:, 0, :, :].permute(0, 2, 1), res[:, 1, :, :].permute(0, 2, 1)
+        res_1 = res[:, 0, :, :].permute(0, 2, 1)
+        res_2 = res[:, 1, :, :].permute(0, 2, 1)
+
+        return self.denormalize_feature(res_1), self.denormalize_feature(res_2)
 
     def log_audio(self, audio: np.ndarray, name: str, sampling_rate: int) -> None:
-        for logger in self.loggers:
-            if isinstance(logger, loggers.WandbLogger):
-                wandb.log({name: wandb.Audio(audio, sample_rate=sampling_rate)})
+        if isinstance(self.logger, loggers.WandbLogger):
+            wandb.log({name: wandb.Audio(audio, sample_rate=sampling_rate)})
+
+    def denormalize_feature(self, feature: torch.Tensor) -> torch.Tensor:
+        return feature * self.stats["std"] + self.stats["mean"]
