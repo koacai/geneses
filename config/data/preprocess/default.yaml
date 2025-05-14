@@ -1,5 +1,6 @@
 shar_dir: ${data.dataset.shar_dir}
 webdataset_dir: /groups/gag51394/users/asai/webdataset/dialogue-separator/callhome_jp
+stats_path: ${data.preprocess.webdataset_dir}/stats.json
 device: cuda
 
 mimi:

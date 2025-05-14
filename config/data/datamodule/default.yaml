@@ -10,3 +10,5 @@ use_ddp: false
 max_duration: ${data.preprocess.duration}
 
 sample_rate: ${data.preprocess.mimi.sr}
+
+stats_path: ${data.preprocess.stats_path}

@@ -65,7 +65,7 @@ class Preprocessor:
         train_sink.close()
         valid_sink.close()
 
-        with open(f"{self.cfg.webdataset_dir}/stats.json", "w") as f:
+        with open(f"{self.cfg.stats_path}", "w") as f:
             assert isinstance(scaler.mean_, np.ndarray)
             assert isinstance(scaler.scale_, np.ndarray)
             stats = {"mean": scaler.mean_[0], "std": scaler.scale_[0]}
