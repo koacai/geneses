@@ -1,3 +1,3 @@
 defaults:
-  - data: libri2mix
+  - data: default
   - model: default
