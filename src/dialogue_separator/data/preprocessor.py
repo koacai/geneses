@@ -51,11 +51,11 @@ class Preprocessor:
             samples = self.process_cut(cut)
             for sample in samples:
                 feature_1 = wds.torch_loads(sample["feature_1.pth"])
-                scaler.partial_fit(feature_1.numpy().T)
+                scaler.partial_fit(feature_1.numpy().reshape(-1, 1))
                 feature_2 = wds.torch_loads(sample["feature_2.pth"])
-                scaler.partial_fit(feature_2.numpy().T)
+                scaler.partial_fit(feature_2.numpy().reshape(-1, 1))
                 feature_merged = wds.torch_loads(sample["feature_merged.pth"])
-                scaler.partial_fit(feature_merged.numpy().T)
+                scaler.partial_fit(feature_merged.numpy().reshape(-1, 1))
 
                 if i < self.cfg.train_ratio * len(cuts):
                     train_sink.write(sample)
@@ -115,6 +115,6 @@ class Preprocessor:
         )
 
         with torch.no_grad():
-            codes = self.mimi.encode_to_latent(audio_stack)
+            features = self.mimi.encode_to_latent(audio_stack, quantize=False)
 
-        return codes[0], codes[1], codes[2]
+        return features[0], features[1], features[2]

@@ -92,6 +92,6 @@ class PreprocessorLibri2Mix:
         )
 
         with torch.no_grad():
-            codes = self.mimi.encode_to_latent(audio_stack)
+            codes = self.mimi.encode_to_latent(audio_stack, quantize=False)
 
         return codes[0], codes[1], codes[2]
