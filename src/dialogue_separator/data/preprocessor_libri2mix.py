@@ -57,19 +57,19 @@ class PreprocessorLibri2Mix:
         audio = torch.from_numpy(cut.load_audio())
         torchaudio.save(buf, audio, cut.sampling_rate, format="flac")
 
-        token_1, token_2, token_merged = self.get_mimi_token(cut)
+        feature_1, feature_2, feature_merged = self.get_mimi_feature(cut)
 
         s = {
             "__key__": uuid.uuid1().hex,
             "audio.flac": buf.getvalue(),
-            "token_1.pth": wds.torch_dumps(token_1.cpu()),
-            "token_2.pth": wds.torch_dumps(token_2.cpu()),
-            "token_merged.pth": wds.torch_dumps(token_merged.cpu()),
+            "feature_1.pth": wds.torch_dumps(feature_1.cpu()),
+            "feature_2.pth": wds.torch_dumps(feature_2.cpu()),
+            "feature_merged.pth": wds.torch_dumps(feature_merged.cpu()),
         }
 
         return s
 
-    def get_mimi_token(
+    def get_mimi_feature(
         self, cut: Cut
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         audio = torch.from_numpy(cut.load_audio())
@@ -92,6 +92,6 @@ class PreprocessorLibri2Mix:
         )
 
         with torch.no_grad():
-            codes = self.mimi.encode(audio_stack)
+            codes = self.mimi.encode_to_latent(audio_stack)
 
         return codes[0], codes[1], codes[2]
