@@ -1,5 +1,6 @@
 shar_dir: ${data.dataset.shar_dir}
 webdataset_dir: /groups/gag51394/users/asai/webdataset/dialogue-separator/libri2mix
+stats_path: ${data.preprocess.webdataset_dir}/stats.json
 device: cuda
 
 mimi:
@@ -9,5 +10,5 @@ mimi:
 duration: 30
 train_ratio: 0.99
 shard_size:
-  train: 3e9
-  valid: 3e7
+  train: 1e9
+  valid: 1e7

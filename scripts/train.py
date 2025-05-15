@@ -20,7 +20,7 @@ def main(cfg: DictConfig) -> None:
         accelerator="gpu",
         max_epochs=3300,
         logger=wandb_logger,
-        check_val_every_n_epoch=1,
+        check_val_every_n_epoch=100,
         precision="16-mixed",
     )
 

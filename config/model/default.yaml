@@ -9,8 +9,8 @@ mmdit:
   out_channels: 512
   hidden_size: 512
   max_seq_len: 1000
-  depth: 1
-  heads: 8
+  depth: 12
+  heads: 12
 
 mimi: ${data.preprocess.mimi}
 stats_path: ${data.preprocess.stats_path}
