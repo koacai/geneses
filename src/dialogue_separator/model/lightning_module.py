@@ -3,6 +3,7 @@ import json
 import hydra
 import numpy as np
 import torch
+import torchaudio
 from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import ODESolver
@@ -208,9 +209,33 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         return self.denormalize_feature(res_1), self.denormalize_feature(res_2)
 
+    def separate_wav(
+        self, wav: torch.Tensor, sr: int
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        wav = wav.to(self.device)
+
+        if sr != self.cfg.model.mimi.sr:
+            wav = torchaudio.functional.resample(wav, sr, self.cfg.model.mimi.sr)
+
+        feature_merged = self.mimi.encode_to_latent(wav.unsqueeze(0), quantize=False)
+        batch = {"feature_merged": self.normalize_feature(feature_merged)}
+
+        est_feature1, est_feature2 = self.forward(batch)
+
+        with torch.no_grad():
+            code_1 = self.mimi.quantizer.encode(est_feature1)
+            estimated_1 = self.mimi.decode(code_1)[0].to(torch.float32).cpu()
+            code_2 = self.mimi.quantizer.encode(est_feature2)
+            estimated_2 = self.mimi.decode(code_2)[0].to(torch.float32).cpu()
+
+        return estimated_1, estimated_2
+
     def log_audio(self, audio: np.ndarray, name: str, sampling_rate: int) -> None:
         if isinstance(self.logger, loggers.WandbLogger):
             wandb.log({name: wandb.Audio(audio, sample_rate=sampling_rate)})
+
+    def normalize_feature(self, feature: torch.Tensor) -> torch.Tensor:
+        return (feature - self.stats["mean"]) / self.stats["std"]
 
     def denormalize_feature(self, feature: torch.Tensor) -> torch.Tensor:
         return feature * self.stats["std"] + self.stats["mean"]
