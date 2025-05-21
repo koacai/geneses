@@ -12,5 +12,5 @@ mmdit:
   depth: 12
   heads: 12
 
-mimi: ${data.preprocess.mimi}
-stats_path: ${data.preprocess.stats_path}
+mimi: ${data.preprocess.cfg.mimi}
+stats_path: ${data.preprocess.cfg.stats_path}
