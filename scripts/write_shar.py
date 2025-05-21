@@ -9,7 +9,7 @@ def main(cfg: DictConfig) -> None:
     corpus = hydra.utils.instantiate(cfg.data.dataset.corpus)
 
     output_dir = Path(cfg.data.dataset.shar_dir)
-    corpus.write_shar(output_dir, cfg.data.dataset.shard_size)
+    corpus.write_shar(output_dir)
 
 
 if __name__ == "__main__":
