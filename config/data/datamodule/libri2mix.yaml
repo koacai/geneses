@@ -1,14 +1,14 @@
 train:
-  dataset_path: ${data.preprocess.webdataset_dir}/train/data-{000000..00034}.tar
+  dataset_path: ${data.preprocess.cfg.webdataset_dir}/train/data-{000000..00034}.tar
   batch_size: 64
 valid:
-  dataset_path: ${data.preprocess.webdataset_dir}/valid/data-{000000..000035}.tar
+  dataset_path: ${data.preprocess.cfg.webdataset_dir}/valid/data-{000000..000035}.tar
   batch_size: 4
 num_workers: 16
 use_ddp: false
 
-max_duration: ${data.preprocess.duration}
+max_duration: ${data.preprocess.cfg.duration}
 
-sample_rate: ${data.preprocess.mimi.sr}
+sample_rate: ${data.preprocess.cfg.mimi.sr}
 
-stats_path: ${data.preprocess.stats_path}
+stats_path: ${data.preprocess.cfg.stats_path}

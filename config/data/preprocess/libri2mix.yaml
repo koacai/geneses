@@ -1,14 +1,16 @@
-shar_dir: ${data.dataset.shar_dir}
-webdataset_dir: /groups/gag51394/users/asai/webdataset/dialogue-separator/libri2mix
-stats_path: ${data.preprocess.webdataset_dir}/stats.json
-device: cuda
+_target_: dialogue_separator.data.preprocessor_libri2mix.PreprocessorLibri2Mix
+cfg:
+  shar_dir: ${data.dataset.shar_dir}
+  webdataset_dir: /groups/gag51394/users/asai/webdataset/dialogue-separator/libri2mix
+  stats_path: ${data.preprocess.cfg.webdataset_dir}/stats.json
+  device: cuda
 
-mimi:
-  num_codebooks: 8
-  sr: 24000
+  mimi:
+    num_codebooks: 8
+    sr: 24000
 
-duration: 30
-train_ratio: 0.99
-shard_size:
-  train: 1e9
-  valid: 1e7
+  duration: 30
+  train_ratio: 0.99
+  shard_size:
+    train: 1e9
+    valid: 1e7
