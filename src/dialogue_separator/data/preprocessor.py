@@ -9,10 +9,8 @@ import numpy as np
 import torch
 import torchaudio
 import webdataset as wds
-from huggingface_hub import hf_hub_download
-from lhotse import CutSet
+from lhotse import CutSet, MultiCut
 from lhotse.cut import Cut
-from moshi.models import loaders
 from omegaconf import DictConfig
 from sklearn.preprocessing import StandardScaler
 
@@ -22,12 +20,7 @@ from dialogue_separator.utils.mel import mel_spectrogram
 class Preprocessor:
     def __init__(self, cfg: DictConfig):
         self.cfg = cfg
-
         self.device = torch.device(cfg.device)
-
-        mimi_weight = hf_hub_download(loaders.DEFAULT_REPO, loaders.MIMI_NAME)
-        self.mimi = loaders.get_mimi(mimi_weight, device=self.device)
-        self.mimi.set_num_codebooks(cfg.mimi.num_codebooks)
 
     def write_webdataset(self) -> None:
         shar_dir = Path(self.cfg.shar_dir)
@@ -49,7 +42,7 @@ class Preprocessor:
         scaler = StandardScaler()
 
         cuts = cuts.shuffle(random.Random(42))
-        for i, cut in enumerate(cuts.data):
+        for cut in cuts.data:
             sample = self.process_cut(cut)
 
             feature_1 = wds.torch_loads(sample["feature_1.pth"])
@@ -59,10 +52,13 @@ class Preprocessor:
             feature_merged = wds.torch_loads(sample["feature_merged.pth"])
             scaler.partial_fit(feature_merged.numpy().reshape(-1, 1))
 
-            if i < self.cfg.train_ratio * len(cuts):
-                train_sink.write(sample)
-            else:
+            assert isinstance(cut, MultiCut)
+            assert isinstance(cut.custom, dict)
+
+            if cut.custom["subset"] == "dev-clean":
                 valid_sink.write(sample)
+            elif cut.custom["subset"] in ["train-clean-100", "train-clean-360"]:
+                train_sink.write(sample)
 
         train_sink.close()
         valid_sink.close()

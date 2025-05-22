@@ -3,13 +3,12 @@ cfg:
   shar_dir: ${data.dataset.shar_dir}
   webdataset_dir: /groups/gag51394/users/asai/webdataset/dialogue-separator/libri2mix
   stats_path: ${data.preprocess.cfg.webdataset_dir}/stats.json
-  device: cuda
+  device: cpu
 
   duration: 30
-  train_ratio: 0.99
   shard_size:
     train: 1e9
-    valid: 1e7
+    valid: 1e8
 
   mel:
     n_fft: 1024
