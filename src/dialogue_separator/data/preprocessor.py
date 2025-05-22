@@ -16,6 +16,8 @@ from moshi.models import loaders
 from omegaconf import DictConfig
 from sklearn.preprocessing import StandardScaler
 
+from dialogue_separator.utils.mel import mel_spectrogram
+
 
 class Preprocessor:
     def __init__(self, cfg: DictConfig):
@@ -76,7 +78,7 @@ class Preprocessor:
         audio = torch.from_numpy(cut.load_audio())
         torchaudio.save(buf, audio, cut.sampling_rate, format="flac")
 
-        feature_1, feature_2, feature_merged = self.get_mimi_feature(cut)
+        feature_1, feature_2, feature_merged = self.get_features(cut)
 
         s = {
             "__key__": uuid.uuid1().hex,
@@ -88,29 +90,35 @@ class Preprocessor:
 
         return s
 
-    def get_mimi_feature(
-        self, cut: Cut
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def get_features(self, cut: Cut) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         audio = torch.from_numpy(cut.load_audio())
 
-        if cut.sampling_rate != self.cfg.mimi.sr:
+        if cut.sampling_rate != self.cfg.mel.sample_rate:
             audio = torchaudio.functional.resample(
                 audio,
                 orig_freq=cut.sampling_rate,
-                new_freq=self.cfg.mimi.sr,
+                new_freq=self.cfg.mel.sample_rate,
             )
 
         audio_1 = audio[0]
         audio_2 = audio[1]
         audio_merged = audio_1 + audio_2
 
-        audio_stack = (
-            torch.stack([audio_1, audio_2, audio_merged], dim=0)
-            .unsqueeze(1)
-            .to(self.device)
+        audio_stack = torch.stack([audio_1, audio_2, audio_merged], dim=0).to(
+            self.device
         )
 
         with torch.no_grad():
-            codes = self.mimi.encode_to_latent(audio_stack, quantize=False)
+            features = mel_spectrogram(
+                audio_stack,
+                self.cfg.mel.n_fft,
+                self.cfg.mel.n_mels,
+                self.cfg.mel.sample_rate,
+                self.cfg.mel.hop_length,
+                self.cfg.mel.win_length,
+                self.cfg.mel.f_min,
+                self.cfg.mel.f_max,
+                center=False,
+            )
 
-        return codes[0], codes[1], codes[2]
+        return features[0], features[1], features[2]
