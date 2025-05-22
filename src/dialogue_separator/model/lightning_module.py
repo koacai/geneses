@@ -4,6 +4,7 @@ from pathlib import Path
 import hydra
 import numpy as np
 import torch
+import torchaudio
 from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import ODESolver
@@ -15,6 +16,7 @@ from omegaconf import DictConfig
 import wandb
 from dialogue_separator.hifigan.denoiser import Denoiser
 from dialogue_separator.hifigan.utils import get_vocoder
+from dialogue_separator.utils.mel import mel_spectrogram
 
 from .mmdit_model import MMDiT
 
@@ -75,72 +77,67 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         self.log("validation_loss", loss)
 
-        # wav_sr = self.cfg.model.mimi.sr
-        # if batch_idx < 5 and self.global_rank == 0 and self.local_rank == 0:
-        # wav_len = batch["wav_len"][0]
-        # source_1 = batch["wav_1"][0][:wav_len].cpu().numpy()
-        # source_2 = batch["wav_2"][0][:wav_len].cpu().numpy()
-        # source_merged = batch["wav_merged"][0][:wav_len].cpu().numpy()
+        wav_sr = self.cfg.model.mel.sample_rate
+        if batch_idx < 5 and self.global_rank == 0 and self.local_rank == 0:
+            wav_len = batch["wav_len"][0]
+            source_1 = batch["wav_1"][0][:wav_len].cpu().numpy()
+            source_2 = batch["wav_2"][0][:wav_len].cpu().numpy()
+            source_merged = batch["wav_merged"][0][:wav_len].cpu().numpy()
 
-        # self.log_audio(source_1, f"source_1/{batch_idx}", wav_sr)
-        # self.log_audio(source_2, f"source_2/{batch_idx}", wav_sr)
-        # self.log_audio(source_merged, f"source_merged/{batch_idx}", wav_sr)
+            self.log_audio(source_1, f"source_1/{batch_idx}", wav_sr)
+            self.log_audio(source_2, f"source_2/{batch_idx}", wav_sr)
+            self.log_audio(source_merged, f"source_merged/{batch_idx}", wav_sr)
 
-        # with torch.no_grad():
-        #     feature_1 = self.denormalize_feature(batch["feature_1"])
-        #     code_1 = self.mimi.quantizer.encode(feature_1)
-        #     decoded_1 = (
-        #         self.mimi.decode(code_1)[0]
-        #         .squeeze()[:wav_len]
-        #         .to(torch.float32)
-        #         .cpu()
-        #         .numpy()
-        #     )
-        #     feature_2 = self.denormalize_feature(batch["feature_2"])
-        #     code_2 = self.mimi.quantizer.encode(feature_2)
-        #     decoded_2 = (
-        #         self.mimi.decode(code_2)[0]
-        #         .squeeze()[:wav_len]
-        #         .to(torch.float32)
-        #         .cpu()
-        #         .numpy()
-        #     )
-        #     feature_merged = self.denormalize_feature(batch["feature_merged"])
-        #     code_merged = self.mimi.quantizer.encode(feature_merged)
-        #     decoded_merged = (
-        #         self.mimi.decode(code_merged)[0]
-        #         .squeeze()[:wav_len]
-        #         .to(torch.float32)
-        #         .cpu()
-        #         .numpy()
-        #     )
+            with torch.no_grad():
+                feature_1 = self.denormalize_feature(batch["feature_1"])
+                decoded_1 = (
+                    self.synth_wav(feature_1)[0]
+                    .squeeze()[:wav_len]
+                    .to(torch.float32)
+                    .cpu()
+                    .numpy()
+                )
+                feature_2 = self.denormalize_feature(batch["feature_2"])
+                decoded_2 = (
+                    self.synth_wav(feature_2)[0]
+                    .squeeze()[:wav_len]
+                    .to(torch.float32)
+                    .cpu()
+                    .numpy()
+                )
+                feature_merged = self.denormalize_feature(batch["feature_merged"])
+                decoded_merged = (
+                    self.synth_wav(feature_merged)[0]
+                    .squeeze()[:wav_len]
+                    .to(torch.float32)
+                    .cpu()
+                    .numpy()
+                )
 
-        # self.log_audio(decoded_1, f"decoded_1/{batch_idx}", wav_sr)
-        # self.log_audio(decoded_2, f"decoded_2/{batch_idx}", wav_sr)
-        # self.log_audio(decoded_merged, f"decoded_merged/{batch_idx}", wav_sr)
+            self.log_audio(decoded_1, f"decoded_1/{batch_idx}", wav_sr)
+            self.log_audio(decoded_2, f"decoded_2/{batch_idx}", wav_sr)
+            self.log_audio(decoded_merged, f"decoded_merged/{batch_idx}", wav_sr)
 
-        # est_feature1, est_feature2 = self.forward(batch)
+            est_feature1, est_feature2 = self.forward(batch)
 
-        # with torch.no_grad():
-        #     code_1 = self.mimi.quantizer.encode(est_feature1)
-        #     estimated_1 = (
-        #         self.mimi.decode(code_1)[0]
-        #         .squeeze()[:wav_len]
-        #         .to(torch.float32)
-        #         .cpu()
-        #         .numpy()
-        #     )
-        #     code_2 = self.mimi.quantizer.encode(est_feature2)
-        #     estimated_2 = (
-        #         self.mimi.decode(code_2)[0]
-        #         .squeeze()[:wav_len]
-        #         .to(torch.float32)
-        #         .cpu()
-        #         .numpy()
-        #     )
+            with torch.no_grad():
+                estimated_1 = (
+                    self.synth_wav(est_feature1)[0]
+                    .squeeze()[:wav_len]
+                    .to(torch.float32)
+                    .cpu()
+                    .numpy()
+                )
+                estimated_2 = (
+                    self.synth_wav(est_feature2)[0]
+                    .squeeze()[:wav_len]
+                    .to(torch.float32)
+                    .cpu()
+                    .numpy()
+                )
 
-        # self.log_audio(estimated_1, f"estimated_1/{batch_idx}", wav_sr)
-        # self.log_audio(estimated_2, f"estimated_2/{batch_idx}", wav_sr)
+            self.log_audio(estimated_1, f"estimated_1/{batch_idx}", wav_sr)
+            self.log_audio(estimated_2, f"estimated_2/{batch_idx}", wav_sr)
 
         return loss
 
@@ -207,22 +204,29 @@ class DialogueSeparatorLightningModule(LightningModule):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         wav = wav.to(self.device)
 
-        # if sr != self.cfg.model.mimi.sr:
-        #     wav = torchaudio.functional.resample(wav, sr, self.cfg.model.mimi.sr)
+        if sr != self.cfg.model.sample_rate:
+            wav = torchaudio.functional.resample(wav, sr, self.cfg.model.mimi.sr)
 
-        # feature_merged = self.mimi.encode_to_latent(wav.unsqueeze(0), quantize=False)
-        # batch = {"feature_merged": self.normalize_feature(feature_merged)}
+        feature_merged = mel_spectrogram(
+            wav,
+            self.cfg.model.mel.n_fft,
+            self.cfg.model.mel.n_mels,
+            self.cfg.model.mel.sample_rate,
+            self.cfg.model.mel.hop_length,
+            self.cfg.model.mel.win_length,
+            self.cfg.model.mel.f_min,
+            self.cfg.model.mel.f_max,
+            center=False,
+        )
+        batch = {"feature_merged": self.normalize_feature(feature_merged)}
 
-        # est_feature1, est_feature2 = self.forward(batch)
+        est_feature1, est_feature2 = self.forward(batch)
 
-        # with torch.no_grad():
-        #     code_1 = self.mimi.quantizer.encode(est_feature1)
-        #     estimated_1 = self.mimi.decode(code_1)[0].to(torch.float32).cpu()
-        #     code_2 = self.mimi.quantizer.encode(est_feature2)
-        #     estimated_2 = self.mimi.decode(code_2)[0].to(torch.float32).cpu()
+        with torch.no_grad():
+            estimated_1 = self.synth_wav(est_feature1)[0].to(torch.float32).cpu()
+            estimated_2 = self.synth_wav(est_feature2)[0].to(torch.float32).cpu()
 
-        # return estimated_1, estimated_2
-        return wav, wav
+        return estimated_1, estimated_2
 
     @torch.inference_mode()
     def synth_wav(self, mels: torch.Tensor) -> torch.Tensor:

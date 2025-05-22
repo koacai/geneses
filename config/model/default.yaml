@@ -14,3 +14,4 @@ mmdit:
 
 stats_path: ${data.preprocess.cfg.stats_path}
 vocoder_path: LJ_FT_T2_V1/generator_v1
+mel: ${data.preprocess.cfg.mel}
