@@ -1,4 +1,4 @@
 defaults:
   - dataset: callhome_jp
-  - preprocess: default
+  - preprocess: callhome_jp
   - datamodule: default
