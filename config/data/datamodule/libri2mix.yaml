@@ -9,6 +9,6 @@ use_ddp: false
 
 max_duration: ${data.preprocess.cfg.duration}
 
-sample_rate: ${data.preprocess.cfg.mimi.sr}
+sample_rate: ${data.preprocess.cfg.mel.sample_rate}
 
 stats_path: ${data.preprocess.cfg.stats_path}
