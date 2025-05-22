@@ -1,4 +1,4 @@
-_target_: dialogue_separator.data.preprocessor_libri2mix.PreprocessorLibri2Mix
+_target_: dialogue_separator.data.preprocessor.Preprocessor
 cfg:
   shar_dir: ${data.dataset.shar_dir}
   webdataset_dir: /groups/gag51394/users/asai/webdataset/dialogue-separator/libri2mix

@@ -5,7 +5,7 @@ import pytest
 from hydra import compose, initialize
 from lhotse import CutSet
 
-from dialogue_separator.data.preprocessor import Preprocessor
+from dialogue_separator.data.preprocessor_conversation import PreprocessorConversation
 
 
 @pytest.mark.skip("ローカルで実行するためのテスト")
@@ -14,7 +14,7 @@ class TestPreprocessor:
     def init(self) -> None:
         with initialize(config_path="../../config", version_base=None):
             cfg = compose(config_name="default").data.preprocess
-            self.preprocessor = Preprocessor(cfg)
+            self.preprocessor = PreprocessorConversation(cfg)
             shar_dir = Path(cfg.shar_dir)
             cut_paths = sorted(map(str, shar_dir.glob("cuts.*.jsonl.gz")))
             recording_paths = sorted(map(str, shar_dir.glob("recording.*.tar")))

@@ -17,7 +17,7 @@ from omegaconf import DictConfig
 from sklearn.preprocessing import StandardScaler
 
 
-class PreprocessorLibri2Mix:
+class PreprocessorConversation:
     def __init__(self, cfg: DictConfig):
         self.cfg = cfg
 
@@ -48,19 +48,19 @@ class PreprocessorLibri2Mix:
 
         cuts = cuts.shuffle(random.Random(42))
         for i, cut in enumerate(cuts.data):
-            sample = self.process_cut(cut)
+            samples = self.process_cut(cut)
+            for sample in samples:
+                feature_1 = wds.torch_loads(sample["feature_1.pth"])
+                scaler.partial_fit(feature_1.numpy().reshape(-1, 1))
+                feature_2 = wds.torch_loads(sample["feature_2.pth"])
+                scaler.partial_fit(feature_2.numpy().reshape(-1, 1))
+                feature_merged = wds.torch_loads(sample["feature_merged.pth"])
+                scaler.partial_fit(feature_merged.numpy().reshape(-1, 1))
 
-            feature_1 = wds.torch_loads(sample["feature_1.pth"])
-            scaler.partial_fit(feature_1.numpy().reshape(-1, 1))
-            feature_2 = wds.torch_loads(sample["feature_2.pth"])
-            scaler.partial_fit(feature_2.numpy().reshape(-1, 1))
-            feature_merged = wds.torch_loads(sample["feature_merged.pth"])
-            scaler.partial_fit(feature_merged.numpy().reshape(-1, 1))
-
-            if i < self.cfg.train_ratio * len(cuts):
-                train_sink.write(sample)
-            else:
-                valid_sink.write(sample)
+                if i < self.cfg.train_ratio * len(cuts):
+                    train_sink.write(sample)
+                else:
+                    valid_sink.write(sample)
 
         train_sink.close()
         valid_sink.close()
@@ -71,22 +71,26 @@ class PreprocessorLibri2Mix:
             stats = {"mean": scaler.mean_[0], "std": scaler.scale_[0]}
             json.dump(stats, f)
 
-    def process_cut(self, cut: Cut) -> dict[str, Any]:
-        buf = io.BytesIO()
-        audio = torch.from_numpy(cut.load_audio())
-        torchaudio.save(buf, audio, cut.sampling_rate, format="flac")
+    def process_cut(self, cut: Cut) -> list[dict[str, Any]]:
+        cuts = cut.cut_into_windows(duration=self.cfg.duration)
+        res = []
+        for c in cuts.data:
+            buf = io.BytesIO()
+            audio = torch.from_numpy(c.load_audio())
+            torchaudio.save(buf, audio, c.sampling_rate, format="flac")
 
-        feature_1, feature_2, feature_merged = self.get_mimi_feature(cut)
+            feature_1, feature_2, feature_merged = self.get_mimi_feature(c)
 
-        s = {
-            "__key__": uuid.uuid1().hex,
-            "audio.flac": buf.getvalue(),
-            "feature_1.pth": wds.torch_dumps(feature_1.cpu()),
-            "feature_2.pth": wds.torch_dumps(feature_2.cpu()),
-            "feature_merged.pth": wds.torch_dumps(feature_merged.cpu()),
-        }
+            s = {
+                "__key__": uuid.uuid1().hex,
+                "audio.flac": buf.getvalue(),
+                "feature_1.pth": wds.torch_dumps(feature_1.cpu()),
+                "feature_2.pth": wds.torch_dumps(feature_2.cpu()),
+                "feature_merged.pth": wds.torch_dumps(feature_merged.cpu()),
+            }
+            res.append(s)
 
-        return s
+        return res
 
     def get_mimi_feature(
         self, cut: Cut
@@ -111,6 +115,6 @@ class PreprocessorLibri2Mix:
         )
 
         with torch.no_grad():
-            codes = self.mimi.encode_to_latent(audio_stack, quantize=False)
+            features = self.mimi.encode_to_latent(audio_stack, quantize=False)
 
-        return codes[0], codes[1], codes[2]
+        return features[0], features[1], features[2]
