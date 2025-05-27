@@ -6,7 +6,7 @@ lr_scheduler:
 
 mmdit:
   hidden_size: ${data.preprocess.cfg.mel.n_mels}
-  max_seq_len: 2000
+  max_seq_len: 4000
   depth: 12
   heads: 12
 
