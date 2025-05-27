@@ -42,7 +42,17 @@ class DialogueSeparatorLightningModule(LightningModule):
         with open(f"{cfg.model.stats_path}", "r") as f:
             self.stats = json.load(f)
 
+        self.vocoder = get_vocoder(Path(self.cfg.model.vocoder_path), self.device)
+        self.denoiser = Denoiser(self.vocoder, mode="zeros").eval()
+
         self.save_hyperparameters(cfg)
+
+    def on_fit_start(self) -> None:
+        # NOTE: initの段階ではdevce = cpuなので、on_fit_startでdeviceを設定する
+        self.vocoder = get_vocoder(Path(self.cfg.model.vocoder_path), self.device).to(
+            self.device
+        )
+        self.denoiser = Denoiser(self.vocoder, mode="zeros").eval()
 
     def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
         optimizer = hydra.utils.instantiate(
@@ -230,10 +240,8 @@ class DialogueSeparatorLightningModule(LightningModule):
 
     @torch.inference_mode()
     def synth_wav(self, mels: torch.Tensor) -> torch.Tensor:
-        vocoder = get_vocoder(Path(self.cfg.model.vocoder_path), self.device)
-        denoiser = Denoiser(vocoder, mode="zeros").eval()
-        audio = vocoder(mels).clamp(-1, 1)
-        audio = denoiser(audio.squeeze(0), strength=0.00025)
+        audio = self.vocoder(mels).clamp(-1, 1)
+        audio = self.denoiser(audio.squeeze(1), strength=0.00025)
         return audio
 
     def log_audio(self, audio: np.ndarray, name: str, sampling_rate: int) -> None:

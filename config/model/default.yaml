@@ -8,7 +8,7 @@ mmdit:
   in_channels: ${data.preprocess.cfg.mel.n_mels}
   out_channels: ${data.preprocess.cfg.mel.n_mels}
   hidden_size: ${data.preprocess.cfg.mel.n_mels}
-  max_seq_len: 4000
+  max_seq_len: 2000
   depth: 12
   heads: 12
 
