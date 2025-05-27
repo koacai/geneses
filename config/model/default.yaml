@@ -5,12 +5,11 @@ lr_scheduler:
   _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
 
 mmdit:
-  in_channels: 512
-  out_channels: 512
-  hidden_size: 512
-  max_seq_len: 1000
+  hidden_size: ${data.preprocess.cfg.mel.n_mels}
+  max_seq_len: 4000
   depth: 12
   heads: 12
 
-mimi: ${data.preprocess.cfg.mimi}
 stats_path: ${data.preprocess.cfg.stats_path}
+vocoder_path: LJ_FT_T2_V1/generator_v1
+mel: ${data.preprocess.cfg.mel}

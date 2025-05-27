@@ -20,6 +20,6 @@ def get_vocoder(vocoder_path: Path, device: torch.device):
     h = AttrDict(v1)
     hifigan = HiFiGAN(h)
     hifigan.load_state_dict(torch.load(vocoder_path, map_location=device)["generator"])
-    hifigan = hifigan.eval()
+    _ = hifigan.eval()
     hifigan.remove_weight_norm()
     return hifigan

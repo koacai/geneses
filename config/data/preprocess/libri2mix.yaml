@@ -5,7 +5,6 @@ cfg:
   stats_path: ${data.preprocess.cfg.webdataset_dir}/stats.json
   device: cpu
 
-  duration: 30
   shard_size:
     train: 1e9
     valid: 1e8

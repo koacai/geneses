@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import hydra
 import numpy as np
@@ -8,13 +9,14 @@ from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import ODESolver
 from flow_matching.utils import ModelWrapper
-from huggingface_hub import hf_hub_download
 from lightning.pytorch import LightningModule, loggers
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRSchedulerConfig
-from moshi.models import loaders
 from omegaconf import DictConfig
 
 import wandb
+from dialogue_separator.hifigan.denoiser import Denoiser
+from dialogue_separator.hifigan.utils import get_vocoder
+from dialogue_separator.utils.mel import mel_spectrogram
 
 from .mmdit_model import MMDiT
 
@@ -35,19 +37,22 @@ class DialogueSeparatorLightningModule(LightningModule):
         self.cfg = cfg
 
         self.mmdit = MMDiT(**cfg.model.mmdit)
-
-        mimi_weight = hf_hub_download(loaders.DEFAULT_REPO, loaders.MIMI_NAME)
-        self.mimi = loaders.get_mimi(mimi_weight, device=self.device)
-        self.mimi.set_num_codebooks(self.cfg.model.mimi.num_codebooks)
-        for param in self.mimi.parameters():
-            param.requires_grad = False
-
         self.path = AffineProbPath(scheduler=CondOTScheduler())
 
         with open(f"{cfg.model.stats_path}", "r") as f:
             self.stats = json.load(f)
 
+        self.vocoder = get_vocoder(Path(self.cfg.model.vocoder_path), self.device)
+        self.denoiser = Denoiser(self.vocoder, mode="zeros").eval()
+
         self.save_hyperparameters(cfg)
+
+    def on_fit_start(self) -> None:
+        # NOTE: initの段階ではdevce = cpuなので、on_fit_startでdeviceを設定する
+        self.vocoder = get_vocoder(Path(self.cfg.model.vocoder_path), self.device).to(
+            self.device
+        )
+        self.denoiser = Denoiser(self.vocoder, mode="zeros").eval()
 
     def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
         optimizer = hydra.utils.instantiate(
@@ -82,7 +87,7 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         self.log("validation_loss", loss)
 
-        wav_sr = self.cfg.model.mimi.sr
+        wav_sr = self.cfg.model.mel.sample_rate
         if batch_idx < 5 and self.global_rank == 0 and self.local_rank == 0:
             wav_len = batch["wav_len"][0]
             source_1 = batch["wav_1"][0][:wav_len].cpu().numpy()
@@ -95,27 +100,24 @@ class DialogueSeparatorLightningModule(LightningModule):
 
             with torch.no_grad():
                 feature_1 = self.denormalize_feature(batch["feature_1"])
-                code_1 = self.mimi.quantizer.encode(feature_1)
                 decoded_1 = (
-                    self.mimi.decode(code_1)[0]
+                    self.synth_wav(feature_1)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
                     .numpy()
                 )
                 feature_2 = self.denormalize_feature(batch["feature_2"])
-                code_2 = self.mimi.quantizer.encode(feature_2)
                 decoded_2 = (
-                    self.mimi.decode(code_2)[0]
+                    self.synth_wav(feature_2)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
                     .numpy()
                 )
                 feature_merged = self.denormalize_feature(batch["feature_merged"])
-                code_merged = self.mimi.quantizer.encode(feature_merged)
                 decoded_merged = (
-                    self.mimi.decode(code_merged)[0]
+                    self.synth_wav(feature_merged)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
@@ -129,17 +131,15 @@ class DialogueSeparatorLightningModule(LightningModule):
             est_feature1, est_feature2 = self.forward(batch)
 
             with torch.no_grad():
-                code_1 = self.mimi.quantizer.encode(est_feature1)
                 estimated_1 = (
-                    self.mimi.decode(code_1)[0]
+                    self.synth_wav(est_feature1)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
                     .numpy()
                 )
-                code_2 = self.mimi.quantizer.encode(est_feature2)
                 estimated_2 = (
-                    self.mimi.decode(code_2)[0]
+                    self.synth_wav(est_feature2)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
@@ -191,7 +191,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         noise_2 = torch.randn_like(x_merged)
         noise = torch.stack([noise_1, noise_2], dim=1)
 
-        step_size = 0.01
+        step_size = 0.1
         time_grid = torch.tensor([0.0, 1.0])
 
         solver = ODESolver(velocity_model=WrappedModel(self.mmdit))
@@ -214,21 +214,35 @@ class DialogueSeparatorLightningModule(LightningModule):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         wav = wav.to(self.device)
 
-        if sr != self.cfg.model.mimi.sr:
+        if sr != self.cfg.model.sample_rate:
             wav = torchaudio.functional.resample(wav, sr, self.cfg.model.mimi.sr)
 
-        feature_merged = self.mimi.encode_to_latent(wav.unsqueeze(0), quantize=False)
+        feature_merged = mel_spectrogram(
+            wav,
+            self.cfg.model.mel.n_fft,
+            self.cfg.model.mel.n_mels,
+            self.cfg.model.mel.sample_rate,
+            self.cfg.model.mel.hop_length,
+            self.cfg.model.mel.win_length,
+            self.cfg.model.mel.f_min,
+            self.cfg.model.mel.f_max,
+            center=False,
+        )
         batch = {"feature_merged": self.normalize_feature(feature_merged)}
 
         est_feature1, est_feature2 = self.forward(batch)
 
         with torch.no_grad():
-            code_1 = self.mimi.quantizer.encode(est_feature1)
-            estimated_1 = self.mimi.decode(code_1)[0].to(torch.float32).cpu()
-            code_2 = self.mimi.quantizer.encode(est_feature2)
-            estimated_2 = self.mimi.decode(code_2)[0].to(torch.float32).cpu()
+            estimated_1 = self.synth_wav(est_feature1)[0].to(torch.float32).cpu()
+            estimated_2 = self.synth_wav(est_feature2)[0].to(torch.float32).cpu()
 
         return estimated_1, estimated_2
+
+    @torch.inference_mode()
+    def synth_wav(self, mels: torch.Tensor) -> torch.Tensor:
+        audio = self.vocoder(mels).clamp(-1, 1)
+        audio = self.denoiser(audio.squeeze(1), strength=0.00025)
+        return audio
 
     def log_audio(self, audio: np.ndarray, name: str, sampling_rate: int) -> None:
         if isinstance(self.logger, loggers.WandbLogger):
