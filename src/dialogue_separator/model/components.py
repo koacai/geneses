@@ -67,13 +67,35 @@ class TimestepEmbedder(nn.Module):
 class MMDiT(nn.Module):
     def __init__(
         self,
+        in_channels: int,
+        out_channels: int,
         hidden_size: int,
         max_seq_len: int,
         depth: int,
         heads: int,
     ) -> None:
         super(MMDiT, self).__init__()
+
         self.t_embedder = TimestepEmbedder(hidden_size)
+
+        self.x_embedder_merged = nn.Sequential(
+            nn.Linear(in_channels, hidden_size, bias=True),
+            nn.SiLU(),
+            nn.Dropout(0.1),
+            nn.Linear(hidden_size, hidden_size, bias=True),
+        )
+        self.x_embedder_1 = nn.Sequential(
+            nn.Linear(in_channels, hidden_size, bias=True),
+            nn.SiLU(),
+            nn.Dropout(0.1),
+            nn.Linear(hidden_size, hidden_size, bias=True),
+        )
+        self.x_embedder_2 = nn.Sequential(
+            nn.Linear(in_channels, hidden_size, bias=True),
+            nn.SiLU(),
+            nn.Dropout(0.1),
+            nn.Linear(hidden_size, hidden_size, bias=True),
+        )
 
         self.x_pos_embed_merged = nn.Parameter(
             torch.zeros(1, max_seq_len, hidden_size), requires_grad=False
@@ -93,6 +115,9 @@ class MMDiT(nn.Module):
             flash_attn=True,
             heads=heads,
         )
+
+        self.final_layer_1 = nn.Linear(hidden_size, out_channels)
+        self.final_layer_2 = nn.Linear(hidden_size, out_channels)
 
         self.max_seq_len = max_seq_len
 
@@ -130,9 +155,12 @@ class MMDiT(nn.Module):
             x_1: (B, N, C)
             x_2: (B, N, C)
         """
-        x_merged = x_merged + self.x_pos_embed_merged[:, : x_merged.shape[1], :]
-        x_1 = x_1 + self.x_pos_embed_1[:, : x_1.shape[1], :]
-        x_2 = x_2 + self.x_pos_embed_2[:, : x_2.shape[1], :]
+        x_merged = (
+            self.x_embedder_merged(x_merged)
+            + self.x_pos_embed_merged[:, : x_merged.shape[1], :]
+        )
+        x_1 = self.x_embedder_1(x_1) + self.x_pos_embed_1[:, : x_1.shape[1], :]
+        x_2 = self.x_embedder_2(x_2) + self.x_pos_embed_2[:, : x_2.shape[1], :]
         t = t * 1000
 
         t = self.t_embedder(t)  # (N, D)
@@ -141,8 +169,10 @@ class MMDiT(nn.Module):
             modality_tokens=(x_merged, x_1, x_2),
             time_cond=t,
         )
+        res_1 = self.final_layer_1(out[0])
+        res_2 = self.final_layer_2(out[1])
 
-        return out[0], out[1]
+        return res_1, res_2
 
 
 #################################################################################

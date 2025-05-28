@@ -9,7 +9,9 @@ vae:
   hidden_size: 64
 
 mmdit:
-  hidden_size: ${model.vae.hidden_size}
+  in_channels: ${model.vae.hidden_size}
+  out_channels: ${model.vae.hidden_size}
+  hidden_size: 256
   max_seq_len: 2000
   depth: 12
   heads: 12
