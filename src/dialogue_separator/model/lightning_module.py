@@ -18,7 +18,7 @@ from dialogue_separator.hifigan.denoiser import Denoiser
 from dialogue_separator.hifigan.utils import get_vocoder
 from dialogue_separator.utils.mel import mel_spectrogram
 
-from .mmdit_model import MMDiT
+from .components import MMDiT
 
 
 class WrappedModel(ModelWrapper):
