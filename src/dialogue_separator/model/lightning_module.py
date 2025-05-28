@@ -33,6 +33,8 @@ class DialogueSeparatorLightningModule(LightningModule):
         self.path = AffineProbPath(scheduler=CondOTScheduler())
 
         self.dacvae = torch.jit.load(cfg.model.vae.ckpt_path)
+        for param in self.dacvae.parameters():
+            param.requires_grad = False
 
         self.save_hyperparameters(cfg)
 
