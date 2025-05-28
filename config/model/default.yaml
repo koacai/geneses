@@ -4,12 +4,14 @@ optimizer:
 lr_scheduler:
   _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
 
+vae:
+  ckpt_path: /groups/gag51394/users/asai/dacvae.pt
+  hidden_size: 64
+
 mmdit:
-  hidden_size: ${data.preprocess.cfg.mel.n_mels}
-  max_seq_len: 4000
+  hidden_size: ${model.vae.hidden_size}
+  max_seq_len: 2000
   depth: 12
   heads: 12
 
-stats_path: ${data.preprocess.cfg.stats_path}
-vocoder_path: LJ_FT_T2_V1/generator_v1
-mel: ${data.preprocess.cfg.mel}
+sample_rate: ${data.datamodule.sample_rate}

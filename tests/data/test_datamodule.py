@@ -6,7 +6,6 @@ from hydra import compose, initialize
 from dialogue_separator.data.datamodule import DialogueSeparatorDataModule
 
 
-@pytest.mark.skip("ローカルで実行するためのテスト")
 class TestDialogueSeparatorDataModule:
     @pytest.fixture
     def init(self) -> None:
@@ -25,10 +24,6 @@ class TestDialogueSeparatorDataModule:
             assert batch["wav_2"].size(0) == batch_size
             assert batch["wav_merged"].size(0) == batch_size
             assert batch["wav_len"].size(0) == batch_size
-            assert batch["feature_1"].size(0) == batch_size
-            assert batch["feature_2"].size(0) == batch_size
-            assert batch["feature_merged"].size(0) == batch_size
-            assert batch["feature_len"].size(0) == batch_size
 
     def test_val_dataloader(self, init) -> None:
         _ = init
@@ -41,7 +36,3 @@ class TestDialogueSeparatorDataModule:
             assert batch["wav_2"].size(0) == batch_size
             assert batch["wav_merged"].size(0) == batch_size
             assert batch["wav_len"].size(0) == batch_size
-            assert batch["feature_1"].size(0) == batch_size
-            assert batch["feature_2"].size(0) == batch_size
-            assert batch["feature_merged"].size(0) == batch_size
-            assert batch["feature_len"].size(0) == batch_size

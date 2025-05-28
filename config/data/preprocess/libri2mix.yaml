@@ -2,18 +2,8 @@ _target_: dialogue_separator.data.preprocessor.Preprocessor
 cfg:
   shar_dir: ${data.dataset.shar_dir}
   webdataset_dir: /groups/gag51394/users/asai/webdataset/dialogue-separator/libri2mix
-  stats_path: ${data.preprocess.cfg.webdataset_dir}/stats.json
   device: cpu
 
   shard_size:
-    train: 1e9
-    valid: 1e8
-
-  mel:
-    n_fft: 1024
-    n_mels: 80
-    sample_rate: 22050
-    hop_length: 256
-    win_length: 1024
-    f_min: 0
-    f_max: 8000
+    train: 3e8
+    valid: 1e7
