@@ -1,22 +1,17 @@
-import json
-
 import hydra
 import numpy as np
 import torch
-import torchaudio
 from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import ODESolver
 from flow_matching.utils import ModelWrapper
-from huggingface_hub import hf_hub_download
 from lightning.pytorch import LightningModule, loggers
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRSchedulerConfig
-from moshi.models import loaders
 from omegaconf import DictConfig
 
 import wandb
 
-from .mmdit_model import MMDiT
+from .components import MMDiT
 
 
 class WrappedModel(ModelWrapper):
@@ -35,17 +30,11 @@ class DialogueSeparatorLightningModule(LightningModule):
         self.cfg = cfg
 
         self.mmdit = MMDiT(**cfg.model.mmdit)
-
-        mimi_weight = hf_hub_download(loaders.DEFAULT_REPO, loaders.MIMI_NAME)
-        self.mimi = loaders.get_mimi(mimi_weight, device=self.device)
-        self.mimi.set_num_codebooks(self.cfg.model.mimi.num_codebooks)
-        for param in self.mimi.parameters():
-            param.requires_grad = False
-
         self.path = AffineProbPath(scheduler=CondOTScheduler())
 
-        with open(f"{cfg.model.stats_path}", "r") as f:
-            self.stats = json.load(f)
+        self.dacvae = torch.jit.load(cfg.model.vae.ckpt_path)
+        for param in self.dacvae.parameters():
+            param.requires_grad = False
 
         self.save_hyperparameters(cfg)
 
@@ -82,7 +71,7 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         self.log("validation_loss", loss)
 
-        wav_sr = self.cfg.model.mimi.sr
+        wav_sr = self.cfg.model.sample_rate
         if batch_idx < 5 and self.global_rank == 0 and self.local_rank == 0:
             wav_len = batch["wav_len"][0]
             source_1 = batch["wav_1"][0][:wav_len].cpu().numpy()
@@ -93,53 +82,18 @@ class DialogueSeparatorLightningModule(LightningModule):
             self.log_audio(source_2, f"source_2/{batch_idx}", wav_sr)
             self.log_audio(source_merged, f"source_merged/{batch_idx}", wav_sr)
 
-            with torch.no_grad():
-                feature_1 = self.denormalize_feature(batch["feature_1"])
-                code_1 = self.mimi.quantizer.encode(feature_1)
-                decoded_1 = (
-                    self.mimi.decode(code_1)[0]
-                    .squeeze()[:wav_len]
-                    .to(torch.float32)
-                    .cpu()
-                    .numpy()
-                )
-                feature_2 = self.denormalize_feature(batch["feature_2"])
-                code_2 = self.mimi.quantizer.encode(feature_2)
-                decoded_2 = (
-                    self.mimi.decode(code_2)[0]
-                    .squeeze()[:wav_len]
-                    .to(torch.float32)
-                    .cpu()
-                    .numpy()
-                )
-                feature_merged = self.denormalize_feature(batch["feature_merged"])
-                code_merged = self.mimi.quantizer.encode(feature_merged)
-                decoded_merged = (
-                    self.mimi.decode(code_merged)[0]
-                    .squeeze()[:wav_len]
-                    .to(torch.float32)
-                    .cpu()
-                    .numpy()
-                )
-
-            self.log_audio(decoded_1, f"decoded_1/{batch_idx}", wav_sr)
-            self.log_audio(decoded_2, f"decoded_2/{batch_idx}", wav_sr)
-            self.log_audio(decoded_merged, f"decoded_merged/{batch_idx}", wav_sr)
-
             est_feature1, est_feature2 = self.forward(batch)
 
             with torch.no_grad():
-                code_1 = self.mimi.quantizer.encode(est_feature1)
                 estimated_1 = (
-                    self.mimi.decode(code_1)[0]
+                    self.dacvae.decode(est_feature1)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
                     .numpy()
                 )
-                code_2 = self.mimi.quantizer.encode(est_feature2)
                 estimated_2 = (
-                    self.mimi.decode(code_2)[0]
+                    self.dacvae.decode(est_feature2)[0]
                     .squeeze()[:wav_len]
                     .to(torch.float32)
                     .cpu()
@@ -152,9 +106,13 @@ class DialogueSeparatorLightningModule(LightningModule):
         return loss
 
     def calc_loss(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
-        x_1 = batch["feature_1"].permute(0, 2, 1)
-        x_2 = batch["feature_2"].permute(0, 2, 1)
-        x_merged = batch["feature_merged"].permute(0, 2, 1)
+        with torch.no_grad():
+            x_1, _, _, _ = self.dacvae.encode(batch["wav_1"].unsqueeze(1))
+            x_2, _, _, _ = self.dacvae.encode(batch["wav_2"].unsqueeze(1))
+            x_merged, _, _, _ = self.dacvae.encode(batch["wav_merged"].unsqueeze(1))
+            x_1 = x_1.permute(0, 2, 1)
+            x_2 = x_2.permute(0, 2, 1)
+            x_merged = x_merged.permute(0, 2, 1)
 
         batch_size = x_merged.size(0)
 
@@ -185,13 +143,15 @@ class DialogueSeparatorLightningModule(LightningModule):
     def forward(
         self, batch: dict[str, torch.Tensor]
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        x_merged = batch["feature_merged"].permute(0, 2, 1)
+        with torch.no_grad():
+            x_merged, _, _, _ = self.dacvae.encode(batch["wav_merged"].unsqueeze(1))
+            x_merged = x_merged.permute(0, 2, 1)
 
         noise_1 = torch.randn_like(x_merged)
         noise_2 = torch.randn_like(x_merged)
         noise = torch.stack([noise_1, noise_2], dim=1)
 
-        step_size = 0.01
+        step_size = 0.1
         time_grid = torch.tensor([0.0, 1.0])
 
         solver = ODESolver(velocity_model=WrappedModel(self.mmdit))
@@ -207,35 +167,8 @@ class DialogueSeparatorLightningModule(LightningModule):
         res_1 = res[:, 0, :, :].permute(0, 2, 1)
         res_2 = res[:, 1, :, :].permute(0, 2, 1)
 
-        return self.denormalize_feature(res_1), self.denormalize_feature(res_2)
-
-    def separate_wav(
-        self, wav: torch.Tensor, sr: int
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        wav = wav.to(self.device)
-
-        if sr != self.cfg.model.mimi.sr:
-            wav = torchaudio.functional.resample(wav, sr, self.cfg.model.mimi.sr)
-
-        feature_merged = self.mimi.encode_to_latent(wav.unsqueeze(0), quantize=False)
-        batch = {"feature_merged": self.normalize_feature(feature_merged)}
-
-        est_feature1, est_feature2 = self.forward(batch)
-
-        with torch.no_grad():
-            code_1 = self.mimi.quantizer.encode(est_feature1)
-            estimated_1 = self.mimi.decode(code_1)[0].to(torch.float32).cpu()
-            code_2 = self.mimi.quantizer.encode(est_feature2)
-            estimated_2 = self.mimi.decode(code_2)[0].to(torch.float32).cpu()
-
-        return estimated_1, estimated_2
+        return res_1, res_2
 
     def log_audio(self, audio: np.ndarray, name: str, sampling_rate: int) -> None:
         if isinstance(self.logger, loggers.WandbLogger):
             wandb.log({name: wandb.Audio(audio, sample_rate=sampling_rate)})
-
-    def normalize_feature(self, feature: torch.Tensor) -> torch.Tensor:
-        return (feature - self.stats["mean"]) / self.stats["std"]
-
-    def denormalize_feature(self, feature: torch.Tensor) -> torch.Tensor:
-        return feature * self.stats["std"] + self.stats["mean"]
