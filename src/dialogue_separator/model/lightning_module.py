@@ -69,7 +69,7 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         self.log("validation_loss", loss)
 
-        wav_sr = self.cfg.model.mel.sample_rate
+        wav_sr = self.cfg.model.sample_rate
         if batch_idx < 5 and self.global_rank == 0 and self.local_rank == 0:
             wav_len = batch["wav_len"][0]
             source_1 = batch["wav_1"][0][:wav_len].cpu().numpy()

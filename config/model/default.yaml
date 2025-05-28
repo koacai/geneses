@@ -13,3 +13,5 @@ mmdit:
   max_seq_len: 2000
   depth: 12
   heads: 12
+
+sample_rate: ${data.datamodule.sample_rate}
