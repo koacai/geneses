@@ -1,0 +1,10 @@
+trainer:
+  _target_: lightning.Trainer
+  accelerator: gpu
+  max_epochs: 3300
+  logger:
+    _target_: lightning.pytorch.loggers.WandbLogger
+    project: dialogue-separator
+  check_val_every_n_epoch: 10
+  precision: 16-mixed
+  strategy: ddp_find_unused_parameters_true

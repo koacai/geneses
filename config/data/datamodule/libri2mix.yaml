@@ -4,8 +4,8 @@ train:
 valid:
   dataset_path: ${data.preprocess.cfg.webdataset_dir}/valid/data-{000000..000069}.tar
   batch_size: 4
-num_workers: 16
-use_ddp: false
+num_workers: 8
+use_ddp: true
 
 # 以下の設定はVAEをちゃんとうごかすためのもの
 max_duration: 20
