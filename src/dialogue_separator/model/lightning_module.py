@@ -1,3 +1,5 @@
+from typing import Any
+
 import hydra
 import numpy as np
 import torch
@@ -8,6 +10,7 @@ from flow_matching.utils import ModelWrapper
 from lightning.pytorch import LightningModule, loggers
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRSchedulerConfig
 from omegaconf import DictConfig
+from transformers import Wav2Vec2BertModel
 
 import wandb
 
@@ -31,6 +34,10 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         self.mmdit = MMDiT(**cfg.model.mmdit)
         self.path = AffineProbPath(scheduler=CondOTScheduler())
+
+        self.ssl_model = Wav2Vec2BertModel.from_pretrained(cfg.model.ssl_model.name)
+        for param in self.ssl_model.parameters():
+            param.requires_grad = False
 
         self.dacvae = torch.jit.load(cfg.model.vae.ckpt_path)
         for param in self.dacvae.parameters():
@@ -105,14 +112,13 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         return loss
 
-    def calc_loss(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
+    def calc_loss(self, batch: dict[str, Any]) -> torch.Tensor:
         with torch.no_grad():
             x_1, _, _, _ = self.dacvae.encode(batch["wav_1"].unsqueeze(1))
             x_2, _, _, _ = self.dacvae.encode(batch["wav_2"].unsqueeze(1))
-            x_merged, _, _, _ = self.dacvae.encode(batch["wav_merged"].unsqueeze(1))
             x_1 = x_1.permute(0, 2, 1)
             x_2 = x_2.permute(0, 2, 1)
-            x_merged = x_merged.permute(0, 2, 1)
+            x_merged = self.ssl_model(**batch["ssl_input_merged"]).last_hidden_state
 
         batch_size = x_merged.size(0)
 
@@ -140,15 +146,14 @@ class DialogueSeparatorLightningModule(LightningModule):
         l1_loss = torch.nn.L1Loss()
         return l1_loss(est_dxt1, dxt_1) + l1_loss(est_dxt2, dxt_2)
 
-    def forward(
-        self, batch: dict[str, torch.Tensor]
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, batch: dict[str, Any]) -> tuple[torch.Tensor, torch.Tensor]:
         with torch.no_grad():
-            x_merged, _, _, _ = self.dacvae.encode(batch["wav_merged"].unsqueeze(1))
-            x_merged = x_merged.permute(0, 2, 1)
+            x_merged = self.ssl_model(**batch["ssl_input_merged"]).last_hidden_state
+            vae_merged, _, _, _ = self.dacvae.encode(batch["wav_merged"].unsqueeze(1))
+            vae_merged = vae_merged.permute(0, 2, 1)
 
-        noise_1 = torch.randn_like(x_merged)
-        noise_2 = torch.randn_like(x_merged)
+        noise_1 = torch.randn_like(vae_merged)
+        noise_2 = torch.randn_like(vae_merged)
         noise = torch.stack([noise_1, noise_2], dim=1)
 
         step_size = 0.1

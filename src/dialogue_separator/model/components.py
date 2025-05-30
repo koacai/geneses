@@ -68,6 +68,7 @@ class MMDiT(nn.Module):
     def __init__(
         self,
         in_channels: int,
+        in_ssl_channels: int,
         out_channels: int,
         hidden_size: int,
         max_seq_len: int,
@@ -79,7 +80,7 @@ class MMDiT(nn.Module):
         self.t_embedder = TimestepEmbedder(hidden_size)
 
         self.x_embedder_merged = nn.Sequential(
-            nn.Linear(in_channels, hidden_size, bias=True),
+            nn.Linear(in_ssl_channels, hidden_size, bias=True),
             nn.SiLU(),
             nn.Dropout(0.1),
             nn.Linear(hidden_size, hidden_size, bias=True),
@@ -147,14 +148,6 @@ class MMDiT(nn.Module):
         x_1: torch.Tensor,
         x_2: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Forward pass of DiT.
-
-        Args:
-            x_merged: (B, N, C)
-            t: (B,)
-            x_1: (B, N, C)
-            x_2: (B, N, C)
-        """
         x_merged = (
             self.x_embedder_merged(x_merged)
             + self.x_pos_embed_merged[:, : x_merged.shape[1], :]
@@ -169,8 +162,8 @@ class MMDiT(nn.Module):
             modality_tokens=(x_merged, x_1, x_2),
             time_cond=t,
         )
-        res_1 = self.final_layer_1(out[0])
-        res_2 = self.final_layer_2(out[1])
+        res_1 = self.final_layer_1(out[1])
+        res_2 = self.final_layer_2(out[2])
 
         return res_1, res_2
 
