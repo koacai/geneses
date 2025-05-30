@@ -16,4 +16,4 @@ mmdit:
   depth: 12
   heads: 12
 
-sample_rate: ${data.datamodule.sample_rate}
+sample_rate: ${data.datamodule.vae.sample_rate}

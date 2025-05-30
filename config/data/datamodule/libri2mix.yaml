@@ -7,6 +7,10 @@ valid:
 num_workers: 8
 use_ddp: true
 
-# 以下の設定はVAEをちゃんとうごかすためのもの
-max_duration: 20
-sample_rate: 24000
+ssl_model:
+  name: facebook/w2v-bert-2.0
+  sample_rate: 16000
+
+vae:
+  max_duration: 20
+  sample_rate: 24000
