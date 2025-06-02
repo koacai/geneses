@@ -28,14 +28,15 @@ class WrappedModel(ModelWrapper):
 
 
 class SSLFeatureExtractor:
-    def __init__(self, model_name: str) -> None:
+    def __init__(self, model_name: str, layer: int) -> None:
         self.model = Wav2Vec2BertModel.from_pretrained(model_name)
         for param in self.model.parameters():
             param.requires_grad = False
+        self.layer = layer
 
     @torch.no_grad()
     def extract(self, inputs: dict[str, torch.Tensor]) -> torch.Tensor:
-        return self.model(**inputs).last_hidden_state
+        return self.model(**inputs, output_hidden_states=True).hidden_states[self.layer]
 
     def to(self, device: torch.device) -> None:
         self.model = self.model.to(device)  # type: ignore
@@ -67,7 +68,9 @@ class DialogueSeparatorLightningModule(LightningModule):
         self.mmdit = MMDiT(**cfg.model.mmdit)
         self.path = AffineProbPath(scheduler=CondOTScheduler())
 
-        self.ssl_feature_extractor = SSLFeatureExtractor(cfg.model.ssl_model.name)
+        self.ssl_feature_extractor = SSLFeatureExtractor(
+            cfg.model.ssl_model.name, cfg.model.ssl_model.layer
+        )
 
         self.dacvae = DACVAE(cfg.model.vae.ckpt_path)
 
