@@ -10,10 +10,13 @@ vae:
 
 mmdit:
   in_channels: ${model.vae.hidden_size}
+  in_ssl_channels: 1024
   out_channels: ${model.vae.hidden_size}
-  hidden_size: 256
+  hidden_size: 512
   max_seq_len: 2000
   depth: 12
   heads: 12
 
-sample_rate: ${data.datamodule.sample_rate}
+ssl_model: ${data.datamodule.ssl_model}
+
+sample_rate: ${data.datamodule.vae.sample_rate}

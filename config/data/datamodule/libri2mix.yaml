@@ -1,12 +1,16 @@
 train:
   dataset_path: ${data.preprocess.cfg.webdataset_dir}/train/data-{000000..000089}.tar
-  batch_size: 32
+  batch_size: 16
 valid:
   dataset_path: ${data.preprocess.cfg.webdataset_dir}/valid/data-{000000..000069}.tar
   batch_size: 4
 num_workers: 8
 use_ddp: true
 
-# 以下の設定はVAEをちゃんとうごかすためのもの
-max_duration: 20
-sample_rate: 24000
+ssl_model:
+  name: facebook/w2v-bert-2.0
+  sample_rate: 16000
+
+vae:
+  max_duration: 20
+  sample_rate: 24000

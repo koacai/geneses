@@ -24,6 +24,7 @@ class TestDialogueSeparatorDataModule:
             assert batch["wav_2"].size(0) == batch_size
             assert batch["wav_merged"].size(0) == batch_size
             assert batch["wav_len"].size(0) == batch_size
+            assert "ssl_input_merged" in batch
 
     def test_val_dataloader(self, init) -> None:
         _ = init
@@ -36,3 +37,4 @@ class TestDialogueSeparatorDataModule:
             assert batch["wav_2"].size(0) == batch_size
             assert batch["wav_merged"].size(0) == batch_size
             assert batch["wav_len"].size(0) == batch_size
+            assert "ssl_input_merged" in batch
