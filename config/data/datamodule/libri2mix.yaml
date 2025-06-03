@@ -10,6 +10,7 @@ use_ddp: true
 ssl_model:
   name: facebook/w2v-bert-2.0
   sample_rate: 16000
+  layer: 13
 
 vae:
   max_duration: 20

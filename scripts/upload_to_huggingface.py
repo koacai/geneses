@@ -5,9 +5,9 @@ from pathlib import Path
 from huggingface_hub import HfApi
 
 if __name__ == "__main__":
-    ckpt_path = "dialogue-separator/wr2eav9b/checkpoints/epoch=799-step=316800.ckpt"
-    config_path = "outputs/2025-05-14/22-50-30/.hydra/config.yaml"
-    metadata_path = "wandb/run-20250514_225036-wr2eav9b/files/wandb-metadata.json"
+    ckpt_path = "dialogue-separator/9vq36fks/checkpoints/epoch=49-step=24950.ckpt"
+    config_path = "outputs/2025-06-02/13-05-55/.hydra/config.yaml"
+    metadata_path = "wandb/run-20250602_130621-9vq36fks/files/wandb-metadata.json"
 
     keys_to_extract_from_metadata = [
         "os",

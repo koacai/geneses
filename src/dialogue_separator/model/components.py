@@ -85,18 +85,8 @@ class MMDiT(nn.Module):
             nn.Dropout(0.1),
             nn.Linear(hidden_size, hidden_size, bias=True),
         )
-        self.x_embedder_1 = nn.Sequential(
-            nn.Linear(in_channels, hidden_size, bias=True),
-            nn.SiLU(),
-            nn.Dropout(0.1),
-            nn.Linear(hidden_size, hidden_size, bias=True),
-        )
-        self.x_embedder_2 = nn.Sequential(
-            nn.Linear(in_channels, hidden_size, bias=True),
-            nn.SiLU(),
-            nn.Dropout(0.1),
-            nn.Linear(hidden_size, hidden_size, bias=True),
-        )
+        self.x_embedder_1 = nn.Linear(in_channels, hidden_size, bias=True)
+        self.x_embedder_2 = nn.Linear(in_channels, hidden_size, bias=True)
 
         self.x_pos_embed_merged = nn.Parameter(
             torch.zeros(1, max_seq_len, hidden_size), requires_grad=False
