@@ -28,8 +28,10 @@ class WrappedModel(ModelWrapper):
 
 
 class SSLFeatureExtractor:
-    def __init__(self, model_name: str, layer: int) -> None:
-        self.model = Wav2Vec2BertModel.from_pretrained(model_name)
+    def __init__(self, model_name: str, layer: int, add_adapter: bool) -> None:
+        self.model = Wav2Vec2BertModel.from_pretrained(
+            model_name, add_adapter=add_adapter
+        )
         for param in self.model.parameters():
             param.requires_grad = False
         self.layer = layer
@@ -69,7 +71,9 @@ class DialogueSeparatorLightningModule(LightningModule):
         self.path = AffineProbPath(scheduler=CondOTScheduler())
 
         self.ssl_feature_extractor = SSLFeatureExtractor(
-            cfg.model.ssl_model.name, cfg.model.ssl_model.layer
+            cfg.model.ssl_model.name,
+            cfg.model.ssl_model.layer,
+            cfg.model.ssl_model.add_adapter,
         )
 
         self.dacvae = DACVAE(cfg.model.vae.ckpt_path)
