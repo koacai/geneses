@@ -3,6 +3,7 @@ from typing import Any
 import hydra
 import numpy as np
 import torch
+import torch.nn as nn
 from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import ODESolver
@@ -27,21 +28,23 @@ class WrappedModel(ModelWrapper):
         return torch.stack([res_1, res_2], dim=1)
 
 
-class SSLFeatureExtractor:
+class SSLFeatureExtractor(nn.Module):
     def __init__(self, model_name: str, layer: int, add_adapter: bool) -> None:
+        super(SSLFeatureExtractor, self).__init__()
+
         self.model = Wav2Vec2BertModel.from_pretrained(
             model_name, add_adapter=add_adapter
         )
-        for param in self.model.parameters():
+        for param in self.model.feature_projection.parameters():
             param.requires_grad = False
+        for param in self.model.encoder.parameters():
+            param.requires_grad = False
+
         self.layer = layer
 
     @torch.no_grad()
     def extract(self, inputs: dict[str, torch.Tensor]) -> torch.Tensor:
         return self.model(**inputs, output_hidden_states=True).hidden_states[self.layer]
-
-    def to(self, device: torch.device) -> None:
-        self.model = self.model.to(device)  # type: ignore
 
 
 class DACVAE:
@@ -105,7 +108,6 @@ class DialogueSeparatorLightningModule(LightningModule):
         return loss
 
     def on_fit_start(self) -> None:
-        self.ssl_feature_extractor.to(self.device)
         self.dacvae.to(self.device)
 
     def validation_step(
