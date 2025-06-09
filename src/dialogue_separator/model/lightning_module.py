@@ -184,8 +184,21 @@ class DialogueSeparatorLightningModule(LightningModule):
         dxt_1: torch.Tensor,
         dxt_2: torch.Tensor,
     ) -> torch.Tensor:
-        l1_loss = torch.nn.L1Loss()
-        return l1_loss(est_dxt1, dxt_1) + l1_loss(est_dxt2, dxt_2)
+        l1_loss = torch.nn.L1Loss(reduction="none")
+
+        loss_1_1 = l1_loss(est_dxt1, dxt_1).mean(dim=(-1, -2))
+        loss_2_2 = l1_loss(est_dxt2, dxt_2).mean(dim=(-1, -2))
+        loss_forward = loss_1_1 + loss_2_2
+
+        loss_1_2 = l1_loss(est_dxt1, dxt_2).mean(dim=(-1, -2))
+        loss_2_1 = l1_loss(est_dxt2, dxt_1).mean(dim=(-1, -2))
+        loss_swapped = loss_1_2 + loss_2_1
+
+        losses = torch.stack([loss_forward, loss_swapped], dim=1)
+
+        min_loss, _ = torch.min(losses, dim=1)
+
+        return min_loss.mean()
 
     def forward(self, batch: dict[str, Any]) -> tuple[torch.Tensor, torch.Tensor]:
         with torch.no_grad():
