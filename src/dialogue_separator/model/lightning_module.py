@@ -173,7 +173,9 @@ class DialogueSeparatorLightningModule(LightningModule):
             x_merged, t, path_sample1.x_t, path_sample2.x_t
         )
 
-        loss = self.loss_fn(est_dxt_1, est_dxt_2, path_sample1.dx_t, path_sample2.dx_t)
+        loss = self.loss_fn(
+            est_dxt_1, est_dxt_2, path_sample1.dx_t, path_sample2.dx_t, path_sample1.t
+        )
 
         return loss
 
@@ -183,27 +185,19 @@ class DialogueSeparatorLightningModule(LightningModule):
         est_dxt2: torch.Tensor,
         dxt_1: torch.Tensor,
         dxt_2: torch.Tensor,
+        t: torch.Tensor,
         epsilon: float = 1e-8,
     ) -> torch.Tensor:
-        l1_loss_func = torch.nn.L1Loss(reduction="none")
+        l1_loss_func = torch.nn.L1Loss()
 
-        loss1_per_element = l1_loss_func(est_dxt1, dxt_1)
-        loss2_per_element = l1_loss_func(est_dxt2, dxt_2)
+        loss_1 = l1_loss_func(est_dxt1, dxt_1)
+        loss_2 = l1_loss_func(est_dxt2, dxt_2)
 
-        loss1_per_sample = loss1_per_element.mean(
-            dim=list(range(1, loss1_per_element.ndim))
-        )
-        loss2_per_sample = loss2_per_element.mean(
-            dim=list(range(1, loss2_per_element.ndim))
-        )
-        total_loss_per_sample = loss1_per_sample + loss2_per_sample
+        weight = 1.0 / (t + epsilon)
 
-        loss_detached = total_loss_per_sample.detach()
-        weight = 1.0 / (loss_detached + epsilon)
+        loss_weighted = (loss_1 + loss_2) * weight
 
-        weighted_loss_per_sample = total_loss_per_sample * weight
-
-        return weighted_loss_per_sample.mean()
+        return loss_weighted.mean()
 
     def forward(self, batch: dict[str, Any]) -> tuple[torch.Tensor, torch.Tensor]:
         with torch.no_grad():
