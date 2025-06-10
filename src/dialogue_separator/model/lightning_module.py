@@ -185,8 +185,17 @@ class DialogueSeparatorLightningModule(LightningModule):
     def sampling_t(
         self, batch_size: int, m: float = 0.0, s: float = 1.0
     ) -> torch.Tensor:
-        u = torch.randn((batch_size,), device=self.device) * s + m
-        return torch.sigmoid(u)
+        schema = self.cfg.model.t_sampling_schema
+
+        if schema == "uniform":
+            t = torch.rand((batch_size,), device=self.device)
+        elif schema == "logit_normal":
+            u = torch.randn((batch_size,), device=self.device) * s + m
+            t = torch.sigmoid(u)
+        else:
+            raise ValueError(f"Unknown t sampling schema: {schema}")
+
+        return t
 
     def loss_fn(
         self,
@@ -202,7 +211,13 @@ class DialogueSeparatorLightningModule(LightningModule):
         loss_1 = mse_loss(est_dxt1, dxt_1).mean(dim=(1, 2))
         loss_2 = mse_loss(est_dxt2, dxt_2).mean(dim=(1, 2))
 
-        weight = t / (1 - t + epsilon)
+        schema = self.cfg.model.weighting_schema
+        if schema == "none":
+            weight = 1.0
+        elif schema == "sigma_sqrt":
+            weight = (1 - t + epsilon) ** (-2.0)
+        else:
+            raise ValueError(f"Unknown weighting schema: {schema}")
 
         loss_weighted = (loss_1 + loss_2) * weight
 
