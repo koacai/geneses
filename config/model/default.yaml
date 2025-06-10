@@ -22,4 +22,4 @@ ssl_model: ${data.datamodule.ssl_model}
 sample_rate: ${data.datamodule.vae.sample_rate}
 
 t_sampling_schema: uniform # [uniform, logit_normal]
-weighting_schema: sigma_sqrt # [none, sigma_sqrt]
+weighting_schema: sigma_sqrt # [sigma_sqrt, none]
