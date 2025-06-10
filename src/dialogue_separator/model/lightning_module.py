@@ -103,7 +103,7 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         loss = self.calc_loss(batch)
 
-        self.log("train_loss", loss)
+        self.log("train_loss", loss, sync_dist=True)
 
         return loss
 
@@ -117,7 +117,7 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         loss = self.calc_loss(batch)
 
-        self.log("validation_loss", loss)
+        self.log("validation_loss", loss, sync_dist=True)
 
         wav_sr = self.cfg.model.sample_rate
         if batch_idx < 5 and self.global_rank == 0 and self.local_rank == 0:
