@@ -193,7 +193,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         loss_1 = l1_loss_func(est_dxt1, dxt_1).mean(dim=(1, 2))
         loss_2 = l1_loss_func(est_dxt2, dxt_2).mean(dim=(1, 2))
 
-        weight = 1.0 / (t + epsilon)
+        weight = t / (1 - t + epsilon)
 
         loss_weighted = (loss_1 + loss_2) * weight
 
