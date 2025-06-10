@@ -188,10 +188,10 @@ class DialogueSeparatorLightningModule(LightningModule):
         t: torch.Tensor,
         epsilon: float = 1e-8,
     ) -> torch.Tensor:
-        l1_loss_func = torch.nn.L1Loss()
+        l1_loss_func = torch.nn.L1Loss(reduction="none")
 
-        loss_1 = l1_loss_func(est_dxt1, dxt_1)
-        loss_2 = l1_loss_func(est_dxt2, dxt_2)
+        loss_1 = l1_loss_func(est_dxt1, dxt_1).mean(dim=(1, 2))
+        loss_2 = l1_loss_func(est_dxt2, dxt_2).mean(dim=(1, 2))
 
         weight = 1.0 / (t + epsilon)
 
