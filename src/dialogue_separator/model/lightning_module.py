@@ -164,17 +164,20 @@ class DialogueSeparatorLightningModule(LightningModule):
         batch_size = x_merged.size(0)
 
         t = self.sampling_t(batch_size)
-        noise_1 = torch.randn_like(x_1)
-        path_sample1 = self.path.sample(x_0=noise_1, x_1=x_1, t=t)
-        noise_2 = torch.randn_like(x_2)
-        path_sample2 = self.path.sample(x_0=noise_2, x_1=x_2, t=t)
+        x = torch.stack([x_1, x_2], dim=1)
+        noise = torch.randn_like(x)
+        path_sample = self.path.sample(x_0=noise, x_1=x, t=t)
 
         est_dxt_1, est_dxt_2 = self.mmdit.forward(
-            x_merged, t, path_sample1.x_t, path_sample2.x_t
+            x_merged, t, path_sample.x_t[:, 0, :, :], path_sample.x_t[:, 1, :, :]
         )
 
         loss = self.loss_fn(
-            est_dxt_1, est_dxt_2, path_sample1.dx_t, path_sample2.dx_t, path_sample1.t
+            est_dxt_1,
+            est_dxt_2,
+            path_sample.dx_t[:, 0, :, :],
+            path_sample.dx_t[:, 1, :, :],
+            path_sample.t,
         )
 
         return loss
