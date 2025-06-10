@@ -163,7 +163,7 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         batch_size = x_merged.size(0)
 
-        t = torch.rand((batch_size,), device=self.device)
+        t = self.sampling_t(batch_size)
         noise_1 = torch.randn_like(x_1)
         path_sample1 = self.path.sample(x_0=noise_1, x_1=x_1, t=t)
         noise_2 = torch.randn_like(x_2)
@@ -178,6 +178,12 @@ class DialogueSeparatorLightningModule(LightningModule):
         )
 
         return loss
+
+    def sampling_t(
+        self, batch_size: int, m: float = 0.0, s: float = 1.0
+    ) -> torch.Tensor:
+        u = torch.randn((batch_size,), device=self.device) * s + m
+        return torch.sigmoid(u)
 
     def loss_fn(
         self,
