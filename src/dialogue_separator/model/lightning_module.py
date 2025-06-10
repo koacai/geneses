@@ -103,7 +103,7 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         loss = self.calc_loss(batch)
 
-        self.log("train_loss", loss)
+        self.log("train_loss", loss, sync_dist=True)
 
         return loss
 
@@ -117,7 +117,7 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         loss = self.calc_loss(batch)
 
-        self.log("validation_loss", loss)
+        self.log("validation_loss", loss, sync_dist=True)
 
         wav_sr = self.cfg.model.sample_rate
         if batch_idx < 5 and self.global_rank == 0 and self.local_rank == 0:
@@ -163,19 +163,39 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         batch_size = x_merged.size(0)
 
-        t = torch.rand((batch_size,), device=self.device)
-        noise_1 = torch.randn_like(x_1)
-        path_sample1 = self.path.sample(x_0=noise_1, x_1=x_1, t=t)
-        noise_2 = torch.randn_like(x_2)
-        path_sample2 = self.path.sample(x_0=noise_2, x_1=x_2, t=t)
+        t = self.sampling_t(batch_size)
+        x = torch.stack([x_1, x_2], dim=1)
+        noise = torch.randn_like(x)
+        path_sample = self.path.sample(x_0=noise, x_1=x, t=t)
 
         est_dxt_1, est_dxt_2 = self.mmdit.forward(
-            x_merged, t, path_sample1.x_t, path_sample2.x_t
+            x_merged, t, path_sample.x_t[:, 0, :, :], path_sample.x_t[:, 1, :, :]
         )
 
-        loss = self.loss_fn(est_dxt_1, est_dxt_2, path_sample1.dx_t, path_sample2.dx_t)
+        loss = self.loss_fn(
+            est_dxt_1,
+            est_dxt_2,
+            path_sample.dx_t[:, 0, :, :],
+            path_sample.dx_t[:, 1, :, :],
+            path_sample.t,
+        )
 
         return loss
+
+    def sampling_t(
+        self, batch_size: int, m: float = 0.0, s: float = 1.0
+    ) -> torch.Tensor:
+        schema = self.cfg.model.t_sampling_schema
+
+        if schema == "uniform":
+            t = torch.rand((batch_size,), device=self.device)
+        elif schema == "logit_normal":
+            u = torch.randn((batch_size,), device=self.device) * s + m
+            t = torch.sigmoid(u)
+        else:
+            raise ValueError(f"Unknown t sampling schema: {schema}")
+
+        return t
 
     def loss_fn(
         self,
@@ -183,9 +203,25 @@ class DialogueSeparatorLightningModule(LightningModule):
         est_dxt2: torch.Tensor,
         dxt_1: torch.Tensor,
         dxt_2: torch.Tensor,
+        t: torch.Tensor,
+        epsilon: float = 1e-8,
     ) -> torch.Tensor:
-        l1_loss = torch.nn.L1Loss()
-        return l1_loss(est_dxt1, dxt_1) + l1_loss(est_dxt2, dxt_2)
+        mse_loss = torch.nn.MSELoss(reduction="none")
+
+        loss_1 = mse_loss(est_dxt1, dxt_1).mean(dim=(1, 2))
+        loss_2 = mse_loss(est_dxt2, dxt_2).mean(dim=(1, 2))
+
+        schema = self.cfg.model.weighting_schema
+        if schema == "none":
+            weight = 1.0
+        elif schema == "sigma_sqrt":
+            weight = (1 - t + epsilon) ** (-2.0)
+        else:
+            raise ValueError(f"Unknown weighting schema: {schema}")
+
+        loss_weighted = (loss_1 + loss_2) * weight
+
+        return loss_weighted.mean()
 
     def forward(self, batch: dict[str, Any]) -> tuple[torch.Tensor, torch.Tensor]:
         with torch.no_grad():
