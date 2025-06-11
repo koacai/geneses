@@ -4,6 +4,8 @@ import hydra
 import numpy as np
 import torch
 import torch.nn as nn
+import torchaudio
+import wandb
 from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import ODESolver
@@ -11,9 +13,7 @@ from flow_matching.utils import ModelWrapper
 from lightning.pytorch import LightningModule, loggers
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRSchedulerConfig
 from omegaconf import DictConfig
-from transformers import Wav2Vec2BertModel
-
-import wandb
+from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 
 from .components import MMDiT
 
@@ -254,3 +254,50 @@ class DialogueSeparatorLightningModule(LightningModule):
     def log_audio(self, audio: np.ndarray, name: str, sampling_rate: int) -> None:
         if isinstance(self.logger, loggers.WandbLogger):
             wandb.log({name: wandb.Audio(audio, sample_rate=sampling_rate)})
+
+    def separate(self, wav: torch.Tensor, sr: int) -> tuple[torch.Tensor, torch.Tensor]:
+        if sr != self.cfg.data.datamodule.vae.sample_rate:
+            wav = torchaudio.functional.resample(
+                wav, sr, self.cfg.data.datamodule.vae.sample_rate
+            )
+
+        wav_merged = torch.zeros(
+            1,
+            self.cfg.data.datamodule.vae.sample_rate
+            * self.cfg.data.datamodule.vae.max_duration,
+        )
+        wav_len = wav.shape[-1]
+        wav_merged[0, : wav.shape[-1]] = wav
+
+        wav_merged_ssl = torchaudio.functional.resample(
+            wav_merged,
+            self.cfg.data.datamodule.vae.sample_rate,
+            self.cfg.model.ssl_model.sample_rate,
+        )
+
+        processor = AutoFeatureExtractor.from_pretrained(self.cfg.model.ssl_model.name)
+        with torch.no_grad():
+            ssl_input_merged = processor(
+                [w.cpu().numpy() for w in wav_merged_ssl],
+                sampling_rate=self.cfg.model.ssl_model.sample_rate,
+                return_tensors="pt",
+            )
+
+        batch = {"wav_merged": wav_merged, "ssl_input_merged": ssl_input_merged}
+        est_feature1, est_feature2 = self.forward(batch)
+
+        with torch.no_grad():
+            estimated_1 = (
+                self.dacvae.decode(est_feature1)[0]
+                .squeeze()[:wav_len]
+                .to(torch.float32)
+                .cpu()
+            )
+            estimated_2 = (
+                self.dacvae.decode(est_feature2)[0]
+                .squeeze()[:wav_len]
+                .to(torch.float32)
+                .cpu()
+            )
+
+        return estimated_1.unsqueeze(0), estimated_2.unsqueeze(0)
