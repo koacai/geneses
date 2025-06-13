@@ -15,7 +15,7 @@ from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRSchedulerC
 from omegaconf import DictConfig
 from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 
-from .components import MMDiT
+from dialogue_separator.model.components import MMDiT
 
 
 class WrappedModel(ModelWrapper):
