@@ -68,9 +68,25 @@ class Preprocessor:
         return s
 
     def vae_encode(self, cut: Cut) -> tuple[torch.Tensor, torch.Tensor]:
-        audio = torch.from_numpy(cut.load_audio()).to(self.device)
+        audio = torch.from_numpy(cut.load_audio())
+
+        if self.cfg.vae.sample_rate != cut.sampling_rate:
+            audio = torchaudio.functional.resample(
+                audio, cut.sampling_rate, self.cfg.vae.sample_rate
+            )
+
+        audio = audio[:, : self.cfg.vae.sample_rate * self.cfg.vae.max_duration]
+
+        wav_input = torch.zeros(
+            2,
+            1,
+            self.cfg.vae.sample_rate * self.cfg.vae.max_duration,
+            device=self.device,
+        )
+        wav_input[0, 0, : audio.shape[-1]] = audio[0]
+        wav_input[1, 0, : audio.shape[-1]] = audio[1]
 
         with torch.no_grad():
-            feature, _, _, _ = self.dacvae.encode(audio.unsqueeze(1))
+            feature, _, _, _ = self.dacvae.encode(wav_input)
 
         return feature[0], feature[1]
