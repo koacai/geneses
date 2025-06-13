@@ -94,7 +94,7 @@ class DialogueSeparatorDataModule(LightningDataModule):
         )
 
         ssl_input_merged = self.processor(
-            [w.cpu().numpy() for w in wav_merged_ssl],
+            [w for w in wav_merged_ssl],
             sampling_rate=self.cfg.ssl_model.sample_rate,
             return_tensors="pt",
         )
