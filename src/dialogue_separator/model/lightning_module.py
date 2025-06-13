@@ -5,7 +5,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torchaudio
-import wandb
 from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import ODESolver
@@ -15,6 +14,7 @@ from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRSchedulerC
 from omegaconf import DictConfig
 from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 
+import wandb
 from dialogue_separator.model.components import MMDiT
 
 
@@ -52,10 +52,6 @@ class DACVAE:
         self.model = torch.jit.load(ckpt_path)
         for param in self.model.parameters():
             param.requires_grad = False
-
-    @torch.no_grad()
-    def encode(self, wav: torch.Tensor) -> tuple[torch.Tensor, ...]:
-        return self.model.encode(wav)
 
     @torch.no_grad()
     def decode(self, features: torch.Tensor) -> torch.Tensor:
@@ -119,7 +115,7 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         self.log("validation_loss", loss, sync_dist=True)
 
-        wav_sr = self.cfg.model.sample_rate
+        wav_sr = self.cfg.model.vae.sample_rate
         if batch_idx < 5 and self.global_rank == 0 and self.local_rank == 0:
             wav_len = batch["wav_len"][0]
             source_1 = batch["wav_1"][0][:wav_len].cpu().numpy()
@@ -155,11 +151,10 @@ class DialogueSeparatorLightningModule(LightningModule):
 
     def calc_loss(self, batch: dict[str, Any]) -> torch.Tensor:
         with torch.no_grad():
-            x_1, _, _, _ = self.dacvae.encode(batch["wav_1"].unsqueeze(1))
-            x_2, _, _, _ = self.dacvae.encode(batch["wav_2"].unsqueeze(1))
-            x_1 = x_1.permute(0, 2, 1)
-            x_2 = x_2.permute(0, 2, 1)
             x_merged = self.ssl_feature_extractor.extract(batch["ssl_input_merged"])
+
+        x_1 = batch["vae_feature_1"].permute(0, 2, 1)
+        x_2 = batch["vae_feature_2"].permute(0, 2, 1)
 
         batch_size = x_merged.size(0)
 
@@ -226,11 +221,15 @@ class DialogueSeparatorLightningModule(LightningModule):
     def forward(self, batch: dict[str, Any]) -> tuple[torch.Tensor, torch.Tensor]:
         with torch.no_grad():
             x_merged = self.ssl_feature_extractor.extract(batch["ssl_input_merged"])
-            vae_merged, _, _, _ = self.dacvae.encode(batch["wav_merged"].unsqueeze(1))
-            vae_merged = vae_merged.permute(0, 2, 1)
 
-        noise_1 = torch.randn_like(vae_merged)
-        noise_2 = torch.randn_like(vae_merged)
+        vae_size = (
+            batch["wav_merged"].size(0),
+            1000,  # 20秒の音声のVAEは長さ1000（ハードコーディング）
+            self.cfg.model.vae.hidden_size,
+        )
+
+        noise_1 = torch.randn(vae_size, device=self.device)
+        noise_2 = torch.randn(vae_size, device=self.device)
         noise = torch.stack([noise_1, noise_2], dim=1)
 
         step_size = 0.1
@@ -256,22 +255,21 @@ class DialogueSeparatorLightningModule(LightningModule):
             wandb.log({name: wandb.Audio(audio, sample_rate=sampling_rate)})
 
     def separate(self, wav: torch.Tensor, sr: int) -> tuple[torch.Tensor, torch.Tensor]:
-        if sr != self.cfg.data.datamodule.vae.sample_rate:
+        if sr != self.cfg.model.vae.sample_rate:
             wav = torchaudio.functional.resample(
-                wav, sr, self.cfg.data.datamodule.vae.sample_rate
+                wav, sr, self.cfg.model.vae.sample_rate
             )
 
         wav_merged = torch.zeros(
             1,
-            self.cfg.data.datamodule.vae.sample_rate
-            * self.cfg.data.datamodule.vae.max_duration,
+            self.cfg.model.vae.sample_rate * self.cfg.model.vae.max_duration,
         )
         wav_len = wav.shape[-1]
         wav_merged[0, : wav.shape[-1]] = wav
 
         wav_merged_ssl = torchaudio.functional.resample(
             wav_merged,
-            self.cfg.data.datamodule.vae.sample_rate,
+            self.cfg.model.vae.sample_rate,
             self.cfg.model.ssl_model.sample_rate,
         )
 

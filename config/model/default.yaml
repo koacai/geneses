@@ -4,9 +4,7 @@ optimizer:
 lr_scheduler:
   _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
 
-vae:
-  ckpt_path: /groups/gag51394/users/asai/dacvae.pt
-  hidden_size: 64
+vae: ${data.preprocess.cfg.vae}
 
 mmdit:
   in_channels: ${model.vae.hidden_size}
@@ -18,8 +16,6 @@ mmdit:
   heads: 12
 
 ssl_model: ${data.datamodule.ssl_model}
-
-sample_rate: ${data.datamodule.vae.sample_rate}
 
 t_sampling_schema: logit_normal # [uniform, logit_normal]
 weighting_schema: none # [sigma_sqrt, none]
