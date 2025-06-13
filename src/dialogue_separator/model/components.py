@@ -79,12 +79,7 @@ class MMDiT(nn.Module):
 
         self.t_embedder = TimestepEmbedder(hidden_size)
 
-        self.x_embedder_merged = nn.Sequential(
-            nn.Linear(in_ssl_channels, hidden_size, bias=True),
-            nn.SiLU(),
-            nn.Dropout(0.1),
-            nn.Linear(hidden_size, hidden_size, bias=True),
-        )
+        self.x_embedder_merged = nn.Linear(in_ssl_channels, hidden_size, bias=True)
         self.x_embedder_1 = nn.Linear(in_channels, hidden_size, bias=True)
         self.x_embedder_2 = nn.Linear(in_channels, hidden_size, bias=True)
 
