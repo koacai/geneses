@@ -17,6 +17,8 @@ class Preprocessor:
         self.cfg = cfg
         self.device = torch.device(cfg.device)
 
+        self.dacvae = torch.jit.load(cfg.vae.ckpt_path).to(self.device)
+
     def write_webdataset(self) -> None:
         shar_dir = Path(self.cfg.shar_dir)
         cut_paths = sorted(map(str, shar_dir.glob("cuts.*.jsonl.gz")))
@@ -54,6 +56,21 @@ class Preprocessor:
         audio = torch.from_numpy(cut.load_audio())
         torchaudio.save(buf, audio, cut.sampling_rate, format="flac")
 
-        s = {"__key__": uuid.uuid1().hex, "audio.flac": buf.getvalue()}
+        vae_feature_1, vae_feature_2 = self.vae_encode(cut)
+
+        s = {
+            "__key__": uuid.uuid1().hex,
+            "audio.flac": buf.getvalue(),
+            "vae_feature_1.pth": wds.torch_dumps(vae_feature_1.cpu()),
+            "vae_feature_2.pth": wds.torch_dumps(vae_feature_2.cpu()),
+        }
 
         return s
+
+    def vae_encode(self, cut: Cut) -> tuple[torch.Tensor, torch.Tensor]:
+        audio = torch.from_numpy(cut.load_audio()).to(self.device)
+
+        with torch.no_grad():
+            feature, _, _, _ = self.dacvae.encode(audio.unsqueeze(1))
+
+        return feature[0], feature[1]

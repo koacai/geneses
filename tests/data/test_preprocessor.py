@@ -2,6 +2,7 @@ import itertools
 from pathlib import Path
 
 import pytest
+import torch
 from hydra import compose, initialize
 from lhotse import CutSet
 
@@ -29,11 +30,10 @@ class TestPreprocessor:
             res = self.preprocessor.process_cut(cut)
             assert isinstance(res, dict)
 
-    def test_get_features(self, init) -> None:
+    def test_encode(self, init) -> None:
         _ = init
 
-        for cut in self.cuts[0].cut_into_windows(duration=30):
-            feature_1, feature_2, feature_merged = self.preprocessor.get_features(cut)
-            assert feature_1.size(0) == 80
-            assert feature_2.size(0) == 80
-            assert feature_merged.size(0) == 80
+        for cut in itertools.islice(self.cuts.data, 3):
+            res1, res2 = self.preprocessor.vae_encode(cut)
+            assert isinstance(res1, torch.Tensor)
+            assert isinstance(res2, torch.Tensor)
