@@ -165,7 +165,7 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         t = self.sampling_t(batch_size)
         x = torch.stack([x_1, x_2], dim=1)
-        noise = torch.randn_like(x)
+        noise = self.init_x0(x_1, x_2)
         path_sample = self.path.sample(x_0=noise, x_1=x, t=t)
 
         est_dxt_1, est_dxt_2 = self.mmdit.forward(
@@ -196,6 +196,32 @@ class DialogueSeparatorLightningModule(LightningModule):
             raise ValueError(f"Unknown t sampling schema: {schema}")
 
         return t
+
+    def init_x0(self, x_1: torch.Tensor, x_2: torch.Tensor) -> torch.Tensor:
+        noise_1 = torch.randn_like(x_1)
+        noise_2 = torch.randn_like(x_2)
+
+        mse_loss = torch.nn.MSELoss(reduction="none")
+
+        loss_1_1 = mse_loss(noise_1, x_1).mean(dim=tuple(range(1, x_1.dim())))
+        loss_1_2 = mse_loss(noise_2, x_2).mean(dim=tuple(range(1, x_2.dim())))
+        loss_1 = loss_1_1 + loss_1_2
+
+        loss_2_1 = mse_loss(noise_1, x_2).mean(dim=tuple(range(1, x_2.dim())))
+        loss_2_2 = mse_loss(noise_2, x_1).mean(dim=tuple(range(1, x_1.dim())))
+        loss_2 = loss_2_1 + loss_2_2
+
+        should_use_original_pairing = loss_1 <= loss_2
+
+        stacked_original = torch.stack([noise_1, noise_2], dim=1)
+        stacked_swapped = torch.stack([noise_2, noise_1], dim=1)
+
+        dims_to_add = stacked_original.dim() - should_use_original_pairing.dim()
+        reshaped_mask = should_use_original_pairing.view(-1, *([1] * dims_to_add))
+
+        output = torch.where(reshaped_mask, stacked_original, stacked_swapped)
+
+        return output
 
     def loss_fn(
         self,
