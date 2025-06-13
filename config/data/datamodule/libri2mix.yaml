@@ -1,8 +1,8 @@
 train:
-  dataset_path: ${data.preprocess.cfg.webdataset_dir}/train/data-{000000..000089}.tar
+  dataset_path: ${data.preprocess.cfg.webdataset_dir}/train/data-{000000..000030}.tar
   batch_size: 16
 valid:
-  dataset_path: ${data.preprocess.cfg.webdataset_dir}/valid/data-{000000..000069}.tar
+  dataset_path: ${data.preprocess.cfg.webdataset_dir}/valid/data-{000000..000030}.tar
   batch_size: 4
 num_workers: 8
 use_ddp: true
@@ -13,6 +13,4 @@ ssl_model:
   layer: -1
   add_adapter: true
 
-vae:
-  max_duration: 20
-  sample_rate: 24000
+vae: ${data.preprocess.cfg.vae}

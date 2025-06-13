@@ -5,6 +5,7 @@ import torchaudio
 import webdataset as wds
 from lightning.pytorch import LightningDataModule
 from omegaconf import DictConfig
+from torch.nn.utils.rnn import pad_sequence
 from transformers import AutoFeatureExtractor
 
 
@@ -71,6 +72,8 @@ class DialogueSeparatorDataModule(LightningDataModule):
         wav_merged = torch.zeros(len(batch), self.cfg.vae.sample_rate * max_duration)
 
         wav_len = []
+        vae_feature_1 = []
+        vae_feature_2 = []
 
         for i, sample in enumerate(batch):
             dialogue, sr = sample["audio.flac"]
@@ -89,6 +92,9 @@ class DialogueSeparatorDataModule(LightningDataModule):
 
             wav_len.append(dialogue_resample.shape[-1])
 
+            vae_feature_1.append(sample["vae_feature_1.pth"])
+            vae_feature_2.append(sample["vae_feature_2.pth"])
+
         wav_merged_ssl = torchaudio.functional.resample(
             wav_merged, self.cfg.vae.sample_rate, self.cfg.ssl_model.sample_rate
         )
@@ -99,12 +105,17 @@ class DialogueSeparatorDataModule(LightningDataModule):
             return_tensors="pt",
         )
 
+        vae_feature_1 = pad_sequence(vae_feature_1, batch_first=True)
+        vae_feature_2 = pad_sequence(vae_feature_2, batch_first=True)
+
         output = {
             "wav_1": wav_1,
             "wav_2": wav_2,
             "wav_merged": wav_merged,
             "wav_len": torch.tensor(wav_len),
             "ssl_input_merged": ssl_input_merged,
+            "vae_feature_1": vae_feature_1,
+            "vae_feature_2": vae_feature_2,
         }
 
         return output
