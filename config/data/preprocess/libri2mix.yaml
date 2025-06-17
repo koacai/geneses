@@ -2,8 +2,14 @@ _target_: dialogue_separator.data.preprocessor.Preprocessor
 cfg:
   shar_dir: ${data.dataset.shar_dir}
   webdataset_dir: /groups/gag51394/users/asai/webdataset/dialogue-separator/libri2mix
-  device: cpu
+  device: cuda
 
   shard_size:
     train: 3e8
     valid: 1e7
+
+  vae:
+    ckpt_path: /groups/gag51394/users/asai/dacvae.pt
+    hidden_size: 64
+    max_duration: 20
+    sample_rate: 24000

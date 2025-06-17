@@ -13,3 +13,4 @@ wheels/
 /webdataset
 /wandb
 /dialogue-separator
+/lightning_logs
