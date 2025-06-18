@@ -1,6 +1,7 @@
 from typing import Any
 
 import hydra
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
@@ -79,6 +80,9 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         self.save_hyperparameters(cfg)
 
+        self.val_t_values = []
+        self.val_unweighted_losses = []
+
     def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
         optimizer = hydra.utils.instantiate(
             self.cfg.model.optimizer, params=self.parameters()
@@ -92,28 +96,65 @@ class DialogueSeparatorLightningModule(LightningModule):
             "monitor": "train_loss",
         }
 
+    def on_fit_start(self) -> None:
+        self.dacvae.to(self.device)
+
+    def on_validation_epoch_start(self) -> None:
+        self.val_t_values.clear()
+        self.val_unweighted_losses.clear()
+
+    def calc_loss(
+        self, batch: dict[str, Any]
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        with torch.no_grad():
+            x_merged = self.ssl_feature_extractor.extract(batch["ssl_input_merged"])
+
+        x_1 = batch["vae_feature_1"].permute(0, 2, 1)
+        x_2 = batch["vae_feature_2"].permute(0, 2, 1)
+
+        batch_size = x_merged.size(0)
+
+        t = self.sampling_t(batch_size)
+        x = torch.stack([x_1, x_2], dim=1)
+        noise = torch.randn_like(x)
+        path_sample = self.path.sample(x_0=noise, x_1=x, t=t)
+
+        est_dxt_1, est_dxt_2 = self.mmdit.forward(
+            x_merged, t, path_sample.x_t[:, 0, :, :], path_sample.x_t[:, 1, :, :]
+        )
+
+        loss, unweighted_loss_per_sample = self.loss_fn(
+            est_dxt_1,
+            est_dxt_2,
+            path_sample.dx_t[:, 0, :, :],
+            path_sample.dx_t[:, 1, :, :],
+            t,
+        )
+
+        return loss, unweighted_loss_per_sample, t
+
     def training_step(
         self, batch: dict[str, torch.Tensor], batch_idx: int
     ) -> STEP_OUTPUT:
         _ = batch_idx
 
-        loss = self.calc_loss(batch)
+        loss, _, _ = self.calc_loss(batch)
 
         self.log("train_loss", loss, sync_dist=True)
 
         return loss
-
-    def on_fit_start(self) -> None:
-        self.dacvae.to(self.device)
 
     def validation_step(
         self, batch: dict[str, torch.Tensor], batch_idx: int
     ) -> STEP_OUTPUT:
         _ = batch_idx
 
-        loss = self.calc_loss(batch)
+        loss, unweighted_losses_batch, t_batch = self.calc_loss(batch)
 
         self.log("validation_loss", loss, sync_dist=True)
+
+        self.val_t_values.append(t_batch.cpu().numpy())
+        self.val_unweighted_losses.append(unweighted_losses_batch.cpu().numpy())
 
         wav_sr = self.cfg.model.vae.sample_rate
         if batch_idx < 5 and self.global_rank == 0 and self.local_rank == 0:
@@ -149,33 +190,28 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         return loss
 
-    def calc_loss(self, batch: dict[str, Any]) -> torch.Tensor:
-        with torch.no_grad():
-            x_merged = self.ssl_feature_extractor.extract(batch["ssl_input_merged"])
+    def on_validation_epoch_end(self) -> None:
+        all_t_values = np.concatenate(self.val_t_values)
+        all_unweighted_losses = np.concatenate(self.val_unweighted_losses)
 
-        x_1 = batch["vae_feature_1"].permute(0, 2, 1)
-        x_2 = batch["vae_feature_2"].permute(0, 2, 1)
+        plt.figure(figsize=(10, 6))
+        plt.scatter(all_t_values, all_unweighted_losses, alpha=0.5, s=10)
+        plt.title("Prediction Error vs. t during Validation")
+        plt.xlabel("t Value")
+        plt.ylabel("Unweighted MSE Loss (Prediction Error)")
+        plt.grid(True)
+        plt.tight_layout()
 
-        batch_size = x_merged.size(0)
+        plot_filename = "prediction_error_vs_t_validation.png"
+        plt.savefig(plot_filename)
+        plt.close()
 
-        t = self.sampling_t(batch_size)
-        x = torch.stack([x_1, x_2], dim=1)
-        noise = torch.randn_like(x)
-        path_sample = self.path.sample(x_0=noise, x_1=x, t=t)
+        if isinstance(self.logger, loggers.WandbLogger):
+            self.logger.experiment.log(
+                {"prediction_error_vs_t": wandb.Image(plot_filename)}
+            )
 
-        est_dxt_1, est_dxt_2 = self.mmdit.forward(
-            x_merged, t, path_sample.x_t[:, 0, :, :], path_sample.x_t[:, 1, :, :]
-        )
-
-        loss = self.loss_fn(
-            est_dxt_1,
-            est_dxt_2,
-            path_sample.dx_t[:, 0, :, :],
-            path_sample.dx_t[:, 1, :, :],
-            path_sample.t,
-        )
-
-        return loss
+        self.print(f"Plot saved to {plot_filename}")
 
     def sampling_t(
         self, batch_size: int, m: float = 0.0, s: float = 1.0
@@ -200,11 +236,13 @@ class DialogueSeparatorLightningModule(LightningModule):
         dxt_2: torch.Tensor,
         t: torch.Tensor,
         epsilon: float = 1e-8,
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         mse_loss = torch.nn.MSELoss(reduction="none")
 
         loss_1 = mse_loss(est_dxt1, dxt_1).mean(dim=(1, 2))
         loss_2 = mse_loss(est_dxt2, dxt_2).mean(dim=(1, 2))
+
+        unweighted_loss_per_sample = loss_1 + loss_2
 
         schema = self.cfg.model.weighting_schema
         if schema == "none":
@@ -214,9 +252,9 @@ class DialogueSeparatorLightningModule(LightningModule):
         else:
             raise ValueError(f"Unknown weighting schema: {schema}")
 
-        loss_weighted = (loss_1 + loss_2) * weight
+        loss_weighted = unweighted_loss_per_sample * weight
 
-        return loss_weighted.mean()
+        return loss_weighted.mean(), unweighted_loss_per_sample
 
     def forward(self, batch: dict[str, Any]) -> tuple[torch.Tensor, torch.Tensor]:
         with torch.no_grad():
