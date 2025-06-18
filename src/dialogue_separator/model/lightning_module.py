@@ -201,10 +201,12 @@ class DialogueSeparatorLightningModule(LightningModule):
         plt.ylabel("Unweighted MSE Loss (Prediction Error)")
         plt.grid(True)
         plt.tight_layout()
+
+        plot_filename = "prediction_error_vs_t_validation.png"
+        plt.savefig(plot_filename)
         plt.close()
 
         if isinstance(self.logger, loggers.WandbLogger):
-            plot_filename = "prediction_error_vs_t_validation.png"
             self.logger.experiment.log(
                 {"prediction_error_vs_t": wandb.Image(plot_filename)}
             )
