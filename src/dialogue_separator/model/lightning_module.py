@@ -245,6 +245,8 @@ class DialogueSeparatorLightningModule(LightningModule):
             weight = 1.0
         elif schema == "sigma_sqrt":
             weight = (1 - t + epsilon) ** (-2.0)
+        elif schema == "parabolic_midpoint":
+            weight = 4 * t * (1 - t) + epsilon
         else:
             raise ValueError(f"Unknown weighting schema: {schema}")
 
