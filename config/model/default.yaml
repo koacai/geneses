@@ -18,4 +18,4 @@ mmdit:
 ssl_model: ${data.datamodule.ssl_model}
 
 t_sampling_schema: logit_normal # [uniform, logit_normal]
-weighting_schema: none # [sigma_sqrt, none]
+weighting_schema: none # [sigma_sqrt, none, parabolic_midpoint]
