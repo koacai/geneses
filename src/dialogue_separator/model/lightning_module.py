@@ -1,7 +1,6 @@
 from typing import Any
 
 import hydra
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
@@ -190,27 +189,6 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         return loss
 
-    def on_validation_epoch_end(self) -> None:
-        all_t_values = np.concatenate(self.val_t_values)
-        all_unweighted_losses = np.concatenate(self.val_unweighted_losses)
-
-        plt.figure(figsize=(10, 6))
-        plt.scatter(all_t_values, all_unweighted_losses, alpha=0.5, s=10)
-        plt.title("Prediction Error vs. t during Validation")
-        plt.xlabel("t Value")
-        plt.ylabel("Unweighted MSE Loss (Prediction Error)")
-        plt.grid(True)
-        plt.tight_layout()
-
-        plot_filename = "prediction_error_vs_t_validation.png"
-        plt.savefig(plot_filename)
-        plt.close()
-
-        if isinstance(self.logger, loggers.WandbLogger):
-            self.logger.experiment.log(
-                {"prediction_error_vs_t": wandb.Image(plot_filename)}
-            )
-
     def sampling_t(
         self, batch_size: int, m: float = 0.0, s: float = 1.0
     ) -> torch.Tensor:
@@ -256,7 +234,9 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         return loss_weighted.mean(), unweighted_loss_per_sample
 
-    def forward(self, batch: dict[str, Any]) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        self, batch: dict[str, Any], step_size: float = 0.01
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         with torch.no_grad():
             x_merged = self.ssl_feature_extractor.extract(batch["ssl_input_merged"])
 
@@ -270,7 +250,6 @@ class DialogueSeparatorLightningModule(LightningModule):
         noise_2 = torch.randn(vae_size, device=self.device)
         noise = torch.stack([noise_1, noise_2], dim=1)
 
-        step_size = 0.1
         time_grid = torch.tensor([0.0, 1.0])
 
         solver = ODESolver(velocity_model=WrappedModel(self.mmdit))
