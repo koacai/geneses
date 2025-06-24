@@ -79,9 +79,6 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         self.save_hyperparameters(cfg)
 
-        self.val_t_values = []
-        self.val_unweighted_losses = []
-
     def configure_optimizers(self) -> OptimizerLRSchedulerConfig:
         optimizer = hydra.utils.instantiate(
             self.cfg.model.optimizer, params=self.parameters()
@@ -97,10 +94,6 @@ class DialogueSeparatorLightningModule(LightningModule):
 
     def on_fit_start(self) -> None:
         self.dacvae.to(self.device)
-
-    def on_validation_epoch_start(self) -> None:
-        self.val_t_values.clear()
-        self.val_unweighted_losses.clear()
 
     def calc_loss(
         self, batch: dict[str, Any]
@@ -148,12 +141,9 @@ class DialogueSeparatorLightningModule(LightningModule):
     ) -> STEP_OUTPUT:
         _ = batch_idx
 
-        loss, unweighted_losses_batch, t_batch = self.calc_loss(batch)
+        loss, _, _ = self.calc_loss(batch)
 
         self.log("validation_loss", loss, sync_dist=True)
-
-        self.val_t_values.append(t_batch.cpu().numpy())
-        self.val_unweighted_losses.append(unweighted_losses_batch.cpu().numpy())
 
         wav_sr = self.cfg.model.vae.sample_rate
         if batch_idx < 5 and self.global_rank == 0 and self.local_rank == 0:
