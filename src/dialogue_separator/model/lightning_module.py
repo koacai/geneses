@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any
 
 import hydra
@@ -95,6 +96,9 @@ class DialogueSeparatorLightningModule(LightningModule):
     def on_fit_start(self) -> None:
         self.dacvae.to(self.device)
 
+    def on_test_start(self) -> None:
+        self.dacvae.to(self.device)
+
     def calc_loss(
         self, batch: dict[str, Any]
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -178,6 +182,39 @@ class DialogueSeparatorLightningModule(LightningModule):
             self.log_audio(estimated_2, f"estimated_2/{batch_idx}", wav_sr)
 
         return loss
+
+    def test_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> None:
+        est_feature1, est_feature2 = self.forward(batch)
+        with torch.no_grad():
+            decoded_1 = self.dacvae.decode(est_feature1)
+            decoded_2 = self.dacvae.decode(est_feature2)
+
+        wav_sr = self.cfg.model.vae.sample_rate
+        batch_size = batch["wav_1"].size(0)
+        for i in range(batch_size):
+            sample_dir = Path("test_output") / f"{batch_idx}" / f"{i}"
+            sample_dir.mkdir(parents=True, exist_ok=True)
+
+            wav_len = batch["wav_len"][i]
+            source_1 = batch["wav_1"][i][:wav_len].cpu()
+            source_2 = batch["wav_2"][i][:wav_len].cpu()
+            source_merged = batch["wav_merged"][i][:wav_len].cpu()
+
+            torchaudio.save(sample_dir / "source_1.wav", source_1.unsqueeze(0), wav_sr)
+            torchaudio.save(sample_dir / "source_2.wav", source_2.unsqueeze(0), wav_sr)
+            torchaudio.save(
+                sample_dir / "source_merged.wav", source_merged.unsqueeze(0), wav_sr
+            )
+
+            estimated_1 = decoded_1[i].squeeze()[:wav_len].to(torch.float32).cpu()
+            estimated_2 = decoded_2[i].squeeze()[:wav_len].to(torch.float32).cpu()
+
+            torchaudio.save(
+                sample_dir / "estimated_1.wav", estimated_1.unsqueeze(0), wav_sr
+            )
+            torchaudio.save(
+                sample_dir / "estimated_2.wav", estimated_2.unsqueeze(0), wav_sr
+            )
 
     def sampling_t(
         self, batch_size: int, m: float = 0.0, s: float = 1.0

@@ -46,7 +46,7 @@ class DialogueSeparatorDataModule(LightningDataModule):
                 wds.WebDataset(
                     self.cfg.test.dataset_path,
                     shardshuffle=False,
-                    nodesplitter=nodesplitter,
+                    nodesplitter=wds.single_node_only,
                     repeat=True,
                 )
                 .decode(wds.torch_audio)
