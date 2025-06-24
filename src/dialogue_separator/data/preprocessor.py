@@ -27,6 +27,7 @@ class Preprocessor:
 
         Path(f"{self.cfg.webdataset_dir}/train").mkdir(parents=True, exist_ok=True)
         Path(f"{self.cfg.webdataset_dir}/valid").mkdir(parents=True, exist_ok=True)
+        Path(f"{self.cfg.webdataset_dir}/test").mkdir(parents=True, exist_ok=True)
         train_sink = wds.ShardWriter(
             f"{self.cfg.webdataset_dir}/train/data-%06d.tar",
             maxsize=self.cfg.shard_size.train,
@@ -34,6 +35,10 @@ class Preprocessor:
         valid_sink = wds.ShardWriter(
             f"{self.cfg.webdataset_dir}/valid/data-%06d.tar",
             maxsize=self.cfg.shard_size.valid,
+        )
+        test_sink = wds.ShardWriter(
+            f"{self.cfg.webdataset_dir}/test/data-%06d.tar",
+            maxsize=self.cfg.shard_size.test,
         )
 
         cuts = cuts.shuffle(random.Random(42))
@@ -45,11 +50,14 @@ class Preprocessor:
 
             if cut.custom["subset"] == "dev-clean":
                 valid_sink.write(sample)
+            elif cut.custom["subset"] == "test-clean":
+                test_sink.write(sample)
             elif cut.custom["subset"] in ["train-clean-100", "train-clean-360"]:
                 train_sink.write(sample)
 
         train_sink.close()
         valid_sink.close()
+        test_sink.close()
 
     def process_cut(self, cut: Cut) -> dict[str, Any]:
         buf = io.BytesIO()

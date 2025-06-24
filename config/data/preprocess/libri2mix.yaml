@@ -7,6 +7,7 @@ cfg:
   shard_size:
     train: 3e8
     valid: 1e7
+    test: 1e7
 
   vae:
     ckpt_path: /groups/gag51394/users/asai/dacvae.pt
