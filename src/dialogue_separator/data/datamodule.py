@@ -41,6 +41,18 @@ class DialogueSeparatorDataModule(LightningDataModule):
                 .batched(self.cfg.valid.batch_size, collation_fn=self.collate_fn)
             )
 
+        elif stage == "test":
+            self.test_dataset = (
+                wds.WebDataset(
+                    self.cfg.test.dataset_path,
+                    shardshuffle=False,
+                    nodesplitter=nodesplitter,
+                    repeat=True,
+                )
+                .decode(wds.torch_audio)
+                .batched(self.cfg.test.batch_size, collation_fn=self.collate_fn)
+            )
+
     def train_dataloader(self) -> wds.WebLoader:
         return wds.WebLoader(
             self.train_dataset,
@@ -54,6 +66,16 @@ class DialogueSeparatorDataModule(LightningDataModule):
     def val_dataloader(self) -> wds.WebLoader:
         return wds.WebLoader(
             self.valid_dataset,
+            num_workers=self.cfg.num_workers,
+            pin_memory=True,
+            shuffle=False,
+            collate_fn=self.identity,
+            drop_last=True,
+        )
+
+    def test_dataloader(self) -> wds.WebLoader:
+        return wds.WebLoader(
+            self.test_dataset,
             num_workers=self.cfg.num_workers,
             pin_memory=True,
             shuffle=False,

@@ -42,3 +42,18 @@ class TestDialogueSeparatorDataModule:
             assert "ssl_input_merged" in batch
             assert batch["vae_feature_1"].size(0) == batch_size
             assert batch["vae_feature_2"].size(0) == batch_size
+
+    def test_test_dataloader(self, init) -> None:
+        _ = init
+        self.datamodule.setup("test")
+
+        batch_size = self.datamodule.cfg.test.batch_size
+
+        for batch in itertools.islice(self.datamodule.test_dataloader(), 3):
+            assert batch["wav_1"].size(0) == batch_size
+            assert batch["wav_2"].size(0) == batch_size
+            assert batch["wav_merged"].size(0) == batch_size
+            assert batch["wav_len"].size(0) == batch_size
+            assert "ssl_input_merged" in batch
+            assert batch["vae_feature_1"].size(0) == batch_size
+            assert batch["vae_feature_2"].size(0) == batch_size
