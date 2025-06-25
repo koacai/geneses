@@ -5,9 +5,9 @@ from pathlib import Path
 from huggingface_hub import HfApi
 
 if __name__ == "__main__":
-    ckpt_path = "dialogue-separator/6i41geeq/checkpoints/epoch=50-step=25449.ckpt"
-    config_path = "outputs/2025-06-10/17-36-44/.hydra/config.yaml"
-    metadata_path = "wandb/run-20250610_173709-6i41geeq/files/wandb-metadata.json"
+    ckpt_path = "dialogue-separator/rzjrr29f/checkpoints/epoch=112-step=57404.ckpt"
+    config_path = "outputs/2025-06-23/14-18-00/.hydra/config.yaml"
+    metadata_path = "wandb/run-20250623_141828-rzjrr29f/files/wandb-metadata.json"
 
     keys_to_extract_from_metadata = [
         "os",
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     with open(tmp_metadata_path, "w") as f:
         json.dump(metadata_filtered, f, indent=2)
 
-    dir = "Libri2Mix"
+    dir = "Libri2Mix/L1Loss"
 
     api = HfApi()
     api.upload_file(
