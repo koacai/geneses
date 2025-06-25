@@ -184,7 +184,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         return loss
 
     def test_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> None:
-        est_feature1, est_feature2 = self.forward(batch)
+        est_feature1, est_feature2 = self.forward(batch, step_size=0.01)
         with torch.no_grad():
             decoded_1 = self.dacvae.decode(est_feature1)
             decoded_2 = self.dacvae.decode(est_feature2)
