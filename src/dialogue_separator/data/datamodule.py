@@ -61,6 +61,7 @@ class DialogueSeparatorDataModule(LightningDataModule):
             shuffle=False,
             collate_fn=self.identity,
             drop_last=True,
+            persistent_workers=True,
         )
 
     def val_dataloader(self) -> wds.WebLoader:
@@ -71,6 +72,7 @@ class DialogueSeparatorDataModule(LightningDataModule):
             shuffle=False,
             collate_fn=self.identity,
             drop_last=True,
+            persistent_workers=True,
         )
 
     def test_dataloader(self) -> wds.WebLoader:
@@ -81,6 +83,7 @@ class DialogueSeparatorDataModule(LightningDataModule):
             shuffle=False,
             collate_fn=self.identity,
             drop_last=True,
+            persistent_workers=True,
         )
 
     def identity(self, x):
