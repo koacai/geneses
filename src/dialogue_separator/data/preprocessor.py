@@ -20,8 +20,12 @@ class Preprocessor:
 
         self.dacvae = torch.jit.load(cfg.vae.ckpt_path).to(self.device)
         self.processor = AutoFeatureExtractor.from_pretrained(cfg.ssl_model.name)
-        self.ssl_model = Wav2Vec2BertModel.from_pretrained(
-            cfg.ssl_model.name,
+        self.ssl_model = (
+            Wav2Vec2BertModel.from_pretrained(
+                cfg.ssl_model.name,
+            )
+            .eval()
+            .to(self.device)  # type: ignore
         )
 
     def write_webdataset(self) -> None:
@@ -114,18 +118,21 @@ class Preprocessor:
                 audio, cut.sampling_rate, self.cfg.ssl_model.sample_rate
             )
 
+        audio = audio[:, : self.cfg.ssl_model.sample_rate * self.cfg.vae.max_duration]
+
         wav_input = torch.zeros(
             1,
             self.cfg.ssl_model.sample_rate * self.cfg.vae.max_duration,
-            device=self.device,
         )
         wav_input[0, : audio.shape[-1]] = audio[0] + audio[1]
 
         inputs = self.processor(
-            [w.cpu() for w in wav_input],
+            [w.cpu().numpy() for w in wav_input],
             sampling_rate=self.cfg.ssl_model.sample_rate,
             return_tensors="pt",
         )
+        inputs["input_features"] = inputs["input_features"].to(self.device)
+        inputs["attention_mask"] = inputs["attention_mask"].to(self.device)
 
         with torch.no_grad():
             return self.ssl_model(**inputs, output_hidden_states=True).hidden_states[
