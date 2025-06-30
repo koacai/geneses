@@ -269,7 +269,7 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         vae_size = (
             batch["wav_merged"].size(0),
-            1000,  # 20秒の音声のVAEは長さ1000（ハードコーディング）
+            333,  # 20秒の音声のVAEは長さ333（ハードコーディング）
             self.cfg.model.vae.hidden_size,
         )
 
