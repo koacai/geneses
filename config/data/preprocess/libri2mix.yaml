@@ -10,7 +10,7 @@ cfg:
     test: 1e7
 
   vae:
-    ckpt_path: /groups/gag51394/users/asai/dacvae.pt
-    hidden_size: 64
+    ckpt_path: /groups/gag51394/users/asai/dacvae_l16_librispeech.pt
+    hidden_size: 16
     max_duration: 20
-    sample_rate: 24000
+    sample_rate: 16000
