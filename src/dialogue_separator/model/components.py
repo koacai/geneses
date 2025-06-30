@@ -71,6 +71,7 @@ class MMDiT(nn.Module):
         in_ssl_channels: int,
         out_channels: int,
         hidden_size: int,
+        max_ssl_seq_len: int,
         max_seq_len: int,
         depth: int,
         heads: int,
@@ -84,7 +85,7 @@ class MMDiT(nn.Module):
         self.x_embedder_2 = nn.Linear(in_channels, hidden_size, bias=True)
 
         self.x_pos_embed_merged = nn.Parameter(
-            torch.zeros(1, max_seq_len, hidden_size), requires_grad=False
+            torch.zeros(1, max_ssl_seq_len, hidden_size), requires_grad=False
         )
         self.x_pos_embed_1 = nn.Parameter(
             torch.zeros(1, max_seq_len, hidden_size), requires_grad=False
@@ -105,7 +106,7 @@ class MMDiT(nn.Module):
         self.final_layer_1 = nn.Linear(hidden_size, out_channels)
         self.final_layer_2 = nn.Linear(hidden_size, out_channels)
 
-        self.max_seq_len = max_seq_len
+        self.max_seq_len = max_ssl_seq_len
 
         self.initialize_weights()
 

@@ -101,19 +101,17 @@ class DialogueSeparatorDataModule(LightningDataModule):
         for i, sample in enumerate(batch):
             dialogue, sr = sample["audio.flac"]
 
-            dialogue_resample = torchaudio.functional.resample(
-                dialogue, sr, self.cfg.vae.sample_rate
-            )
-            dialogue_resample = dialogue_resample[
-                :, : self.cfg.vae.sample_rate * max_duration
-            ]
-            wav_1[i, : dialogue_resample.shape[-1]] = dialogue_resample[0]
-            wav_2[i, : dialogue_resample.shape[-1]] = dialogue_resample[1]
-            wav_merged[i, : dialogue_resample.shape[-1]] = (
-                dialogue_resample[0] + dialogue_resample[1]
-            )
+            if sr != self.cfg.vae.sample_rate:
+                dialogue = torchaudio.functional.resample(
+                    dialogue, sr, self.cfg.vae.sample_rate
+                )
 
-            wav_len.append(dialogue_resample.shape[-1])
+            dialogue = dialogue[:, : self.cfg.vae.sample_rate * max_duration]
+            wav_1[i, : dialogue.shape[-1]] = dialogue[0]
+            wav_2[i, : dialogue.shape[-1]] = dialogue[1]
+            wav_merged[i, : dialogue.shape[-1]] = dialogue[0] + dialogue[1]
+
+            wav_len.append(dialogue.shape[-1])
 
             vae_feature_1.append(sample["vae_feature_1.pth"])
             vae_feature_2.append(sample["vae_feature_2.pth"])
