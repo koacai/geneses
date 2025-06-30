@@ -4,7 +4,6 @@ from typing import Any
 import hydra
 import numpy as np
 import torch
-import torch.nn as nn
 import torchaudio
 from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
@@ -29,25 +28,6 @@ class WrappedModel(ModelWrapper):
         return torch.stack([res_1, res_2], dim=1)
 
 
-class SSLFeatureExtractor(nn.Module):
-    def __init__(self, model_name: str, layer: int, add_adapter: bool) -> None:
-        super(SSLFeatureExtractor, self).__init__()
-
-        self.model = Wav2Vec2BertModel.from_pretrained(
-            model_name, add_adapter=add_adapter
-        )
-        for param in self.model.feature_projection.parameters():
-            param.requires_grad = False
-        for param in self.model.encoder.parameters():
-            param.requires_grad = False
-
-        self.layer = layer
-
-    @torch.no_grad()
-    def extract(self, inputs: dict[str, torch.Tensor]) -> torch.Tensor:
-        return self.model(**inputs, output_hidden_states=True).hidden_states[self.layer]
-
-
 class DACVAE:
     def __init__(self, ckpt_path: str) -> None:
         self.model = torch.jit.load(ckpt_path)
@@ -69,12 +49,6 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         self.mmdit = MMDiT(**cfg.model.mmdit)
         self.path = AffineProbPath(scheduler=CondOTScheduler())
-
-        self.ssl_feature_extractor = SSLFeatureExtractor(
-            cfg.model.ssl_model.name,
-            cfg.model.ssl_model.layer,
-            cfg.model.ssl_model.add_adapter,
-        )
 
         self.dacvae = DACVAE(cfg.model.vae.ckpt_path)
 
@@ -102,11 +76,9 @@ class DialogueSeparatorLightningModule(LightningModule):
     def calc_loss(
         self, batch: dict[str, Any]
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        with torch.no_grad():
-            x_merged = self.ssl_feature_extractor.extract(batch["ssl_input_merged"])
-
         x_1 = batch["vae_feature_1"].permute(0, 2, 1)
         x_2 = batch["vae_feature_2"].permute(0, 2, 1)
+        x_merged = batch["ssl_feature"]
 
         batch_size = x_merged.size(0)
 
@@ -264,8 +236,7 @@ class DialogueSeparatorLightningModule(LightningModule):
     def forward(
         self, batch: dict[str, Any], step_size: float = 0.01
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        with torch.no_grad():
-            x_merged = self.ssl_feature_extractor.extract(batch["ssl_input_merged"])
+        x_merged = batch["ssl_feature"]
 
         vae_size = (
             batch["wav_merged"].size(0),
@@ -318,14 +289,27 @@ class DialogueSeparatorLightningModule(LightningModule):
         )
 
         processor = AutoFeatureExtractor.from_pretrained(self.cfg.model.ssl_model.name)
+        ssl_model = (
+            Wav2Vec2BertModel.from_pretrained(
+                self.cfg.model.ssl_model.name,
+            )
+            .eval()
+            .to(self.device)  # type: ignore
+        )
+
         with torch.no_grad():
-            ssl_input_merged = processor(
+            inputs = processor(
                 [w.cpu().numpy() for w in wav_merged_ssl],
                 sampling_rate=self.cfg.model.ssl_model.sample_rate,
                 return_tensors="pt",
             )
+            inputs["input_features"] = inputs["input_features"].to(self.device)
+            inputs["attention_mask"] = inputs["attention_mask"].to(self.device)
+            ssl_feature = ssl_model(**inputs, output_hidden_states=True).hidden_states[
+                self.cfg.model.ssl_model.layer
+            ]
 
-        batch = {"wav_merged": wav_merged, "ssl_input_merged": ssl_input_merged}
+        batch = {"wav_merged": wav_merged, "ssl_feature": ssl_feature}
         est_feature1, est_feature2 = self.forward(batch)
 
         with torch.no_grad():

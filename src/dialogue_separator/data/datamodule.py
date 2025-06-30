@@ -6,15 +6,12 @@ import webdataset as wds
 from lightning.pytorch import LightningDataModule
 from omegaconf import DictConfig
 from torch.nn.utils.rnn import pad_sequence
-from transformers import AutoFeatureExtractor
 
 
 class DialogueSeparatorDataModule(LightningDataModule):
     def __init__(self, cfg: DictConfig) -> None:
         super(DialogueSeparatorDataModule, self).__init__()
         self.cfg = cfg
-
-        self.processor = AutoFeatureExtractor.from_pretrained(cfg.ssl_model.name)
 
     def setup(self, stage: str) -> None:
         nodesplitter = wds.split_by_worker if self.cfg.use_ddp else wds.single_node_only
@@ -61,6 +58,7 @@ class DialogueSeparatorDataModule(LightningDataModule):
             shuffle=False,
             collate_fn=self.identity,
             drop_last=True,
+            persistent_workers=True,
         )
 
     def val_dataloader(self) -> wds.WebLoader:
@@ -71,6 +69,7 @@ class DialogueSeparatorDataModule(LightningDataModule):
             shuffle=False,
             collate_fn=self.identity,
             drop_last=True,
+            persistent_workers=True,
         )
 
     def test_dataloader(self) -> wds.WebLoader:
@@ -81,6 +80,7 @@ class DialogueSeparatorDataModule(LightningDataModule):
             shuffle=False,
             collate_fn=self.identity,
             drop_last=True,
+            persistent_workers=True,
         )
 
     def identity(self, x):
@@ -96,46 +96,37 @@ class DialogueSeparatorDataModule(LightningDataModule):
         wav_len = []
         vae_feature_1 = []
         vae_feature_2 = []
+        ssl_feature = []
 
         for i, sample in enumerate(batch):
             dialogue, sr = sample["audio.flac"]
 
-            dialogue_resample = torchaudio.functional.resample(
-                dialogue, sr, self.cfg.vae.sample_rate
-            )
-            dialogue_resample = dialogue_resample[
-                :, : self.cfg.vae.sample_rate * max_duration
-            ]
-            wav_1[i, : dialogue_resample.shape[-1]] = dialogue_resample[0]
-            wav_2[i, : dialogue_resample.shape[-1]] = dialogue_resample[1]
-            wav_merged[i, : dialogue_resample.shape[-1]] = (
-                dialogue_resample[0] + dialogue_resample[1]
-            )
+            if sr != self.cfg.vae.sample_rate:
+                dialogue = torchaudio.functional.resample(
+                    dialogue, sr, self.cfg.vae.sample_rate
+                )
 
-            wav_len.append(dialogue_resample.shape[-1])
+            dialogue = dialogue[:, : self.cfg.vae.sample_rate * max_duration]
+            wav_1[i, : dialogue.shape[-1]] = dialogue[0]
+            wav_2[i, : dialogue.shape[-1]] = dialogue[1]
+            wav_merged[i, : dialogue.shape[-1]] = dialogue[0] + dialogue[1]
+
+            wav_len.append(dialogue.shape[-1])
 
             vae_feature_1.append(sample["vae_feature_1.pth"])
             vae_feature_2.append(sample["vae_feature_2.pth"])
-
-        wav_merged_ssl = torchaudio.functional.resample(
-            wav_merged, self.cfg.vae.sample_rate, self.cfg.ssl_model.sample_rate
-        )
-
-        ssl_input_merged = self.processor(
-            [w for w in wav_merged_ssl],
-            sampling_rate=self.cfg.ssl_model.sample_rate,
-            return_tensors="pt",
-        )
+            ssl_feature.append(sample["ssl_feature.pth"])
 
         vae_feature_1 = pad_sequence(vae_feature_1, batch_first=True)
         vae_feature_2 = pad_sequence(vae_feature_2, batch_first=True)
+        ssl_feature = pad_sequence(ssl_feature, batch_first=True)
 
         output = {
             "wav_1": wav_1,
             "wav_2": wav_2,
             "wav_merged": wav_merged,
             "wav_len": torch.tensor(wav_len),
-            "ssl_input_merged": ssl_input_merged,
+            "ssl_feature": ssl_feature,
             "vae_feature_1": vae_feature_1,
             "vae_feature_2": vae_feature_2,
         }
