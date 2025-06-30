@@ -135,6 +135,8 @@ class Preprocessor:
         inputs["attention_mask"] = inputs["attention_mask"].to(self.device)
 
         with torch.no_grad():
-            return self.ssl_model(**inputs, output_hidden_states=True).hidden_states[
-                self.cfg.ssl_model.layer
-            ]
+            return (
+                self.ssl_model(**inputs, output_hidden_states=True)
+                .hidden_states[self.cfg.ssl_model.layer]
+                .squeeze(0)
+            )
