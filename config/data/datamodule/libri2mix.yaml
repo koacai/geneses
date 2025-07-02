@@ -1,11 +1,11 @@
 train:
-  dataset_path: ${data.preprocess.cfg.webdataset_dir}/train/data-{000000..000098}.tar
+  dataset_path: ${data.preprocess.cfg.webdataset_dir}/train/data-{000000..000223}.tar
   batch_size: 32
 valid:
-  dataset_path: ${data.preprocess.cfg.webdataset_dir}/valid/data-{000000..000130}.tar
+  dataset_path: ${data.preprocess.cfg.webdataset_dir}/valid/data-{000000..000209}.tar
   batch_size: 4
 test:
-  dataset_path: ${data.preprocess.cfg.webdataset_dir}/test/data-{000000..000129}.tar
+  dataset_path: ${data.preprocess.cfg.webdataset_dir}/test/data-{000000..000194}.tar
   batch_size: 4
 num_workers: 8
 use_ddp: true
