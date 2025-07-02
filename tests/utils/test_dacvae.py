@@ -6,27 +6,30 @@ from lhotse import CutSet
 
 
 def test_dacvae() -> None:
-    dacvae = torch.jit.load("/groups/gag51394/users/asai/dacvae.pt")
+    dacvae = torch.jit.load("/groups/gag51394/users/asai/dacvae_l16_librispeech.pt")
 
-    shar_dir = Path("/groups/gag51394/users/asai/shar/libri2mix_clean/")
+    shar_dir = Path("/groups/gag51394/users/asai/shar/librispeech/")
 
     cut_paths = sorted(map(str, shar_dir.glob("cuts.*.jsonl.gz")))
     recording_paths = sorted(map(str, shar_dir.glob("recording.*.tar")))
     cuts = CutSet.from_shar({"cuts": cut_paths, "recording": recording_paths})
 
+    sr = 16000
     for cut in cuts.data:
         wav = torch.from_numpy(cut.load_audio())
         wav = torchaudio.functional.resample(
-            wav, orig_freq=cut.sampling_rate, new_freq=24000
+            wav, orig_freq=cut.sampling_rate, new_freq=sr
         )
-        wav = wav[0] + wav[1]
 
-        wav_padded = torch.zeros(1, 1, 24000 * 20)
+        rms_wav = torch.sqrt(torch.mean(wav**2))
+        snr_db = 60
+        rms_noise = rms_wav / (10 ** (snr_db / 20.0))
+
+        wav_padded = torch.randn(1, 1, sr * 20) * rms_noise
         wav_padded[0, 0, : wav.shape[-1]] = wav
-        torchaudio.save("before.wav", wav_padded.squeeze(0), 24000)
+
+        torchaudio.save("source.wav", wav_padded.squeeze(0), sr)
         encoded, _, _, _ = dacvae.encode(wav_padded)
-        print(encoded.shape)
         reconstructed_wav = dacvae.decode(encoded)
-        print(reconstructed_wav.shape)
-        torchaudio.save("reconstructed.wav", reconstructed_wav.squeeze(0), 24000)
+        torchaudio.save("reconstructed.wav", reconstructed_wav.squeeze(0), sr)
         break
