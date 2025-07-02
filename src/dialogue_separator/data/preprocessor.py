@@ -10,6 +10,7 @@ import webdataset as wds
 from lhotse import CutSet, MultiCut
 from lhotse.cut import Cut
 from omegaconf import DictConfig
+from tqdm import tqdm
 from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 
 
@@ -51,7 +52,7 @@ class Preprocessor:
         )
 
         cuts = cuts.shuffle(random.Random(42))
-        for cut in cuts.data:
+        for cut in tqdm(cuts.data):
             sample = self.process_cut(cut)
 
             assert isinstance(cut, MultiCut)
@@ -70,11 +71,11 @@ class Preprocessor:
 
     def process_cut(self, cut: Cut) -> dict[str, Any]:
         buf = io.BytesIO()
-        audio = torch.from_numpy(cut.load_audio())
+        audio = self.padding_by_noise(cut, self.cfg.noise_amp)
         torchaudio.save(buf, audio, cut.sampling_rate, format="flac")
 
-        vae_feature_1, vae_feature_2 = self.vae_encode(cut)
-        ssl_feature = self.extract_ssl_feature(cut)
+        vae_feature_1, vae_feature_2 = self.vae_encode(audio, cut.sampling_rate)
+        ssl_feature = self.extract_ssl_feature(audio, cut.sampling_rate)
 
         s = {
             "__key__": uuid.uuid1().hex,
@@ -86,13 +87,29 @@ class Preprocessor:
 
         return s
 
-    def vae_encode(self, cut: Cut) -> tuple[torch.Tensor, torch.Tensor]:
+    @staticmethod
+    def padding_by_noise(cut: Cut, noise_amp: float) -> torch.Tensor:
         audio = torch.from_numpy(cut.load_audio())
 
-        if self.cfg.vae.sample_rate != cut.sampling_rate:
-            audio = torchaudio.functional.resample(
-                audio, cut.sampling_rate, self.cfg.vae.sample_rate
-            )
+        assert len(cut.supervisions) == 2
+        assert cut.supervisions[0].custom is not None
+        assert cut.supervisions[1].custom is not None
+
+        wav_len_1 = cut.supervisions[0].custom["wav_len"]
+        wav_len_2 = cut.supervisions[1].custom["wav_len"]
+
+        if wav_len_1 > wav_len_2:
+            audio[1, wav_len_2:] = torch.randn(1, wav_len_1 - wav_len_2) * noise_amp
+        else:
+            audio[0, wav_len_1:] = torch.randn(1, wav_len_2 - wav_len_1) * noise_amp
+
+        return audio
+
+    def vae_encode(
+        self, audio: torch.Tensor, sr: int
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        if self.cfg.vae.sample_rate != sr:
+            audio = torchaudio.functional.resample(audio, sr, self.cfg.vae.sample_rate)
 
         audio = audio[:, : self.cfg.vae.sample_rate * self.cfg.vae.max_duration]
 
@@ -110,29 +127,22 @@ class Preprocessor:
 
         return feature[0], feature[1]
 
-    def extract_ssl_feature(self, cut: Cut) -> torch.Tensor:
-        audio = torch.from_numpy(cut.load_audio())
-
-        if self.cfg.ssl_model.sample_rate != cut.sampling_rate:
+    def extract_ssl_feature(self, audio: torch.Tensor, sr: int) -> torch.Tensor:
+        if self.cfg.ssl_model.sample_rate != sr:
             audio = torchaudio.functional.resample(
-                audio, cut.sampling_rate, self.cfg.ssl_model.sample_rate
+                audio, sr, self.cfg.ssl_model.sample_rate
             )
 
-        audio = audio[:, : self.cfg.ssl_model.sample_rate * self.cfg.vae.max_duration]
-
-        wav_input = torch.zeros(
-            1,
-            self.cfg.ssl_model.sample_rate * self.cfg.vae.max_duration,
-        )
-        wav_input[0, : audio.shape[-1]] = audio[0] + audio[1]
+        wav_input = audio[0] + audio[1]
 
         inputs = self.processor(
-            [w.cpu().numpy() for w in wav_input],
+            [w.cpu().numpy() for w in wav_input.unsqueeze(0)],
             sampling_rate=self.cfg.ssl_model.sample_rate,
             return_tensors="pt",
         )
-        inputs["input_features"] = inputs["input_features"].to(self.device)
-        inputs["attention_mask"] = inputs["attention_mask"].to(self.device)
+
+        for k, v in inputs.items():
+            inputs[k] = v.to(self.device)
 
         with torch.no_grad():
             return (

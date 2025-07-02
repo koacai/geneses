@@ -21,9 +21,7 @@ def test_dacvae() -> None:
             wav, orig_freq=cut.sampling_rate, new_freq=sr
         )
 
-        rms_wav = torch.sqrt(torch.mean(wav**2))
-        snr_db = 60
-        rms_noise = rms_wav / (10 ** (snr_db / 20.0))
+        rms_noise = 10 ** (-4)
 
         wav_padded = torch.randn(1, 1, sr * 20) * rms_noise
         wav_padded[0, 0, : wav.shape[-1]] = wav

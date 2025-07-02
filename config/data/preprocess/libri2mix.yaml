@@ -5,9 +5,9 @@ cfg:
   device: cuda
 
   shard_size:
-    train: 3e9
-    valid: 1e8
-    test: 1e8
+    train: 1e9
+    valid: 3e7
+    test: 3e7
 
   vae:
     ckpt_path: /groups/gag51394/users/asai/dacvae_l16_librispeech.pt
@@ -19,3 +19,5 @@ cfg:
     name: facebook/w2v-bert-2.0
     sample_rate: 16000
     layer: 13
+
+  noise_amp: 1e-4

@@ -26,7 +26,6 @@ class TestDialogueSeparatorDataModule:
             assert batch["wav_len"].size(0) == batch_size
             assert batch["vae_feature_1"].size(0) == batch_size
             assert batch["vae_feature_2"].size(0) == batch_size
-            print(batch["ssl_feature"].size())
             assert batch["ssl_feature"].size(0) == batch_size
 
     def test_val_dataloader(self, init) -> None:
