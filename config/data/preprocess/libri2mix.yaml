@@ -19,3 +19,5 @@ cfg:
     name: facebook/w2v-bert-2.0
     sample_rate: 16000
     layer: 13
+
+  noise_amp: 1e-4

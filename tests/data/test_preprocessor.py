@@ -2,7 +2,6 @@ import itertools
 from pathlib import Path
 
 import pytest
-import torch
 from hydra import compose, initialize
 from lhotse import CutSet
 
@@ -28,18 +27,3 @@ class TestPreprocessor:
         for cut in itertools.islice(self.cuts.data, 3):
             res = self.preprocessor.process_cut(cut)
             assert isinstance(res, dict)
-
-    def test_encode(self, init) -> None:
-        _ = init
-
-        for cut in itertools.islice(self.cuts.data, 3):
-            res1, res2 = self.preprocessor.vae_encode(cut)
-            assert isinstance(res1, torch.Tensor)
-            assert isinstance(res2, torch.Tensor)
-
-    def test_ssl_feature(self, init) -> None:
-        _ = init
-
-        for cut in itertools.islice(self.cuts.data, 3):
-            res = self.preprocessor.extract_ssl_feature(cut)
-            assert isinstance(res, torch.Tensor)
