@@ -10,6 +10,7 @@ import webdataset as wds
 from lhotse import CutSet, MultiCut
 from lhotse.cut import Cut
 from omegaconf import DictConfig
+from tqdm import tqdm
 from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 
 
@@ -51,7 +52,7 @@ class Preprocessor:
         )
 
         cuts = cuts.shuffle(random.Random(42))
-        for cut in cuts.data:
+        for cut in tqdm(cuts.data):
             sample = self.process_cut(cut)
 
             assert isinstance(cut, MultiCut)
