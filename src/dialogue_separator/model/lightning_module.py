@@ -158,8 +158,10 @@ class DialogueSeparatorLightningModule(LightningModule):
     def test_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> None:
         est_feature1, est_feature2 = self.forward(batch, step_size=0.01)
         with torch.no_grad():
-            decoded_1 = self.dacvae.decode(est_feature1)
-            decoded_2 = self.dacvae.decode(est_feature2)
+            decoded_1_all = self.dacvae.decode(batch["vae_feature_1"])
+            decoded_2_all = self.dacvae.decode(batch["vae_feature_2"])
+            estimated_1_all = self.dacvae.decode(est_feature1)
+            estimated_2_all = self.dacvae.decode(est_feature2)
 
         wav_sr = self.cfg.model.vae.sample_rate
         batch_size = batch["wav_1"].size(0)
@@ -178,8 +180,17 @@ class DialogueSeparatorLightningModule(LightningModule):
                 sample_dir / "source_merged.wav", source_merged.unsqueeze(0), wav_sr
             )
 
-            estimated_1 = decoded_1[i].squeeze()[:wav_len].to(torch.float32).cpu()
-            estimated_2 = decoded_2[i].squeeze()[:wav_len].to(torch.float32).cpu()
+            decoded_1 = decoded_1_all[i].squeeze()[:wav_len].to(torch.float32).cpu()
+            decoded_2 = decoded_2_all[i].squeeze()[:wav_len].to(torch.float32).cpu()
+            torchaudio.save(
+                sample_dir / "decoded_1.wav", decoded_1.unsqueeze(0), wav_sr
+            )
+            torchaudio.save(
+                sample_dir / "decoded_2.wav", decoded_2.unsqueeze(0), wav_sr
+            )
+
+            estimated_1 = estimated_1_all[i].squeeze()[:wav_len].to(torch.float32).cpu()
+            estimated_2 = estimated_2_all[i].squeeze()[:wav_len].to(torch.float32).cpu()
 
             torchaudio.save(
                 sample_dir / "estimated_1.wav", estimated_1.unsqueeze(0), wav_sr
