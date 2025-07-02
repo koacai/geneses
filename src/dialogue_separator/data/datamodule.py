@@ -1,5 +1,3 @@
-from typing import Any
-
 import torch
 import torchaudio
 import webdataset as wds
@@ -86,7 +84,7 @@ class DialogueSeparatorDataModule(LightningDataModule):
     def identity(self, x):
         return x[0]
 
-    def collate_fn(self, batch) -> dict[str, Any]:
+    def collate_fn(self, batch) -> dict[str, torch.Tensor]:
         max_duration = self.cfg.vae.max_duration
 
         wav_1 = torch.zeros(len(batch), self.cfg.vae.sample_rate * max_duration)

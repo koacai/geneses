@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Any
 
 import hydra
 import numpy as np
@@ -74,7 +73,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         self.dacvae.to(self.device)
 
     def calc_loss(
-        self, batch: dict[str, Any]
+        self, batch: dict[str, torch.Tensor]
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         x_1 = batch["vae_feature_1"].permute(0, 2, 1)
         x_2 = batch["vae_feature_2"].permute(0, 2, 1)
@@ -245,7 +244,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         return loss_weighted.mean(), unweighted_loss_per_sample
 
     def forward(
-        self, batch: dict[str, Any], step_size: float = 0.01
+        self, batch: dict[str, torch.Tensor], step_size: float = 0.01
     ) -> tuple[torch.Tensor, torch.Tensor]:
         x_merged = batch["ssl_feature"]
 
