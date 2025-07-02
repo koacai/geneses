@@ -86,6 +86,24 @@ class Preprocessor:
 
         return s
 
+    @staticmethod
+    def padding_by_noise(cut: Cut, noise_amp: float) -> torch.Tensor:
+        audio = torch.from_numpy(cut.load_audio())
+
+        assert len(cut.supervisions) == 2
+        assert cut.supervisions[0].custom is not None
+        assert cut.supervisions[1].custom is not None
+
+        wav_len_1 = cut.supervisions[0].custom["wav_len"]
+        wav_len_2 = cut.supervisions[1].custom["wav_len"]
+
+        if wav_len_1 > wav_len_2:
+            audio[1, wav_len_2:] = torch.randn(1, wav_len_1 - wav_len_2) * noise_amp
+        else:
+            audio[0, wav_len_1:] = torch.randn(1, wav_len_2 - wav_len_1) * noise_amp
+
+        return audio
+
     def vae_encode(self, cut: Cut) -> tuple[torch.Tensor, torch.Tensor]:
         audio = torch.from_numpy(cut.load_audio())
 
