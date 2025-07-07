@@ -72,6 +72,7 @@ class Preprocessor:
     def process_cut(self, cut: Cut) -> dict[str, Any]:
         buf = io.BytesIO()
         audio = self.padding_by_noise(cut, self.cfg.noise_amp)
+        audio = audio[:, : cut.sampling_rate * self.cfg.vae.max_duration]
         torchaudio.save(buf, audio, cut.sampling_rate, format="flac")
 
         vae_feature_1, vae_feature_2 = self.vae_encode(audio, cut.sampling_rate)
@@ -111,8 +112,6 @@ class Preprocessor:
         if self.cfg.vae.sample_rate != sr:
             audio = torchaudio.functional.resample(audio, sr, self.cfg.vae.sample_rate)
 
-        audio = audio[:, : self.cfg.vae.sample_rate * self.cfg.vae.max_duration]
-
         wav_input = torch.zeros(
             2,
             1,
@@ -132,8 +131,6 @@ class Preprocessor:
             audio = torchaudio.functional.resample(
                 audio, sr, self.cfg.ssl_model.sample_rate
             )
-
-        audio = audio[:, : self.cfg.ssl_model.sample_rate * self.cfg.vae.max_duration]
 
         wav_input = audio[0] + audio[1]
 
