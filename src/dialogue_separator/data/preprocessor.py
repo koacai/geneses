@@ -133,6 +133,8 @@ class Preprocessor:
                 audio, sr, self.cfg.ssl_model.sample_rate
             )
 
+        audio = audio[:, : self.cfg.ssl_model.sample_rate * self.cfg.vae.max_duration]
+
         wav_input = audio[0] + audio[1]
 
         inputs = self.processor(
