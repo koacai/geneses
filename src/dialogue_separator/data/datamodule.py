@@ -95,6 +95,7 @@ class DialogueSeparatorDataModule(LightningDataModule):
         vae_feature_1 = []
         vae_feature_2 = []
         ssl_feature = []
+        vae_len = []
 
         for i, sample in enumerate(batch):
             dialogue, sr = sample["audio.flac"]
@@ -109,11 +110,17 @@ class DialogueSeparatorDataModule(LightningDataModule):
             wav_2[i, : dialogue.shape[-1]] = dialogue[1]
             wav_merged[i, : dialogue.shape[-1]] = dialogue[0] + dialogue[1]
 
-            wav_len.append(dialogue.shape[-1])
+            _wav_len = dialogue.shape[-1]
+            wav_len.append(_wav_len)
 
             vae_feature_1.append(sample["vae_feature_1.pth"])
             vae_feature_2.append(sample["vae_feature_2.pth"])
             ssl_feature.append(sample["ssl_feature.pth"])
+
+            _vae_len = (
+                sample["vae_feature_1.pth"].shape[-1] * _wav_len // wav_1.shape[-1]
+            )
+            vae_len.append(_vae_len)
 
         vae_feature_1 = pad_sequence(vae_feature_1, batch_first=True)
         vae_feature_2 = pad_sequence(vae_feature_2, batch_first=True)
@@ -124,6 +131,7 @@ class DialogueSeparatorDataModule(LightningDataModule):
             "wav_2": wav_2,
             "wav_merged": wav_merged,
             "wav_len": torch.tensor(wav_len),
+            "vae_len": torch.tensor(vae_len),
             "ssl_feature": ssl_feature,
             "vae_feature_1": vae_feature_1,
             "vae_feature_2": vae_feature_2,

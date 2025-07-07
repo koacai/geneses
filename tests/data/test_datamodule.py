@@ -24,6 +24,7 @@ class TestDialogueSeparatorDataModule:
             assert batch["wav_2"].size(0) == batch_size
             assert batch["wav_merged"].size(0) == batch_size
             assert batch["wav_len"].size(0) == batch_size
+            assert batch["vae_len"].size(0) == batch_size
             assert batch["vae_feature_1"].size(0) == batch_size
             assert batch["vae_feature_2"].size(0) == batch_size
             assert batch["ssl_feature"].size(0) == batch_size
@@ -39,6 +40,7 @@ class TestDialogueSeparatorDataModule:
             assert batch["wav_2"].size(0) == batch_size
             assert batch["wav_merged"].size(0) == batch_size
             assert batch["wav_len"].size(0) == batch_size
+            assert batch["vae_len"].size(0) == batch_size
             assert batch["vae_feature_1"].size(0) == batch_size
             assert batch["vae_feature_2"].size(0) == batch_size
             assert batch["ssl_feature"].size(0) == batch_size
@@ -54,6 +56,7 @@ class TestDialogueSeparatorDataModule:
             assert batch["wav_2"].size(0) == batch_size
             assert batch["wav_merged"].size(0) == batch_size
             assert batch["wav_len"].size(0) == batch_size
+            assert batch["vae_len"].size(0) == batch_size
             assert batch["vae_feature_1"].size(0) == batch_size
             assert batch["vae_feature_2"].size(0) == batch_size
             assert batch["ssl_feature"].size(0) == batch_size
