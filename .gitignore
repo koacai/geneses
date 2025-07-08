@@ -16,3 +16,4 @@ wheels/
 /lightning_logs
 /test_output
 .env
+/model_ckpt
