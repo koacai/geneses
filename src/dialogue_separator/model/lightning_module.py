@@ -121,6 +121,11 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         self.log("validation_loss", loss, sync_dist=True)
 
+        est_feature1, est_feature2 = self.forward(batch)
+        with torch.no_grad():
+            est_decoded1 = self.dacvae.decode(est_feature1)
+            est_decoded2 = self.dacvae.decode(est_feature2)
+
         wav_sr = self.cfg.model.vae.sample_rate
         if batch_idx < 5 and self.global_rank == 0 and self.local_rank == 0:
             wav_len = batch["wav_len"][0]
@@ -132,23 +137,12 @@ class DialogueSeparatorLightningModule(LightningModule):
             self.log_audio(source_2, f"source_2/{batch_idx}", wav_sr)
             self.log_audio(source_merged, f"source_merged/{batch_idx}", wav_sr)
 
-            est_feature1, est_feature2 = self.forward(batch)
-
-            with torch.no_grad():
-                estimated_1 = (
-                    self.dacvae.decode(est_feature1)[0]
-                    .squeeze()[:wav_len]
-                    .to(torch.float32)
-                    .cpu()
-                    .numpy()
-                )
-                estimated_2 = (
-                    self.dacvae.decode(est_feature2)[0]
-                    .squeeze()[:wav_len]
-                    .to(torch.float32)
-                    .cpu()
-                    .numpy()
-                )
+            estimated_1 = (
+                est_decoded1[0].squeeze()[:wav_len].to(torch.float32).cpu().numpy()
+            )
+            estimated_2 = (
+                est_decoded2[0].squeeze()[:wav_len].to(torch.float32).cpu().numpy()
+            )
 
             self.log_audio(estimated_1, f"estimated_1/{batch_idx}", wav_sr)
             self.log_audio(estimated_2, f"estimated_2/{batch_idx}", wav_sr)
