@@ -15,6 +15,7 @@ from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 
 import wandb
 from dialogue_separator.model.components import MMDiT
+from dialogue_separator.util.util import create_mask
 
 
 class WrappedModel(ModelWrapper):
@@ -79,21 +80,23 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         batch_size = ssl_merged.size(0)
 
+        mask = create_mask(batch["vae_len"], batch["vae_feature_1"]).permute(0, 2, 1)
+
         t = self.sampling_t(batch_size)
         vae = torch.stack([vae_1, vae_2], dim=1)
         noise = torch.randn_like(vae)
         path_sample = self.path.sample(x_0=noise, x_1=vae, t=t)
 
-        est_dxt_1, est_dxt_2 = self.mmdit.forward(
-            ssl_merged, t, path_sample.x_t[:, 0, :, :], path_sample.x_t[:, 1, :, :]
-        )
+        x_t_1 = path_sample.x_t[:, 0, :, :].permute(0, 2, 1) * mask
+        x_t_2 = path_sample.x_t[:, 1, :, :].permute(0, 2, 1) * mask
+
+        est_dxt_1, est_dxt_2 = self.mmdit.forward(ssl_merged, t, x_t_1, x_t_2)
 
         loss = self.loss_fn(
-            est_dxt_1,
-            est_dxt_2,
-            path_sample.dx_t[:, 0, :, :],
-            path_sample.dx_t[:, 1, :, :],
-            t,
+            est_dxt_1 * mask,
+            est_dxt_2 * mask,
+            path_sample.dx_t[:, 0, :, :] * mask,
+            path_sample.dx_t[:, 1, :, :] * mask,
         )
 
         return loss
@@ -217,29 +220,15 @@ class DialogueSeparatorLightningModule(LightningModule):
         est_dxt2: torch.Tensor,
         dxt_1: torch.Tensor,
         dxt_2: torch.Tensor,
-        t: torch.Tensor,
-        epsilon: float = 1e-8,
     ) -> torch.Tensor:
-        mse_loss = torch.nn.MSELoss(reduction="none")
+        mse_loss = torch.nn.MSELoss()
 
-        loss_1 = mse_loss(est_dxt1, dxt_1).mean(dim=(1, 2))
-        loss_2 = mse_loss(est_dxt2, dxt_2).mean(dim=(1, 2))
+        est = torch.stack([est_dxt1, est_dxt2], dim=1)
+        src = torch.stack([dxt_1, dxt_2], dim=1)
 
-        unweighted_loss_per_sample = loss_1 + loss_2
+        loss = mse_loss(est, src)
 
-        schema = self.cfg.model.weighting_schema
-        if schema == "none":
-            weight = 1.0
-        elif schema == "sigma_sqrt":
-            weight = (1 - t + epsilon) ** (-2.0)
-        elif schema == "parabolic_midpoint":
-            weight = 4 * t * (1 - t) + epsilon
-        else:
-            raise ValueError(f"Unknown weighting schema: {schema}")
-
-        loss_weighted = unweighted_loss_per_sample * weight
-
-        return loss_weighted.mean()
+        return loss
 
     def forward(
         self, batch: dict[str, torch.Tensor], step_size: float = 0.01
