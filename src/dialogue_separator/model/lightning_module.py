@@ -19,11 +19,11 @@ from dialogue_separator.model.components import MMDiT
 
 class WrappedModel(ModelWrapper):
     def forward(self, x: torch.Tensor, t: torch.Tensor, **extras) -> torch.Tensor:
-        x_merged = extras.get("x_merged", None)
-        assert x_merged is not None
-        x_1 = x[:, 0, :, :]
-        x_2 = x[:, 1, :, :]
-        res_1, res_2 = self.model.forward(x_merged, t.unsqueeze(0), x_1, x_2)
+        ssl_merged = extras.get("ssl_merged", None)
+        assert ssl_merged is not None
+        vae_1 = x[:, 0, :, :]
+        vae_2 = x[:, 1, :, :]
+        res_1, res_2 = self.model.forward(ssl_merged, t.unsqueeze(0), vae_1, vae_2)
         return torch.stack([res_1, res_2], dim=1)
 
 
@@ -75,19 +75,19 @@ class DialogueSeparatorLightningModule(LightningModule):
     def calc_loss(
         self, batch: dict[str, torch.Tensor]
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        x_1 = batch["vae_feature_1"].permute(0, 2, 1)
-        x_2 = batch["vae_feature_2"].permute(0, 2, 1)
-        x_merged = batch["ssl_feature"]
+        vae_1 = batch["vae_feature_1"].permute(0, 2, 1)
+        vae_2 = batch["vae_feature_2"].permute(0, 2, 1)
+        ssl_merged = batch["ssl_feature"]
 
-        batch_size = x_merged.size(0)
+        batch_size = ssl_merged.size(0)
 
         t = self.sampling_t(batch_size)
-        x = torch.stack([x_1, x_2], dim=1)
-        noise = torch.randn_like(x)
-        path_sample = self.path.sample(x_0=noise, x_1=x, t=t)
+        vae = torch.stack([vae_1, vae_2], dim=1)
+        noise = torch.randn_like(vae)
+        path_sample = self.path.sample(x_0=noise, x_1=vae, t=t)
 
         est_dxt_1, est_dxt_2 = self.mmdit.forward(
-            x_merged, t, path_sample.x_t[:, 0, :, :], path_sample.x_t[:, 1, :, :]
+            ssl_merged, t, path_sample.x_t[:, 0, :, :], path_sample.x_t[:, 1, :, :]
         )
 
         loss, unweighted_loss_per_sample = self.loss_fn(
@@ -246,7 +246,7 @@ class DialogueSeparatorLightningModule(LightningModule):
     def forward(
         self, batch: dict[str, torch.Tensor], step_size: float = 0.01
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        x_merged = batch["ssl_feature"]
+        ssl_merged = batch["ssl_feature"]
 
         vae_size = (
             batch["wav_merged"].size(0),
@@ -266,14 +266,14 @@ class DialogueSeparatorLightningModule(LightningModule):
             x_init=noise,
             step_size=step_size,
             time_grid=time_grid,
-            x_merged=x_merged,
+            ssl_merged=ssl_merged,
         )
         assert isinstance(res, torch.Tensor)
 
-        res_1 = res[:, 0, :, :].permute(0, 2, 1)
-        res_2 = res[:, 1, :, :].permute(0, 2, 1)
+        vae_1 = res[:, 0, :, :].permute(0, 2, 1)
+        vae_2 = res[:, 1, :, :].permute(0, 2, 1)
 
-        return res_1, res_2
+        return vae_1, vae_2
 
     def log_audio(self, audio: np.ndarray, name: str, sampling_rate: int) -> None:
         if isinstance(self.logger, loggers.WandbLogger):
