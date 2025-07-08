@@ -15,15 +15,16 @@ from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 
 import wandb
 from dialogue_separator.model.components import MMDiT
+from dialogue_separator.util.util import create_mask
 
 
 class WrappedModel(ModelWrapper):
     def forward(self, x: torch.Tensor, t: torch.Tensor, **extras) -> torch.Tensor:
-        x_merged = extras.get("x_merged", None)
-        assert x_merged is not None
-        x_1 = x[:, 0, :, :]
-        x_2 = x[:, 1, :, :]
-        res_1, res_2 = self.model.forward(x_merged, t.unsqueeze(0), x_1, x_2)
+        ssl_merged = extras.get("ssl_merged", None)
+        assert ssl_merged is not None
+        vae_1 = x[:, 0, :, :]
+        vae_2 = x[:, 1, :, :]
+        res_1, res_2 = self.model.forward(ssl_merged, t.unsqueeze(0), vae_1, vae_2)
         return torch.stack([res_1, res_2], dim=1)
 
 
@@ -72,40 +73,40 @@ class DialogueSeparatorLightningModule(LightningModule):
     def on_test_start(self) -> None:
         self.dacvae.to(self.device)
 
-    def calc_loss(
-        self, batch: dict[str, torch.Tensor]
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        x_1 = batch["vae_feature_1"].permute(0, 2, 1)
-        x_2 = batch["vae_feature_2"].permute(0, 2, 1)
-        x_merged = batch["ssl_feature"]
+    def calc_loss(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
+        vae_1 = batch["vae_feature_1"].permute(0, 2, 1)
+        vae_2 = batch["vae_feature_2"].permute(0, 2, 1)
+        ssl_merged = batch["ssl_feature"]
 
-        batch_size = x_merged.size(0)
+        batch_size = ssl_merged.size(0)
+
+        mask = create_mask(batch["vae_len"], batch["vae_feature_1"]).permute(0, 2, 1)
 
         t = self.sampling_t(batch_size)
-        x = torch.stack([x_1, x_2], dim=1)
-        noise = torch.randn_like(x)
-        path_sample = self.path.sample(x_0=noise, x_1=x, t=t)
+        vae = torch.stack([vae_1, vae_2], dim=1)
+        noise = torch.randn_like(vae)
+        path_sample = self.path.sample(x_0=noise, x_1=vae, t=t)
 
-        est_dxt_1, est_dxt_2 = self.mmdit.forward(
-            x_merged, t, path_sample.x_t[:, 0, :, :], path_sample.x_t[:, 1, :, :]
+        x_t_1 = path_sample.x_t[:, 0, :, :] * mask
+        x_t_2 = path_sample.x_t[:, 1, :, :] * mask
+
+        est_dxt_1, est_dxt_2 = self.mmdit.forward(ssl_merged, t, x_t_1, x_t_2)
+
+        loss = self.loss_fn(
+            est_dxt_1 * mask,
+            est_dxt_2 * mask,
+            path_sample.dx_t[:, 0, :, :] * mask,
+            path_sample.dx_t[:, 1, :, :] * mask,
         )
 
-        loss, unweighted_loss_per_sample = self.loss_fn(
-            est_dxt_1,
-            est_dxt_2,
-            path_sample.dx_t[:, 0, :, :],
-            path_sample.dx_t[:, 1, :, :],
-            t,
-        )
-
-        return loss, unweighted_loss_per_sample, t
+        return loss
 
     def training_step(
         self, batch: dict[str, torch.Tensor], batch_idx: int
     ) -> STEP_OUTPUT:
         _ = batch_idx
 
-        loss, _, _ = self.calc_loss(batch)
+        loss = self.calc_loss(batch)
 
         self.log("train_loss", loss, sync_dist=True)
 
@@ -116,7 +117,7 @@ class DialogueSeparatorLightningModule(LightningModule):
     ) -> STEP_OUTPUT:
         _ = batch_idx
 
-        loss, _, _ = self.calc_loss(batch)
+        loss = self.calc_loss(batch)
 
         self.log("validation_loss", loss, sync_dist=True)
 
@@ -219,34 +220,20 @@ class DialogueSeparatorLightningModule(LightningModule):
         est_dxt2: torch.Tensor,
         dxt_1: torch.Tensor,
         dxt_2: torch.Tensor,
-        t: torch.Tensor,
-        epsilon: float = 1e-8,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        mse_loss = torch.nn.MSELoss(reduction="none")
+    ) -> torch.Tensor:
+        mse_loss = torch.nn.MSELoss()
 
-        loss_1 = mse_loss(est_dxt1, dxt_1).mean(dim=(1, 2))
-        loss_2 = mse_loss(est_dxt2, dxt_2).mean(dim=(1, 2))
+        est = torch.stack([est_dxt1, est_dxt2], dim=1)
+        src = torch.stack([dxt_1, dxt_2], dim=1)
 
-        unweighted_loss_per_sample = loss_1 + loss_2
+        loss = mse_loss(est, src)
 
-        schema = self.cfg.model.weighting_schema
-        if schema == "none":
-            weight = 1.0
-        elif schema == "sigma_sqrt":
-            weight = (1 - t + epsilon) ** (-2.0)
-        elif schema == "parabolic_midpoint":
-            weight = 4 * t * (1 - t) + epsilon
-        else:
-            raise ValueError(f"Unknown weighting schema: {schema}")
-
-        loss_weighted = unweighted_loss_per_sample * weight
-
-        return loss_weighted.mean(), unweighted_loss_per_sample
+        return loss
 
     def forward(
         self, batch: dict[str, torch.Tensor], step_size: float = 0.01
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        x_merged = batch["ssl_feature"]
+        ssl_merged = batch["ssl_feature"]
 
         vae_size = (
             batch["wav_merged"].size(0),
@@ -266,14 +253,14 @@ class DialogueSeparatorLightningModule(LightningModule):
             x_init=noise,
             step_size=step_size,
             time_grid=time_grid,
-            x_merged=x_merged,
+            ssl_merged=ssl_merged,
         )
         assert isinstance(res, torch.Tensor)
 
-        res_1 = res[:, 0, :, :].permute(0, 2, 1)
-        res_2 = res[:, 1, :, :].permute(0, 2, 1)
+        vae_1 = res[:, 0, :, :].permute(0, 2, 1)
+        vae_2 = res[:, 1, :, :].permute(0, 2, 1)
 
-        return res_1, res_2
+        return vae_1, vae_2
 
     def log_audio(self, audio: np.ndarray, name: str, sampling_rate: int) -> None:
         if isinstance(self.logger, loggers.WandbLogger):

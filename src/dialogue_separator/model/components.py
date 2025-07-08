@@ -80,17 +80,17 @@ class MMDiT(nn.Module):
 
         self.t_embedder = TimestepEmbedder(hidden_size)
 
-        self.x_embedder_merged = nn.Linear(in_ssl_channels, hidden_size, bias=True)
-        self.x_embedder_1 = nn.Linear(in_channels, hidden_size, bias=True)
-        self.x_embedder_2 = nn.Linear(in_channels, hidden_size, bias=True)
+        self.ssl_embedder_merged = nn.Linear(in_ssl_channels, hidden_size, bias=True)
+        self.vae_embedder_1 = nn.Linear(in_channels, hidden_size, bias=True)
+        self.vae_embedder_2 = nn.Linear(in_channels, hidden_size, bias=True)
 
-        self.x_pos_embed_merged = nn.Parameter(
+        self.ssl_pos_embed_merged = nn.Parameter(
             torch.zeros(1, max_ssl_seq_len, hidden_size), requires_grad=False
         )
-        self.x_pos_embed_1 = nn.Parameter(
+        self.vae_pos_embed_1 = nn.Parameter(
             torch.zeros(1, max_seq_len, hidden_size), requires_grad=False
         )
-        self.x_pos_embed_2 = nn.Parameter(
+        self.vae_pos_embed_2 = nn.Parameter(
             torch.zeros(1, max_seq_len, hidden_size), requires_grad=False
         )
 
@@ -112,40 +112,44 @@ class MMDiT(nn.Module):
 
     def initialize_weights(self) -> None:
         # Initialize (and freeze) pos_embed by sin-cos embedding:
-        x_pos_embed_merged = positionalencoding1d(
-            self.x_pos_embed_merged.shape[-1], self.max_seq_len
+        ssl_pos_embed_merged = positionalencoding1d(
+            self.ssl_pos_embed_merged.shape[-1], self.max_seq_len
         )
-        self.x_pos_embed_merged.data.copy_(x_pos_embed_merged.float().unsqueeze(0))
+        self.ssl_pos_embed_merged.data.copy_(ssl_pos_embed_merged.float().unsqueeze(0))
 
-        x_pos_embed_1 = positionalencoding1d(
-            self.x_pos_embed_1.shape[-1], self.x_pos_embed_1.shape[1]
+        vae_pos_embed_1 = positionalencoding1d(
+            self.vae_pos_embed_1.shape[-1], self.vae_pos_embed_1.shape[1]
         )
-        self.x_pos_embed_1.data.copy_(x_pos_embed_1.float().unsqueeze(0))
+        self.vae_pos_embed_1.data.copy_(vae_pos_embed_1.float().unsqueeze(0))
 
-        x_post_embed_2 = positionalencoding1d(
-            self.x_pos_embed_2.shape[-1], self.x_pos_embed_2.shape[1]
+        vae_post_embed_2 = positionalencoding1d(
+            self.vae_pos_embed_2.shape[-1], self.vae_pos_embed_2.shape[1]
         )
-        self.x_pos_embed_2.data.copy_(x_post_embed_2.float().unsqueeze(0))
+        self.vae_pos_embed_2.data.copy_(vae_post_embed_2.float().unsqueeze(0))
 
     def forward(
         self,
-        x_merged: torch.Tensor,
+        ssl_merged: torch.Tensor,
         t: torch.Tensor,
-        x_1: torch.Tensor,
-        x_2: torch.Tensor,
+        vae_1: torch.Tensor,
+        vae_2: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        x_merged = (
-            self.x_embedder_merged(x_merged)
-            + self.x_pos_embed_merged[:, : x_merged.shape[1], :]
+        ssl_merged = (
+            self.ssl_embedder_merged(ssl_merged)
+            + self.ssl_pos_embed_merged[:, : ssl_merged.shape[1], :]
         )
-        x_1 = self.x_embedder_1(x_1) + self.x_pos_embed_1[:, : x_1.shape[1], :]
-        x_2 = self.x_embedder_2(x_2) + self.x_pos_embed_2[:, : x_2.shape[1], :]
+        vae_1 = (
+            self.vae_embedder_1(vae_1) + self.vae_pos_embed_1[:, : vae_1.shape[1], :]
+        )
+        vae_2 = (
+            self.vae_embedder_2(vae_2) + self.vae_pos_embed_2[:, : vae_2.shape[1], :]
+        )
         t = t * 1000
 
         t = self.t_embedder(t)  # (N, D)
 
         out = self.mmdit.forward(
-            modality_tokens=(x_merged, x_1, x_2),
+            modality_tokens=(ssl_merged, vae_1, vae_2),
             time_cond=t,
         )
         res_1 = self.final_layer_1(out[1])
