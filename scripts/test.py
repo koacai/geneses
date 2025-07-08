@@ -1,7 +1,8 @@
 import hydra
 import lightning as L
 import torch
-from huggingface_hub import hf_hub_download
+from dotenv import load_dotenv
+from litmodels import download_model
 from omegaconf import DictConfig
 
 from dialogue_separator.data.datamodule import DialogueSeparatorDataModule
@@ -10,9 +11,12 @@ from dialogue_separator.model.lightning_module import DialogueSeparatorLightning
 
 @hydra.main(config_path="../config", config_name="default", version_base=None)
 def main(cfg: DictConfig) -> None:
-    # hf_path = "Libri2Mix/MSELoss/epoch=113-step=57912.ckpt"
-    hf_path = "Libri2Mix/L1Loss/epoch=112-step=57404.ckpt"
-    ckpt_path = hf_hub_download("koacai/dialogue-separator", hf_path)
+    load_dotenv()
+
+    ckpt_paths = download_model(
+        name="koacai/speech/dialogue-separator", download_dir="model_ckpt"
+    )
+    assert len(ckpt_paths) == 1
 
     torch.set_float32_matmul_precision("medium")
 
@@ -21,7 +25,7 @@ def main(cfg: DictConfig) -> None:
     trainer = L.Trainer(limit_test_batches=1)
 
     dialogue_separator = DialogueSeparatorLightningModule.load_from_checkpoint(
-        ckpt_path
+        f"model_ckpt/{ckpt_paths[0]}",
     )
     datamodule = DialogueSeparatorDataModule(cfg.data.datamodule)
 
