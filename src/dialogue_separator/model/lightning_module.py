@@ -87,8 +87,8 @@ class DialogueSeparatorLightningModule(LightningModule):
         noise = torch.randn_like(vae)
         path_sample = self.path.sample(x_0=noise, x_1=vae, t=t)
 
-        x_t_1 = path_sample.x_t[:, 0, :, :].permute(0, 2, 1) * mask
-        x_t_2 = path_sample.x_t[:, 1, :, :].permute(0, 2, 1) * mask
+        x_t_1 = path_sample.x_t[:, 0, :, :] * mask
+        x_t_2 = path_sample.x_t[:, 1, :, :] * mask
 
         est_dxt_1, est_dxt_2 = self.mmdit.forward(ssl_merged, t, x_t_1, x_t_2)
 
