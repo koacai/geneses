@@ -1,6 +1,7 @@
 import hydra
 import lightning as L
 import torch
+from dotenv import load_dotenv
 from omegaconf import DictConfig
 
 from dialogue_separator.data.datamodule import DialogueSeparatorDataModule
@@ -9,6 +10,8 @@ from dialogue_separator.model.lightning_module import DialogueSeparatorLightning
 
 @hydra.main(config_path="../config", config_name="default", version_base=None)
 def main(cfg: DictConfig) -> None:
+    load_dotenv()
+
     torch.set_float32_matmul_precision("medium")
 
     L.seed_everything(42)
