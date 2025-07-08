@@ -10,4 +10,7 @@ trainer:
   strategy:
     _target_: lightning.pytorch.strategies.DDPStrategy
     static_graph: true
+  callbacks:
+    - _target_: litmodels.integrations.LightningModelCheckpoint
+      model_registry: koacai/speech/dialogue-separator
   fast_dev_run: false

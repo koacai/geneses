@@ -11,6 +11,7 @@ dependencies = [
     "flow-matching>=1.0.10",
     "lhotse-dataset",
     "lightning>=2.5.1.post0",
+    "litmodels>=0.1.8",
     "matplotlib>=3.10.3",
     "mmdit>=0.2.2",
     "torch>=2.6.0",
