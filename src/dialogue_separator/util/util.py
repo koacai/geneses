@@ -9,8 +9,8 @@ def create_mask(lengths: torch.Tensor, feature: torch.Tensor) -> torch.Tensor:
 
     for i, length in enumerate(lengths):
         if length > 0:
-            mask[i, :length] = True
+            mask[i, :, :length] = True
         else:
-            mask[i, :] = False
+            mask[i, :, :] = False
 
     return mask
