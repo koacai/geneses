@@ -72,9 +72,7 @@ class DialogueSeparatorLightningModule(LightningModule):
     def on_test_start(self) -> None:
         self.dacvae.to(self.device)
 
-    def calc_loss(
-        self, batch: dict[str, torch.Tensor]
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def calc_loss(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
         vae_1 = batch["vae_feature_1"].permute(0, 2, 1)
         vae_2 = batch["vae_feature_2"].permute(0, 2, 1)
         ssl_merged = batch["ssl_feature"]
@@ -90,7 +88,7 @@ class DialogueSeparatorLightningModule(LightningModule):
             ssl_merged, t, path_sample.x_t[:, 0, :, :], path_sample.x_t[:, 1, :, :]
         )
 
-        loss, unweighted_loss_per_sample = self.loss_fn(
+        loss = self.loss_fn(
             est_dxt_1,
             est_dxt_2,
             path_sample.dx_t[:, 0, :, :],
@@ -98,14 +96,14 @@ class DialogueSeparatorLightningModule(LightningModule):
             t,
         )
 
-        return loss, unweighted_loss_per_sample, t
+        return loss
 
     def training_step(
         self, batch: dict[str, torch.Tensor], batch_idx: int
     ) -> STEP_OUTPUT:
         _ = batch_idx
 
-        loss, _, _ = self.calc_loss(batch)
+        loss = self.calc_loss(batch)
 
         self.log("train_loss", loss, sync_dist=True)
 
@@ -116,7 +114,7 @@ class DialogueSeparatorLightningModule(LightningModule):
     ) -> STEP_OUTPUT:
         _ = batch_idx
 
-        loss, _, _ = self.calc_loss(batch)
+        loss = self.calc_loss(batch)
 
         self.log("validation_loss", loss, sync_dist=True)
 
@@ -221,7 +219,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         dxt_2: torch.Tensor,
         t: torch.Tensor,
         epsilon: float = 1e-8,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> torch.Tensor:
         mse_loss = torch.nn.MSELoss(reduction="none")
 
         loss_1 = mse_loss(est_dxt1, dxt_1).mean(dim=(1, 2))
@@ -241,7 +239,7 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         loss_weighted = unweighted_loss_per_sample * weight
 
-        return loss_weighted.mean(), unweighted_loss_per_sample
+        return loss_weighted.mean()
 
     def forward(
         self, batch: dict[str, torch.Tensor], step_size: float = 0.01
