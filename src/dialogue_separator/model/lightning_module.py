@@ -133,6 +133,12 @@ class DialogueSeparatorLightningModule(LightningModule):
             self.log_audio(source_merged, f"source_merged/{batch_idx}", wav_sr)
 
             est_feature1, est_feature2 = self.forward(batch)
+            est_feature1, est_feature2 = self.change_permutation(
+                est_feature1,
+                est_feature2,
+                batch["vae_feature_1"],
+                batch["vae_feature_2"],
+            )
 
             with torch.no_grad():
                 estimated_1 = (
@@ -157,6 +163,10 @@ class DialogueSeparatorLightningModule(LightningModule):
 
     def test_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> None:
         est_feature1, est_feature2 = self.forward(batch, step_size=0.01)
+        est_feature1, est_feature2 = self.change_permutation(
+            est_feature1, est_feature2, batch["vae_feature_1"], batch["vae_feature_2"]
+        )
+
         with torch.no_grad():
             decoded_1_all = self.dacvae.decode(batch["vae_feature_1"])
             decoded_2_all = self.dacvae.decode(batch["vae_feature_2"])
@@ -198,6 +208,37 @@ class DialogueSeparatorLightningModule(LightningModule):
             torchaudio.save(
                 sample_dir / "estimated_2.wav", estimated_2.unsqueeze(0), wav_sr
             )
+
+    def change_permutation(
+        self,
+        est_feature1: torch.Tensor,
+        est_feature2: torch.Tensor,
+        src_feature1: torch.Tensor,
+        src_feature2: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        mse_loss = torch.nn.MSELoss()
+
+        batch_size = est_feature1.size(0)
+
+        new_est_feature1 = torch.zeros_like(est_feature1)
+        new_est_feature2 = torch.zeros_like(est_feature2)
+
+        for i in range(batch_size):
+            src = torch.stack([src_feature1[i], src_feature2[i]], dim=1)
+            est_p1 = torch.stack([est_feature1[i], est_feature2[i]], dim=1)
+            est_p2 = torch.stack([est_feature2[i], est_feature1[i]], dim=1)
+
+            loss1 = mse_loss(est_p1, src)
+            loss2 = mse_loss(est_p2, src)
+
+            if loss1 < loss2:
+                new_est_feature1[i] = est_feature1[i]
+                new_est_feature2[i] = est_feature2[i]
+            else:
+                new_est_feature1[i] = est_feature2[i]
+                new_est_feature2[i] = est_feature1[i]
+
+        return new_est_feature1, new_est_feature2
 
     def sampling_t(
         self, batch_size: int, m: float = 0.0, s: float = 1.0

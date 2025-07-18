@@ -190,6 +190,21 @@ wheels = [
 ]
 
 [[package]]
+name = "bitsandbytes"
+version = "0.46.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "torch", version = "2.6.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
+    { name = "torch", version = "2.6.0+cu126", source = { registry = "https://download.pytorch.org/whl/cu126" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d2/b2/9dadb4f8dca3948e35c1ebfee75ca82353e41468b41ff785430595f8e6f0/bitsandbytes-0.46.1-py3-none-manylinux_2_24_aarch64.whl", hash = "sha256:21b349f776d04c6c1380405961081de29c84f49640b79d3d199b6d719818da84", size = 30713241, upload-time = "2025-07-02T19:44:21.857Z" },
+    { url = "https://files.pythonhosted.org/packages/6b/1e/c26dbcb46cebb49fa6b17ff888966e6d8f306078b095a5df801a583549d0/bitsandbytes-0.46.1-py3-none-manylinux_2_24_x86_64.whl", hash = "sha256:b0ee4a204fb926d4eae02bc2f5468ae3c11c011cfa849a4c771d4c6b201f57ae", size = 72865511, upload-time = "2025-07-02T19:44:25.192Z" },
+    { url = "https://files.pythonhosted.org/packages/85/7d/06da01fac23a5032632dd7874b31c1d9b7b9af2314b2b07e5f99641950da/bitsandbytes-0.46.1-py3-none-win_amd64.whl", hash = "sha256:9f6f61376bd0e9780c5dc4ddee7d1f52cb10fe8034a1ea588611f4e8b87eb6a7", size = 72197544, upload-time = "2025-07-02T19:44:29.483Z" },
+]
+
+[[package]]
 name = "braceexpand"
 version = "0.1.7"
 source = { registry = "https://pypi.org/simple" }
@@ -425,7 +440,7 @@ source = { editable = "." }
 dependencies = [
     { name = "flow-matching" },
     { name = "lhotse-dataset" },
-    { name = "lightning" },
+    { name = "lightning", extra = ["extra"] },
     { name = "litmodels" },
     { name = "matplotlib" },
     { name = "mmdit" },
@@ -449,7 +464,7 @@ dev = [
 requires-dist = [
     { name = "flow-matching", specifier = ">=1.0.10" },
     { name = "lhotse-dataset", git = "ssh://github.com/koacai/lhotse-dataset.git" },
-    { name = "lightning", specifier = ">=2.5.1.post0" },
+    { name = "lightning", extras = ["extra"], specifier = ">=2.5.1.post0" },
     { name = "litmodels", specifier = ">=0.1.8" },
     { name = "matplotlib", specifier = ">=3.10.3" },
     { name = "mmdit", specifier = ">=0.2.2" },
@@ -502,6 +517,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c5/e6/d1f6c00b7221e2d7c4b470132c931325c8b22c51ca62417e300f5ce16009/docker-pycreds-0.4.0.tar.gz", hash = "sha256:6ce3270bcaf404cc4c3e27e4b6c70d3521deae82fb508767870fdbf772d584d4", size = 8754, upload-time = "2018-11-29T03:26:50.996Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f5/e8/f6bd1eee09314e7e6dee49cbe2c5e22314ccdb38db16c9fc72d2fa80d054/docker_pycreds-0.4.0-py2.py3-none-any.whl", hash = "sha256:7266112468627868005106ec19cd0d722702d2b7d5912a28e19b826c3d37af49", size = 8982, upload-time = "2018-11-29T03:26:49.575Z" },
+]
+
+[[package]]
+name = "docstring-parser"
+version = "0.16"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/08/12/9c22a58c0b1e29271051222d8906257616da84135af9ed167c9e28f85cb3/docstring_parser-0.16.tar.gz", hash = "sha256:538beabd0af1e2db0146b6bd3caa526c35a34d61af9fd2887f3a8a27a739aa6e", size = 26565, upload-time = "2024-03-15T10:39:44.419Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d5/7c/e9fcff7623954d86bdc17782036cbf715ecab1bec4847c008557affe1ca8/docstring_parser-0.16-py3-none-any.whl", hash = "sha256:bf0a1387354d3691d102edef7ec124f219ef639982d096e26e3b60aeffa90637", size = 36533, upload-time = "2024-03-15T10:39:41.527Z" },
 ]
 
 [[package]]
@@ -795,6 +819,15 @@ wheels = [
 ]
 
 [[package]]
+name = "importlib-resources"
+version = "6.5.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/cf/8c/f834fbf984f691b4f7ff60f50b514cc3de5cc08abfc3295564dd89c5e2e7/importlib_resources-6.5.2.tar.gz", hash = "sha256:185f87adef5bcc288449d98fb4fba07cea78bc036455dd44c5fc4a2fe78fed2c", size = 44693, upload-time = "2025-01-03T18:51:56.698Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a4/ed/1f1afb2e9e7f38a545d628f864d562a5ae64fe6f7a10e28ffb9b185b4e89/importlib_resources-6.5.2-py3-none-any.whl", hash = "sha256:789cfdc3ed28c78b67a06acb8126751ced69a3d5f79c095a98298cd8a760ccec", size = 37461, upload-time = "2025-01-03T18:51:54.306Z" },
+]
+
+[[package]]
 name = "iniconfig"
 version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -831,6 +864,24 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/30/08/8bd4a0250247861420a040b33ccf42f43c426ac91d99405374ef117e5872/joblib-1.5.0.tar.gz", hash = "sha256:d8757f955389a3dd7a23152e43bc297c2e0c2d3060056dad0feefc88a06939b5", size = 330234, upload-time = "2025-05-03T21:09:39.553Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/da/d3/13ee227a148af1c693654932b8b0b02ed64af5e1f7406d56b088b57574cd/joblib-1.5.0-py3-none-any.whl", hash = "sha256:206144b320246485b712fc8cc51f017de58225fa8b414a1fe1764a7231aca491", size = 307682, upload-time = "2025-05-03T21:09:37.892Z" },
+]
+
+[[package]]
+name = "jsonargparse"
+version = "4.40.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ec/e6/6a296858db86228a7484753fb7d79d92ba29820acfc7d8bff05ab13e8f1b/jsonargparse-4.40.0.tar.gz", hash = "sha256:fa6d748b48e36c0dadadc744c9d7bab3812785e7f4cee27fb0239b8301c808a1", size = 203052, upload-time = "2025-05-16T04:55:26.626Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cc/b7/1cd333988594bf4b2cf6aa92073ebb57e7db15bcd6ef8ef45b6e68caeb9c/jsonargparse-4.40.0-py3-none-any.whl", hash = "sha256:5822a84efa7d10d2a5aacc3fc6c6414ea2919419a398c06d9e8ac79a420365af", size = 224276, upload-time = "2025-05-16T04:55:24.901Z" },
+]
+
+[package.optional-dependencies]
+signatures = [
+    { name = "docstring-parser" },
+    { name = "typeshed-client" },
 ]
 
 [[package]]
@@ -981,6 +1032,17 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/97/d0/fb3c5077efdd74c28ea3a277fd80bbf03738d866013a8637691138bfebca/lightning-2.5.1.post0.tar.gz", hash = "sha256:fda1ac63c283b3b08a54be8d905dd88469cf09e9845d36dd28b699e78911cbc8", size = 631113, upload-time = "2025-04-25T20:24:25.054Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9e/1b/67201d693a575e8a086831710f33e697fab66166223f792e459ef2b84934/lightning-2.5.1.post0-py3-none-any.whl", hash = "sha256:a228a52ca52f0c5006ff327c92b8942f09e1aea3f2d9b0d7c8a209edd5b9e71d", size = 819001, upload-time = "2025-04-25T20:24:21.212Z" },
+]
+
+[package.optional-dependencies]
+extra = [
+    { name = "bitsandbytes", marker = "sys_platform != 'darwin'" },
+    { name = "hydra-core" },
+    { name = "jsonargparse", extra = ["signatures"] },
+    { name = "matplotlib" },
+    { name = "omegaconf" },
+    { name = "rich" },
+    { name = "tensorboardx" },
 ]
 
 [[package]]
@@ -2017,15 +2079,15 @@ socks = [
 
 [[package]]
 name = "rich"
-version = "14.0.0"
+version = "13.9.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "markdown-it-py" },
     { name = "pygments" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a1/53/830aa4c3066a8ab0ae9a9955976fb770fe9c6102117c8ec4ab3ea62d89e8/rich-14.0.0.tar.gz", hash = "sha256:82f1bc23a6a21ebca4ae0c45af9bdbc492ed20231dcb63f297d6d1021a9d5725", size = 224078, upload-time = "2025-03-30T14:15:14.23Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ab/3a/0316b28d0761c6734d6bc14e770d85506c986c85ffb239e688eeaab2c2bc/rich-13.9.4.tar.gz", hash = "sha256:439594978a49a09530cff7ebc4b5c7103ef57baf48d5ea3184f21d9a2befa098", size = 223149, upload-time = "2024-11-01T16:43:57.873Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0d/9b/63f4c7ebc259242c89b3acafdb37b41d1185c07ff0011164674e9076b491/rich-14.0.0-py3-none-any.whl", hash = "sha256:1c9491e1951aac09caffd42f448ee3d04e58923ffe14993f6e83068dc395d7e0", size = 243229, upload-time = "2025-03-30T14:15:12.283Z" },
+    { url = "https://files.pythonhosted.org/packages/19/71/39c7c0d87f8d4e6c020a393182060eaefeeae6c01dab6a84ec346f2567df/rich-13.9.4-py3-none-any.whl", hash = "sha256:6049d5e6ec054bf2779ab3358186963bac2ea89175919d699e378b99738c2a90", size = 242424, upload-time = "2024-11-01T16:43:55.817Z" },
 ]
 
 [[package]]
@@ -2352,6 +2414,20 @@ wheels = [
 ]
 
 [[package]]
+name = "tensorboardx"
+version = "2.6.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2b/c5/d4cc6e293fb837aaf9f76dd7745476aeba8ef7ef5146c3b3f9ee375fe7a5/tensorboardx-2.6.4.tar.gz", hash = "sha256:b163ccb7798b31100b9f5fa4d6bc22dad362d7065c2f24b51e50731adde86828", size = 4769801, upload-time = "2025-06-10T22:37:07.419Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e0/1d/b5d63f1a6b824282b57f7b581810d20b7a28ca951f2d5b59f1eb0782c12b/tensorboardx-2.6.4-py3-none-any.whl", hash = "sha256:5970cf3a1f0a6a6e8b180ccf46f3fe832b8a25a70b86e5a237048a7c0beb18e2", size = 87201, upload-time = "2025-06-10T22:37:05.44Z" },
+]
+
+[[package]]
 name = "threadpoolctl"
 version = "3.6.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2571,6 +2647,19 @@ source = { registry = "https://pypi.org/simple" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/06/00/59500052cb1cf8cf5316be93598946bc451f14072c6ff256904428eaf03c/triton-3.2.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8d9b215efc1c26fa7eefb9a157915c92d52e000d2bf83e5f69704047e63f125c", size = 253159365, upload-time = "2025-01-22T19:13:24.648Z" },
     { url = "https://files.pythonhosted.org/packages/c7/30/37a3384d1e2e9320331baca41e835e90a3767303642c7a80d4510152cbcf/triton-3.2.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e5dfa23ba84541d7c0a531dfce76d8bcd19159d50a4a8b14ad01e91734a5c1b0", size = 253154278, upload-time = "2025-01-22T19:13:54.221Z" },
+]
+
+[[package]]
+name = "typeshed-client"
+version = "2.8.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "importlib-resources" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fe/3e/4074d3505b4700a6bf13cb1bb2d1848bb8c78e902e3f9fe5916274c5d284/typeshed_client-2.8.2.tar.gz", hash = "sha256:9d8e29fb74574d87bf9a719f77131dc40f2aeea20e97d25d4a3dc2cc30debd31", size = 501617, upload-time = "2025-07-16T01:49:49.299Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/11/db/e7474719e90062df673057e865f94f67da2d0b4f671d8051020c74962c77/typeshed_client-2.8.2-py3-none-any.whl", hash = "sha256:4cf886d976c777689cd31889f13abf5bfb7797c82519b07e5969e541380c75ee", size = 760467, upload-time = "2025-07-16T01:49:47.758Z" },
 ]
 
 [[package]]
