@@ -1,3 +1,3 @@
-[submodule "lib/NISQA"]
-	path = lib/NISQA
+[submodule "src/dialogue_separator/lib/NISQA"]
+	path = src/dialogue_separator/lib/NISQA
 	url = https://github.com/gabrielmittag/NISQA.git
