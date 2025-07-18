@@ -16,7 +16,7 @@ def calc_nisqa(audio: torch.Tensor, sr: int, use_gpu: bool) -> float:
 
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
         audio_path = tmp_file.name
-        torchaudio.save(audio_path, audio.unsqueeze(0), sr)
+        torchaudio.save(audio_path, audio.cpu().unsqueeze(0), sr)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=UserWarning)

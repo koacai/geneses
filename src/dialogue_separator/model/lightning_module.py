@@ -16,6 +16,7 @@ from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 
 import wandb
 from dialogue_separator.metrics.nonintrusive_se.dnsmos import calc_dnsmos
+from dialogue_separator.metrics.nonintrusive_se.nisqa import calc_nisqa
 from dialogue_separator.model.components import MMDiT
 from dialogue_separator.util.util import create_mask
 
@@ -219,7 +220,7 @@ class DialogueSeparatorLightningModule(LightningModule):
                 sample_dir / "estimated_2.wav", estimated_2.cpu().unsqueeze(0), wav_sr
             )
 
-            df_dnsmos = self.evaluation_metrics(
+            df_nonintrusive_se = self.evaluation_metrics(
                 source_1,
                 source_2,
                 source_merged,
@@ -230,7 +231,7 @@ class DialogueSeparatorLightningModule(LightningModule):
                 wav_sr,
                 self.device == torch.device("cuda"),
             )
-            df_dnsmos.to_csv(metrics_dir / "dnsmos.csv", index=False)
+            df_nonintrusive_se.to_csv(metrics_dir / "nonintrusive_se.csv", index=False)
 
     @staticmethod
     def evaluation_metrics(
@@ -254,14 +255,15 @@ class DialogueSeparatorLightningModule(LightningModule):
             "estimated_2": estimated_2,
         }
 
-        # DNSMOS
-        dnsmos_result = []
+        # DNSMOS, NISQA
+        noninstrusive_se = []
         for name, wav in wav_dict.items():
             dnsmos = calc_dnsmos(wav, wav_sr, use_gpu)
-            dnsmos_result.append(dict(audio=name, dnsmos=dnsmos))
-        df_dnsmos = pd.DataFrame(dnsmos_result)
+            nisqa = calc_nisqa(wav, wav_sr, use_gpu)
+            noninstrusive_se.append(dict(audio=name, dnsmos=dnsmos, nisqa=nisqa))
+        df_noninstrusive_se = pd.DataFrame(noninstrusive_se)
 
-        return df_dnsmos
+        return df_noninstrusive_se
 
     def change_permutation(
         self,
