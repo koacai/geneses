@@ -34,7 +34,7 @@ dev = [
 ]
 
 [tool.ruff]
-exclude = [".venv"]
+exclude = [".venv", "src/dialogue_separator/metrics/nonintrusive_se/nisqa_util.py", "src/dialogue_separator/lib/**/*"]
 indent-width = 4
 fix = true
 
