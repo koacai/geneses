@@ -2,6 +2,7 @@ from pathlib import Path
 
 import hydra
 import numpy as np
+import pandas as pd
 import torch
 import torchaudio
 from flow_matching.path import AffineProbPath
@@ -14,6 +15,7 @@ from omegaconf import DictConfig
 from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 
 import wandb
+from dialogue_separator.metrics.nonintrusive_se.dnsmos import calc_dnsmos
 from dialogue_separator.model.components import MMDiT
 from dialogue_separator.util.util import create_mask
 
@@ -178,36 +180,88 @@ class DialogueSeparatorLightningModule(LightningModule):
         for i in range(batch_size):
             sample_dir = Path("test_output") / f"{batch_idx}" / f"{i}"
             sample_dir.mkdir(parents=True, exist_ok=True)
+            metrics_dir = sample_dir / "metrics"
+            metrics_dir.mkdir(parents=True, exist_ok=True)
 
             wav_len = batch["wav_len"][i]
-            source_1 = batch["wav_1"][i][:wav_len].cpu()
-            source_2 = batch["wav_2"][i][:wav_len].cpu()
-            source_merged = batch["wav_merged"][i][:wav_len].cpu()
-
-            torchaudio.save(sample_dir / "source_1.wav", source_1.unsqueeze(0), wav_sr)
-            torchaudio.save(sample_dir / "source_2.wav", source_2.unsqueeze(0), wav_sr)
-            torchaudio.save(
-                sample_dir / "source_merged.wav", source_merged.unsqueeze(0), wav_sr
-            )
-
-            decoded_1 = decoded_1_all[i].squeeze()[:wav_len].to(torch.float32).cpu()
-            decoded_2 = decoded_2_all[i].squeeze()[:wav_len].to(torch.float32).cpu()
-            torchaudio.save(
-                sample_dir / "decoded_1.wav", decoded_1.unsqueeze(0), wav_sr
-            )
-            torchaudio.save(
-                sample_dir / "decoded_2.wav", decoded_2.unsqueeze(0), wav_sr
-            )
-
-            estimated_1 = estimated_1_all[i].squeeze()[:wav_len].to(torch.float32).cpu()
-            estimated_2 = estimated_2_all[i].squeeze()[:wav_len].to(torch.float32).cpu()
+            source_1 = batch["wav_1"][i][:wav_len]
+            source_2 = batch["wav_2"][i][:wav_len]
+            source_merged = batch["wav_merged"][i][:wav_len]
 
             torchaudio.save(
-                sample_dir / "estimated_1.wav", estimated_1.unsqueeze(0), wav_sr
+                sample_dir / "source_1.wav", source_1.cpu().unsqueeze(0), wav_sr
             )
             torchaudio.save(
-                sample_dir / "estimated_2.wav", estimated_2.unsqueeze(0), wav_sr
+                sample_dir / "source_2.wav", source_2.cpu().unsqueeze(0), wav_sr
             )
+            torchaudio.save(
+                sample_dir / "source_merged.wav",
+                source_merged.cpu().unsqueeze(0),
+                wav_sr,
+            )
+
+            decoded_1 = decoded_1_all[i].squeeze()[:wav_len].to(torch.float32)
+            decoded_2 = decoded_2_all[i].squeeze()[:wav_len].to(torch.float32)
+            torchaudio.save(
+                sample_dir / "decoded_1.wav", decoded_1.cpu().unsqueeze(0), wav_sr
+            )
+            torchaudio.save(
+                sample_dir / "decoded_2.wav", decoded_2.cpu().unsqueeze(0), wav_sr
+            )
+
+            estimated_1 = estimated_1_all[i].squeeze()[:wav_len].to(torch.float32)
+            estimated_2 = estimated_2_all[i].squeeze()[:wav_len].to(torch.float32)
+
+            torchaudio.save(
+                sample_dir / "estimated_1.wav", estimated_1.cpu().unsqueeze(0), wav_sr
+            )
+            torchaudio.save(
+                sample_dir / "estimated_2.wav", estimated_2.cpu().unsqueeze(0), wav_sr
+            )
+
+            df_dnsmos = self.evaluation_metrics(
+                source_1,
+                source_2,
+                source_merged,
+                decoded_1,
+                decoded_2,
+                estimated_1,
+                estimated_2,
+                wav_sr,
+                self.device == torch.device("cuda"),
+            )
+            df_dnsmos.to_csv(metrics_dir / "dnsmos.csv", index=False)
+
+    @staticmethod
+    def evaluation_metrics(
+        source_1: torch.Tensor,
+        source_2: torch.Tensor,
+        source_merged: torch.Tensor,
+        decoded_1: torch.Tensor,
+        decoded_2: torch.Tensor,
+        estimated_1: torch.Tensor,
+        estimated_2: torch.Tensor,
+        wav_sr: int,
+        use_gpu: bool,
+    ) -> pd.DataFrame:
+        wav_dict = {
+            "source_1": source_1,
+            "source_2": source_2,
+            "source_merged": source_merged,
+            "decoded_1": decoded_1,
+            "decoded_2": decoded_2,
+            "estimated_1": estimated_1,
+            "estimated_2": estimated_2,
+        }
+
+        # DNSMOS
+        dnsmos_result = []
+        for name, wav in wav_dict.items():
+            dnsmos = calc_dnsmos(wav, wav_sr, use_gpu)
+            dnsmos_result.append(dict(audio=name, dnsmos=dnsmos))
+        df_dnsmos = pd.DataFrame(dnsmos_result)
+
+        return df_dnsmos
 
     def change_permutation(
         self,
