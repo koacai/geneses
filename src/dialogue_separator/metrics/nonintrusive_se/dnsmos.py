@@ -1,8 +1,8 @@
 from pathlib import Path
 
-import librosa
 import numpy as np
 import torch
+import torchaudio
 
 from dialogue_separator.util.util import download_file
 
@@ -26,7 +26,9 @@ def poly1d(coefficients, use_numpy=False):
 class DNSMOS_local:
     # ported from
     # https://github.com/microsoft/DNS-Challenge/blob/master/DNSMOS/dnsmos_local.py
-    def __init__(self, primary_model_path, p808_model_path, use_gpu=False):
+    def __init__(
+        self, primary_model_path: Path, p808_model_path: Path, use_gpu: bool = False
+    ) -> None:
         self.use_gpu = use_gpu
         try:
             import onnxruntime as ort
@@ -41,18 +43,34 @@ class DNSMOS_local:
             )
 
     def audio_melspec(
-        self, audio, n_mels=120, frame_size=320, hop_length=160, sr=16000, to_db=True
-    ):
-        mel_spec = librosa.feature.melspectrogram(
-            y=audio,
-            sr=sr,
+        self,
+        audio: torch.Tensor,
+        n_mels: int = 120,
+        frame_size: int = 320,
+        hop_length: int = 160,
+        sr: int = 16000,
+        to_db: bool = True,
+    ) -> torch.Tensor:
+        if audio.dim() == 1:
+            audio = audio.unsqueeze(0)
+
+        mel_transform = torchaudio.transforms.MelSpectrogram(
+            sample_rate=sr,
             n_fft=frame_size + 1,
             hop_length=hop_length,
             n_mels=n_mels,
+            power=2.0,
         )
+
+        mel_spec = mel_transform(audio)
+
         if to_db:
-            mel_spec = (librosa.power_to_db(mel_spec, ref=np.max) + 40) / 40
-        return mel_spec.T
+            mel_spec = torchaudio.transforms.AmplitudeToDB(stype="power")(mel_spec)
+            mel_spec = (mel_spec + 40) / 40
+
+        mel_spec = mel_spec.squeeze(0).transpose(0, 1)
+
+        return mel_spec
 
     def get_polyfit_val(self, sig, bak, ovr, is_personalized_MOS):
         flag = True
@@ -71,16 +89,19 @@ class DNSMOS_local:
 
         return sig_poly, bak_poly, ovr_poly
 
-    def __call__(self, aud, input_fs, is_personalized_MOS=False):
-        aud = aud.cpu().detach().numpy() if isinstance(aud, torch.Tensor) else aud
+    def __call__(
+        self, aud: torch.Tensor, input_fs: int, is_personalized_MOS: bool = False
+    ) -> dict[str, torch.Tensor]:
         if input_fs != SAMPLING_RATE:
-            assert isinstance(aud, np.ndarray)
-            audio = librosa.resample(aud, orig_sr=input_fs, target_sr=SAMPLING_RATE)
+            audio = torchaudio.functional.resample(
+                aud, orig_freq=input_fs, new_freq=SAMPLING_RATE
+            )
         else:
             audio = aud
+
         len_samples = int(INPUT_LENGTH * SAMPLING_RATE)
         while len(audio) < len_samples:
-            audio = np.append(audio, audio)
+            audio = torch.cat([audio, audio])
 
         num_hops = int(np.floor(len(audio) / SAMPLING_RATE) - INPUT_LENGTH) + 1
         hop_len_samples = SAMPLING_RATE
@@ -99,10 +120,13 @@ class DNSMOS_local:
             if len(audio_seg) < len_samples:
                 continue
 
-            input_features = np.array(audio_seg).astype("float32")[np.newaxis, :]
-            p808_input_features = np.array(
+            input_features = audio_seg.cpu().numpy().astype("float32")[np.newaxis, :]
+            p808_input_features = (
                 self.audio_melspec(audio=audio_seg[:-160])
-            ).astype("float32")[np.newaxis, :, :]
+                .cpu()
+                .numpy()
+                .astype("float32")[np.newaxis, :, :]
+            )
             p808_mos = self.p808_onnx_sess.run(  # type: ignore
                 None, {"input_1": p808_input_features}
             )[0][0][0]
@@ -120,7 +144,7 @@ class DNSMOS_local:
             predicted_mos_ovr_seg.append(mos_ovr)
             predicted_p808_mos.append(p808_mos)
 
-        to_array = np.array
+        to_array = torch.stack
         return {
             "OVRL_raw": to_array(predicted_mos_ovr_seg_raw).mean(),
             "SIG_raw": to_array(predicted_mos_sig_seg_raw).mean(),
