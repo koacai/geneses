@@ -1,5 +1,7 @@
+import math
 from pathlib import Path
 
+import librosa
 import numpy as np
 import torch
 import torchaudio
@@ -31,49 +33,49 @@ class DNSMOS_local:
     ) -> None:
         self.use_gpu = use_gpu
         try:
-            import onnxruntime as ort
+            from onnx2torch import convert
         except ModuleNotFoundError:
-            raise RuntimeError("Please install onnxruntime manually and retry!")
+            raise RuntimeError("Please install onnx2torch manually and retry!")
 
-        prvd = "CUDAExecutionProvider" if use_gpu else "CPUExecutionProvider"
         if primary_model_path is not None:
-            self.onnx_sess = ort.InferenceSession(primary_model_path, providers=[prvd])
-            self.p808_onnx_sess = ort.InferenceSession(
-                p808_model_path, providers=[prvd]
-            )
+            self.primary_model = convert(primary_model_path).eval()
+            self.p808_model = convert(p808_model_path).eval()
+        self.spectrogram = torchaudio.transforms.Spectrogram(
+            n_fft=321, hop_length=160, pad_mode="constant"
+        )
+
+        self.to_db = torchaudio.transforms.AmplitudeToDB("power", top_db=80.0)
+        if use_gpu:
+            if primary_model_path is not None:
+                self.primary_model = self.primary_model.cuda()
+                self.p808_model = self.p808_model.cuda()
+            self.spectrogram = self.spectrogram.cuda()
 
     def audio_melspec(
         self,
         audio: torch.Tensor,
         n_mels: int = 120,
         frame_size: int = 320,
-        hop_length: int = 160,
         sr: int = 16000,
         to_db: bool = True,
     ) -> torch.Tensor:
-        if audio.dim() == 1:
-            audio = audio.unsqueeze(0)
-
-        mel_transform = torchaudio.transforms.MelSpectrogram(
-            sample_rate=sr,
-            n_fft=frame_size + 1,
-            hop_length=hop_length,
-            n_mels=n_mels,
-            power=2.0,
+        specgram = self.spectrogram(audio)
+        fb = torch.as_tensor(
+            librosa.filters.mel(sr=sr, n_fft=frame_size + 1, n_mels=n_mels).T,
+            dtype=audio.dtype,
+            device=audio.device,
         )
-
-        mel_spec = mel_transform(audio)
-
+        mel_spec = torch.matmul(specgram.transpose(-1, -2), fb).transpose(-1, -2)
         if to_db:
-            mel_spec = torchaudio.transforms.AmplitudeToDB(stype="power")(mel_spec)
-            mel_spec = (mel_spec + 40) / 40
+            self.to_db.db_multiplier = math.log10(
+                max(self.to_db.amin, torch.max(mel_spec).item())
+            )
+            mel_spec = (self.to_db(mel_spec) + 40) / 40
 
-        mel_spec = mel_spec.squeeze(0).transpose(0, 1)
-
-        return mel_spec
+        return mel_spec.T
 
     def get_polyfit_val(self, sig, bak, ovr, is_personalized_MOS):
-        flag = True
+        flag = False
         if is_personalized_MOS:
             p_ovr = poly1d([-0.00533021, 0.005101, 1.18058466, -0.11236046], flag)
             p_sig = poly1d([-0.01019296, 0.02751166, 1.19576786, -0.24348726], flag)
@@ -92,6 +94,9 @@ class DNSMOS_local:
     def __call__(
         self, aud: torch.Tensor, input_fs: int, is_personalized_MOS: bool = False
     ) -> dict[str, torch.Tensor]:
+        device = "cuda" if self.use_gpu else "cpu"
+        aud = aud.to(device=device)
+
         if input_fs != SAMPLING_RATE:
             audio = torchaudio.functional.resample(
                 aud, orig_freq=input_fs, new_freq=SAMPLING_RATE
@@ -120,22 +125,19 @@ class DNSMOS_local:
             if len(audio_seg) < len_samples:
                 continue
 
-            input_features = audio_seg.cpu().numpy().astype("float32")[np.newaxis, :]
-            p808_input_features = (
-                self.audio_melspec(audio=audio_seg[:-160])
-                .cpu()
-                .numpy()
-                .astype("float32")[np.newaxis, :, :]
-            )
-            p808_mos = self.p808_onnx_sess.run(  # type: ignore
-                None, {"input_1": p808_input_features}
-            )[0][0][0]
-            mos_sig_raw, mos_bak_raw, mos_ovr_raw = self.onnx_sess.run(  # type: ignore
-                None, {"input_1": input_features}
-            )[0][0]
+            input_features = audio_seg.float()[None, :]
+            p808_input_features = self.audio_melspec(audio=audio_seg[:-160]).float()[
+                None, :, :
+            ]
+            p808_mos = self.p808_model(p808_input_features)
+            mos_sig_raw, mos_bak_raw, mos_ovr_raw = self.primary_model(input_features)[
+                0
+            ]
+
             mos_sig, mos_bak, mos_ovr = self.get_polyfit_val(
                 mos_sig_raw, mos_bak_raw, mos_ovr_raw, is_personalized_MOS
             )
+
             predicted_mos_sig_seg_raw.append(mos_sig_raw)
             predicted_mos_bak_seg_raw.append(mos_bak_raw)
             predicted_mos_ovr_seg_raw.append(mos_ovr_raw)
@@ -156,7 +158,7 @@ class DNSMOS_local:
         }
 
 
-def calc_dnsmos(use_gpu: bool) -> None:
+def calc_dnsmos(audio: torch.Tensor, sr: int, use_gpu: bool) -> float:
     model_dir = Path("DNSMOS")
     model_dir.mkdir(exist_ok=True)
 
@@ -168,5 +170,6 @@ def calc_dnsmos(use_gpu: bool) -> None:
     if not p808_model_path.exists():
         download_file(P808_MODEL_URL, p808_model_path)
 
-    model = DNSMOS_local(primary_model_path, primary_model_path, use_gpu=use_gpu)
-    print(model)
+    model = DNSMOS_local(primary_model_path, p808_model_path, use_gpu=use_gpu)
+    score = model(audio, input_fs=sr)
+    return score["OVRL"].item()
