@@ -17,6 +17,7 @@ from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 import wandb
 from dialogue_separator.metrics.nonintrusive_se.dnsmos import calc_dnsmos
 from dialogue_separator.metrics.nonintrusive_se.nisqa import calc_nisqa
+from dialogue_separator.metrics.nonintrusive_se.utmos import calc_utmos
 from dialogue_separator.model.components import MMDiT
 from dialogue_separator.util.util import create_mask
 
@@ -260,7 +261,10 @@ class DialogueSeparatorLightningModule(LightningModule):
         for name, wav in wav_dict.items():
             dnsmos = calc_dnsmos(wav, wav_sr, use_gpu)
             nisqa = calc_nisqa(wav, wav_sr, use_gpu)
-            noninstrusive_se.append(dict(audio=name, dnsmos=dnsmos, nisqa=nisqa))
+            utmos = calc_utmos(wav, wav_sr, use_gpu)
+            noninstrusive_se.append(
+                dict(audio=name, dnsmos=dnsmos, nisqa=nisqa, utmos=utmos)
+            )
         df_noninstrusive_se = pd.DataFrame(noninstrusive_se)
 
         return df_noninstrusive_se

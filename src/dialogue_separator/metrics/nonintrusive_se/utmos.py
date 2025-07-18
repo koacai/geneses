@@ -8,5 +8,5 @@ def calc_utmos(audio: torch.Tensor, sr: int, use_gpu: bool) -> float:
     device = torch.device("cuda" if use_gpu else "cpu")
     model.device = device  # type: ignore
 
-    score = model(audio.unsqueeze(0), sr)  # type: ignore
+    score = model(audio.unsqueeze(0).to(device=model.device), sr)  # type: ignore
     return score.cpu().item()
