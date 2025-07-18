@@ -17,3 +17,4 @@ wheels/
 /test_output
 .env
 /model_ckpt
+/DNSMOS
