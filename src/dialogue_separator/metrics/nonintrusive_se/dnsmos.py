@@ -171,5 +171,6 @@ def calc_dnsmos(audio: torch.Tensor, sr: int, use_gpu: bool) -> float:
         download_file(P808_MODEL_URL, p808_model_path)
 
     model = DNSMOS_local(primary_model_path, p808_model_path, use_gpu=use_gpu)
-    score = model(audio, input_fs=sr)
+    with torch.no_grad():
+        score = model(audio, input_fs=sr)
     return score["OVRL"].item()
