@@ -256,7 +256,6 @@ class DialogueSeparatorLightningModule(LightningModule):
             "estimated_2": estimated_2,
         }
 
-        # DNSMOS, NISQA
         noninstrusive_se = []
         for name, wav in wav_dict.items():
             dnsmos = calc_dnsmos(wav, wav_sr, use_gpu)
