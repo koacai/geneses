@@ -15,6 +15,7 @@ from omegaconf import DictConfig
 from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 
 import wandb
+from dialogue_separator.metrics.intrusive_se.pesq import calc_pesq
 from dialogue_separator.metrics.nonintrusive_se.dnsmos import calc_dnsmos
 from dialogue_separator.metrics.nonintrusive_se.nisqa import calc_nisqa
 from dialogue_separator.metrics.nonintrusive_se.utmos import calc_utmos
@@ -221,7 +222,7 @@ class DialogueSeparatorLightningModule(LightningModule):
                 sample_dir / "estimated_2.wav", estimated_2.cpu().unsqueeze(0), wav_sr
             )
 
-            df_nonintrusive_se = self.evaluation_metrics(
+            df_nonintrusive_se, df_intrusive_se = self.evaluation_metrics(
                 source_1,
                 source_2,
                 source_merged,
@@ -233,6 +234,7 @@ class DialogueSeparatorLightningModule(LightningModule):
                 self.device == torch.device("cuda"),
             )
             df_nonintrusive_se.to_csv(metrics_dir / "nonintrusive_se.csv", index=False)
+            df_intrusive_se.to_csv(metrics_dir / "intrusive_se.csv", index=False)
 
     @staticmethod
     def evaluation_metrics(
@@ -245,7 +247,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         estimated_2: torch.Tensor,
         wav_sr: int,
         use_gpu: bool,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         wav_dict = {
             "source_1": source_1,
             "source_2": source_2,
@@ -262,11 +264,23 @@ class DialogueSeparatorLightningModule(LightningModule):
             nisqa = calc_nisqa(wav, wav_sr, use_gpu)
             utmos = calc_utmos(wav, wav_sr, use_gpu)
             noninstrusive_se.append(
-                dict(audio=name, dnsmos=dnsmos, nisqa=nisqa, utmos=utmos)
+                dict(key=name, dnsmos=dnsmos, nisqa=nisqa, utmos=utmos)
             )
         df_noninstrusive_se = pd.DataFrame(noninstrusive_se)
 
-        return df_noninstrusive_se
+        wav_pair_dict = {
+            "source_decoded_1": (source_1, decoded_1),
+            "source_decoded_2": (source_2, decoded_2),
+            "source_estimated_1": (source_1, estimated_1),
+            "source_estimated_2": (source_2, estimated_2),
+        }
+        intrusive_se = []
+        for name, (ref, inf) in wav_pair_dict.items():
+            pesq = calc_pesq(ref, inf, wav_sr)
+            intrusive_se.append(dict(key=name, pesq=pesq))
+        df_intrusive_se = pd.DataFrame(intrusive_se)
+
+        return df_noninstrusive_se, df_intrusive_se
 
     def change_permutation(
         self,
