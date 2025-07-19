@@ -22,8 +22,8 @@ def calc_pesq(ref: torch.Tensor, inf: torch.Tensor, fs: int) -> float:
 
     pesq_score = pesq(
         fs,
-        ref,
-        inf,
+        ref.numpy(),
+        inf.numpy(),
         mode=mode,
         on_error=PesqError.RETURN_VALUES,
     )
