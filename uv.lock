@@ -446,6 +446,7 @@ dependencies = [
     { name = "matplotlib" },
     { name = "mmdit" },
     { name = "onnx2torch" },
+    { name = "pesq" },
     { name = "python-dotenv" },
     { name = "torch", version = "2.6.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
     { name = "torch", version = "2.6.0+cu126", source = { registry = "https://download.pytorch.org/whl/cu126" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
@@ -471,6 +472,7 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.3" },
     { name = "mmdit", specifier = ">=0.2.2" },
     { name = "onnx2torch", specifier = ">=1.5.15" },
+    { name = "pesq", specifier = ">=0.0.4" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "torch", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'", specifier = ">=2.6.0" },
     { name = "torch", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", specifier = ">=2.6.0", index = "https://download.pytorch.org/whl/cu126" },
@@ -1670,6 +1672,12 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/cc/57/0f72a10f9db6a4628744c8e8f0df4e6e21de01212c7c981d31e50ffc8328/pandas-2.2.3-cp313-cp313t-musllinux_1_2_aarch64.whl", hash = "sha256:15c0e1e02e93116177d29ff83e8b1619c93ddc9c49083f237d4312337a61165d", size = 15711620, upload-time = "2024-09-20T19:02:20.639Z" },
     { url = "https://files.pythonhosted.org/packages/ab/5f/b38085618b950b79d2d9164a711c52b10aefc0ae6833b96f626b7021b2ed/pandas-2.2.3-cp313-cp313t-musllinux_1_2_x86_64.whl", hash = "sha256:ad5b65698ab28ed8d7f18790a0dc58005c7629f227be9ecc1072aa74c0c1d43a", size = 13098436, upload-time = "2024-09-20T13:09:48.112Z" },
 ]
+
+[[package]]
+name = "pesq"
+version = "0.0.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/22/e6/f8bdcef3238ac10fb3ce37d150e9b03a152d971febd681f088c6e5e17d8e/pesq-0.0.4.tar.gz", hash = "sha256:b724b28f73fb638522982bd68e8c3c0957e2f45210639a460233b17aa7fc890b", size = 38702, upload-time = "2022-05-17T14:15:26.301Z" }
 
 [[package]]
 name = "pillow"
