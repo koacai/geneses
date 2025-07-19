@@ -5,6 +5,8 @@ from pesq import PesqError, pesq
 
 def calc_pesq(ref: torch.Tensor, inf: torch.Tensor, fs: int) -> float:
     assert ref.shape == inf.shape
+    ref = ref.cpu()
+    inf = inf.cpu()
 
     if fs == 8000:
         mode = "nb"
