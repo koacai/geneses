@@ -15,6 +15,7 @@ from omegaconf import DictConfig
 from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 
 import wandb
+from dialogue_separator.metrics.intrusive_se.estoi import calc_estoi
 from dialogue_separator.metrics.intrusive_se.pesq import calc_pesq
 from dialogue_separator.metrics.nonintrusive_se.dnsmos import calc_dnsmos
 from dialogue_separator.metrics.nonintrusive_se.nisqa import calc_nisqa
@@ -277,7 +278,8 @@ class DialogueSeparatorLightningModule(LightningModule):
         intrusive_se = []
         for name, (ref, inf) in wav_pair_dict.items():
             pesq = calc_pesq(ref, inf, wav_sr)
-            intrusive_se.append(dict(key=name, pesq=pesq))
+            estoi = calc_estoi(ref, inf, wav_sr)
+            intrusive_se.append(dict(key=name, pesq=pesq, estoi=estoi))
         df_intrusive_se = pd.DataFrame(intrusive_se)
 
         return df_noninstrusive_se, df_intrusive_se
