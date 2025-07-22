@@ -12,15 +12,15 @@ from flow_matching.utils import ModelWrapper
 from lightning.pytorch import LightningModule, loggers
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRSchedulerConfig
 from omegaconf import DictConfig
-from torchmetrics.audio import PerceptualEvaluationSpeechQuality
 from torchmetrics.audio.dnsmos import DeepNoiseSuppressionMeanOpinionScore
 from torchmetrics.audio.nisqa import (
     NonIntrusiveSpeechQualityAssessment,
 )
+from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
+from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
 from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 
 import wandb
-from dialogue_separator.metrics.intrusive_se.estoi import calc_estoi
 from dialogue_separator.model.components import MMDiT
 from dialogue_separator.util.util import create_mask
 
@@ -233,7 +233,7 @@ class DialogueSeparatorLightningModule(LightningModule):
                 estimated_1,
                 estimated_2,
                 wav_sr,
-                self.device == torch.device("cuda"),
+                self.device,
             )
             df_nonintrusive_se.to_csv(metrics_dir / "nonintrusive_se.csv", index=False)
             df_intrusive_se.to_csv(metrics_dir / "intrusive_se.csv", index=False)
@@ -248,7 +248,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         estimated_1: torch.Tensor,
         estimated_2: torch.Tensor,
         wav_sr: int,
-        use_gpu: bool,
+        device: torch.device,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         wav_dict = {
             "source_1": source_1,
@@ -265,13 +265,13 @@ class DialogueSeparatorLightningModule(LightningModule):
         utmos = torch.hub.load(
             "tarepan/SpeechMOS:v1.2.0", "utmos22_strong", trust_repo=True
         )
-        utmos.device = torch.device("cuda" if use_gpu else "cpu")  # type: ignore
+        utmos = utmos.to(device=device)  # type: ignore
 
         noninstrusive_se = []
         for name, wav in wav_dict.items():
             _dnsmos = dnsmos(wav)[-1].item()
             _nisqa = nisqa(wav)[0].item()
-            _utmos = utmos(wav.unsqueeze(0).to(device=utmos.device), wav_sr).item()  # type: ignore
+            _utmos = utmos(wav.unsqueeze(0), wav_sr).item()  # type: ignore
             noninstrusive_se.append(
                 dict(key=name, dnsmos=_dnsmos, nisqa=_nisqa, utmos=_utmos)
             )
@@ -284,7 +284,8 @@ class DialogueSeparatorLightningModule(LightningModule):
             "source_estimated_2": (source_2, estimated_2),
         }
 
-        pesq = PerceptualEvaluationSpeechQuality(16000, "wb")
+        pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode="wb")
+        estoi = ShortTimeObjectiveIntelligibility(fs=wav_sr, extended=True)
 
         intrusive_se = []
         for name, (ref, inf) in wav_pair_dict.items():
@@ -296,8 +297,8 @@ class DialogueSeparatorLightningModule(LightningModule):
                 inf_resample = inf
 
             _pesq = pesq(ref_resample, inf_resample).item()
-            estoi = calc_estoi(ref, inf, wav_sr)
-            intrusive_se.append(dict(key=name, pesq=_pesq, estoi=estoi))
+            _estoi = estoi(ref, inf).item()
+            intrusive_se.append(dict(key=name, pesq=_pesq, estoi=_estoi))
         df_intrusive_se = pd.DataFrame(intrusive_se)
 
         return df_noninstrusive_se, df_intrusive_se
