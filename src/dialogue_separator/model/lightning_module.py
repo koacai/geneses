@@ -12,6 +12,7 @@ from flow_matching.utils import ModelWrapper
 from lightning.pytorch import LightningModule, loggers
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRSchedulerConfig
 from omegaconf import DictConfig
+from torchmetrics.audio import PerceptualEvaluationSpeechQuality
 from torchmetrics.audio.dnsmos import DeepNoiseSuppressionMeanOpinionScore
 from torchmetrics.audio.nisqa import (
     NonIntrusiveSpeechQualityAssessment,
@@ -20,7 +21,6 @@ from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 
 import wandb
 from dialogue_separator.metrics.intrusive_se.estoi import calc_estoi
-from dialogue_separator.metrics.intrusive_se.pesq import calc_pesq
 from dialogue_separator.model.components import MMDiT
 from dialogue_separator.util.util import create_mask
 
@@ -283,11 +283,21 @@ class DialogueSeparatorLightningModule(LightningModule):
             "source_estimated_1": (source_1, estimated_1),
             "source_estimated_2": (source_2, estimated_2),
         }
+
+        pesq = PerceptualEvaluationSpeechQuality(16000, "wb")
+
         intrusive_se = []
         for name, (ref, inf) in wav_pair_dict.items():
-            pesq = calc_pesq(ref, inf, wav_sr)
+            if wav_sr != 16000:
+                ref_resample = torchaudio.functional.resample(ref, wav_sr, 16000)
+                inf_resample = torchaudio.functional.resample(inf, wav_sr, 16000)
+            else:
+                ref_resample = ref
+                inf_resample = inf
+
+            _pesq = pesq(ref_resample, inf_resample).item()
             estoi = calc_estoi(ref, inf, wav_sr)
-            intrusive_se.append(dict(key=name, pesq=pesq, estoi=estoi))
+            intrusive_se.append(dict(key=name, pesq=_pesq, estoi=estoi))
         df_intrusive_se = pd.DataFrame(intrusive_se)
 
         return df_noninstrusive_se, df_intrusive_se
