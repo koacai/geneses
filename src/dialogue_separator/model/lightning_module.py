@@ -265,14 +265,13 @@ class DialogueSeparatorLightningModule(LightningModule):
         utmos = torch.hub.load(
             "tarepan/SpeechMOS:v1.2.0", "utmos22_strong", trust_repo=True
         )
-
         utmos.device = torch.device("cuda" if use_gpu else "cpu")  # type: ignore
 
         noninstrusive_se = []
         for name, wav in wav_dict.items():
             _dnsmos = dnsmos(wav)[-1].item()
             _nisqa = nisqa(wav)[0].item()
-            _utmos = utmos(wav.unsqueeze(0).to(device=utmos.device), wav_sr).item()
+            _utmos = utmos(wav.unsqueeze(0).to(device=utmos.device), wav_sr).item()  # type: ignore
             noninstrusive_se.append(
                 dict(key=name, dnsmos=_dnsmos, nisqa=_nisqa, utmos=_utmos)
             )
