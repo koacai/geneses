@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "discrete-speech-metrics",
     "fastdtw>=0.3.4",
     "flow-matching>=1.0.10",
     "lhotse-dataset",
@@ -58,6 +59,7 @@ venv = ".venv"
 lhotse-dataset = { git = "ssh://github.com/koacai/lhotse-dataset.git" }
 torch = { index = "torch-aarch", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'"}
 torchaudio = { index = "torch-aarch", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'"}
+discrete-speech-metrics = { git = "https://github.com/kohei0209/DiscreteSpeechMetrics.git", rev = "mhubert_wo_pypesq" }
 
 [[tool.uv.index]]
 name = "torch-aarch"
