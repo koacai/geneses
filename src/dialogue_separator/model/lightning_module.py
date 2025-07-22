@@ -17,6 +17,7 @@ from torchmetrics.audio.nisqa import (
     NonIntrusiveSpeechQualityAssessment,
 )
 from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
+from torchmetrics.audio.sdr import SignalDistortionRatio
 from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
 from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 
@@ -286,6 +287,7 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode="wb")
         estoi = ShortTimeObjectiveIntelligibility(fs=wav_sr, extended=True)
+        sdr = SignalDistortionRatio().to(device=device)
 
         intrusive_se = []
         for name, (ref, inf) in wav_pair_dict.items():
@@ -298,7 +300,8 @@ class DialogueSeparatorLightningModule(LightningModule):
 
             _pesq = pesq(ref_resample, inf_resample).item()
             _estoi = estoi(ref, inf).item()
-            intrusive_se.append(dict(key=name, pesq=_pesq, estoi=_estoi))
+            _sdr = sdr(ref, inf).item()
+            intrusive_se.append(dict(key=name, pesq=_pesq, estoi=_estoi, sdr=_sdr))
         df_intrusive_se = pd.DataFrame(intrusive_se)
 
         return df_noninstrusive_se, df_intrusive_se

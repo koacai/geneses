@@ -8,7 +8,6 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "fast-bss-eval>=0.1.4",
     "flow-matching>=1.0.10",
     "lhotse-dataset",
     "lightning[extra]>=2.5.1.post0",

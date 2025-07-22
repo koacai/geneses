@@ -451,7 +451,6 @@ name = "dialogue-separator"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "fast-bss-eval" },
     { name = "flow-matching" },
     { name = "lhotse-dataset" },
     { name = "lightning", extra = ["extra"] },
@@ -477,7 +476,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fast-bss-eval", specifier = ">=0.1.4" },
     { name = "flow-matching", specifier = ">=1.0.10" },
     { name = "lhotse-dataset", git = "ssh://github.com/koacai/lhotse-dataset.git" },
     { name = "lightning", extras = ["extra"], specifier = ">=2.5.1.post0" },
@@ -567,16 +565,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/95/af/2a2f83f981e969ae3
 wheels = [
     { url = "https://files.pythonhosted.org/packages/90/04/4a730d74fd908daad86d6b313f235cdf8e0cf1c255b392b7174ff63ea81a/einx-0.3.0-py3-none-any.whl", hash = "sha256:367d62bab8dbb8c4937308512abb6f746cc0920990589892ba0d281356d39345", size = 102958, upload-time = "2024-06-11T13:49:36.441Z" },
 ]
-
-[[package]]
-name = "fast-bss-eval"
-version = "0.1.4"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-    { name = "scipy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/2c/df/9095cedbb89aa308c34b692f65fb9f4405c7fea735feeea8ce3148a66f43/fast_bss_eval-0.1.4.tar.gz", hash = "sha256:b9b1307577f77128dda9efb8310ff4d4ca39afc0fccce0c62640a1e34f9add13", size = 33694, upload-time = "2022-06-07T01:39:03.36Z" }
 
 [[package]]
 name = "fastapi"
