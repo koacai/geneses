@@ -15,7 +15,6 @@ dependencies = [
     "litmodels>=0.1.8",
     "matplotlib>=3.10.3",
     "mmdit>=0.2.2",
-    "pystoi>=0.4.1",
     "python-dotenv>=1.1.1",
     "torch>=2.6.0",
     "torchaudio>=2.6.0",
