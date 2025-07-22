@@ -10,6 +10,7 @@ from typing import Tuple
 
 import numpy as np
 import pysptk
+import torch
 from fastdtw.fastdtw import fastdtw
 from scipy import spatial
 
@@ -128,3 +129,10 @@ def calculate(
     mcd = np.mean(10.0 / np.log(10.0) * np.sqrt(2 * diff2sum), 0)
 
     return mcd
+
+
+def mcd_metric(ref: torch.Tensor, inf: torch.Tensor, fs: int, eps: float = 1e-8):
+    ref_np = ref.cpu().numpy()
+    inf_np = inf.cpu().numpy()
+    scaling_factor = np.sum(ref_np * inf_np) / (np.sum(inf_np**2) + eps)
+    return calculate(ref_np, inf_np * scaling_factor, fs)

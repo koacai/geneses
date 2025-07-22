@@ -22,6 +22,7 @@ from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
 from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 
 import wandb
+from dialogue_separator.metrics.mcd import mcd_metric
 from dialogue_separator.model.components import MMDiT
 from dialogue_separator.util.util import create_mask
 
@@ -301,7 +302,10 @@ class DialogueSeparatorLightningModule(LightningModule):
             _pesq = pesq(ref_resample, inf_resample).item()
             _estoi = estoi(ref, inf).item()
             _sdr = sdr(ref, inf).item()
-            intrusive_se.append(dict(key=name, pesq=_pesq, estoi=_estoi, sdr=_sdr))
+            _mcd = mcd_metric(ref, inf, wav_sr)
+            intrusive_se.append(
+                dict(key=name, pesq=_pesq, estoi=_estoi, sdr=_sdr, mcd=_mcd)
+            )
         df_intrusive_se = pd.DataFrame(intrusive_se)
 
         return df_noninstrusive_se, df_intrusive_se
