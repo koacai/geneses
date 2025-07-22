@@ -78,12 +78,16 @@ class Preprocessor:
         vae_feature_1, vae_feature_2 = self.vae_encode(audio, cut.sampling_rate)
         ssl_feature = self.extract_ssl_feature(audio, cut.sampling_rate)
 
+        assert len(cut.supervisions) == 2
+
         s = {
             "__key__": uuid.uuid1().hex,
             "audio.flac": buf.getvalue(),
             "vae_feature_1.pth": wds.torch_dumps(vae_feature_1.cpu()),
             "vae_feature_2.pth": wds.torch_dumps(vae_feature_2.cpu()),
             "ssl_feature.pth": wds.torch_dumps(ssl_feature.cpu()),
+            "text_1.txt": cut.supervisions[0].text,
+            "text_2.txt": cut.supervisions[1].text,
         }
 
         return s
