@@ -8,12 +8,14 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "fastdtw>=0.3.4",
     "flow-matching>=1.0.10",
     "lhotse-dataset",
     "lightning[extra]>=2.5.1.post0",
     "litmodels>=0.1.8",
     "matplotlib>=3.10.3",
     "mmdit>=0.2.2",
+    "pysptk>=1.0.1",
     "python-dotenv>=1.1.1",
     "torch>=2.6.0",
     "torchaudio>=2.6.0",
