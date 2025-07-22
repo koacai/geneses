@@ -16,7 +16,6 @@ dependencies = [
     "matplotlib>=3.10.3",
     "mmdit>=0.2.2",
     "onnxruntime>=1.22.1",
-    "pesq>=0.0.4",
     "pystoi>=0.4.1",
     "python-dotenv>=1.1.1",
     "torch>=2.6.0",
