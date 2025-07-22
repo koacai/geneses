@@ -24,6 +24,10 @@ from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 import wandb
 from dialogue_separator.metrics.lsd import lsd_metric
 from dialogue_separator.metrics.mcd import mcd_metric
+from dialogue_separator.metrics.speech_bert_score import (
+    SpeechBERTScore,
+    speech_bert_score_metric,
+)
 from dialogue_separator.model.components import MMDiT
 from dialogue_separator.util.util import create_mask
 
@@ -227,19 +231,24 @@ class DialogueSeparatorLightningModule(LightningModule):
                 sample_dir / "estimated_2.wav", estimated_2.cpu().unsqueeze(0), wav_sr
             )
 
-            df_nonintrusive_se, df_intrusive_se = self.evaluation_metrics(
-                source_1,
-                source_2,
-                source_merged,
-                decoded_1,
-                decoded_2,
-                estimated_1,
-                estimated_2,
-                wav_sr,
-                self.device,
+            df_nonintrusive_se, df_intrusive_se, df_downstream_task_independent = (
+                self.evaluation_metrics(
+                    source_1,
+                    source_2,
+                    source_merged,
+                    decoded_1,
+                    decoded_2,
+                    estimated_1,
+                    estimated_2,
+                    wav_sr,
+                    self.device,
+                )
             )
             df_nonintrusive_se.to_csv(metrics_dir / "nonintrusive_se.csv", index=False)
             df_intrusive_se.to_csv(metrics_dir / "intrusive_se.csv", index=False)
+            df_downstream_task_independent.to_csv(
+                metrics_dir / "downstream_task_independent.csv", index=False
+            )
 
     @staticmethod
     def evaluation_metrics(
@@ -252,7 +261,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         estimated_2: torch.Tensor,
         wav_sr: int,
         device: torch.device,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         wav_dict = {
             "source_1": source_1,
             "source_2": source_2,
@@ -274,7 +283,8 @@ class DialogueSeparatorLightningModule(LightningModule):
         for name, wav in wav_dict.items():
             _dnsmos = dnsmos(wav)[-1].item()
             _nisqa = nisqa(wav)[0].item()
-            _utmos = utmos(wav.unsqueeze(0), wav_sr).item()  # type: ignore
+            with torch.no_grad():
+                _utmos = utmos(wav.unsqueeze(0), wav_sr).item()  # type: ignore
             noninstrusive_se.append(
                 dict(key=name, dnsmos=_dnsmos, nisqa=_nisqa, utmos=_utmos)
             )
@@ -310,7 +320,16 @@ class DialogueSeparatorLightningModule(LightningModule):
             )
         df_intrusive_se = pd.DataFrame(intrusive_se)
 
-        return df_noninstrusive_se, df_intrusive_se
+        speech_bert_score = SpeechBERTScore(device)
+        speech_bert_score.speech_bert_score.model.eval()
+
+        downstream_task_independent = []
+        for name, (ref, inf) in wav_pair_dict.items():
+            _sbs = speech_bert_score_metric(speech_bert_score, ref, inf, wav_sr)
+            downstream_task_independent.append(dict(key=name, speech_bert_score=_sbs))
+        df_downstream_task_independent = pd.DataFrame(downstream_task_independent)
+
+        return df_noninstrusive_se, df_intrusive_se, df_downstream_task_independent
 
     def change_permutation(
         self,
