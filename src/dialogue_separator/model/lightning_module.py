@@ -12,14 +12,16 @@ from flow_matching.utils import ModelWrapper
 from lightning.pytorch import LightningModule, loggers
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRSchedulerConfig
 from omegaconf import DictConfig
+from torchmetrics.audio.dnsmos import DeepNoiseSuppressionMeanOpinionScore
+from torchmetrics.audio.nisqa import (
+    NonIntrusiveSpeechQualityAssessment,
+)
+from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
+from torchmetrics.audio.sdr import SignalDistortionRatio
+from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
 from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 
 import wandb
-from dialogue_separator.metrics.intrusive_se.estoi import calc_estoi
-from dialogue_separator.metrics.intrusive_se.pesq import calc_pesq
-from dialogue_separator.metrics.nonintrusive_se.dnsmos import calc_dnsmos
-from dialogue_separator.metrics.nonintrusive_se.nisqa import calc_nisqa
-from dialogue_separator.metrics.nonintrusive_se.utmos import calc_utmos
 from dialogue_separator.model.components import MMDiT
 from dialogue_separator.util.util import create_mask
 
@@ -232,7 +234,7 @@ class DialogueSeparatorLightningModule(LightningModule):
                 estimated_1,
                 estimated_2,
                 wav_sr,
-                self.device == torch.device("cuda"),
+                self.device,
             )
             df_nonintrusive_se.to_csv(metrics_dir / "nonintrusive_se.csv", index=False)
             df_intrusive_se.to_csv(metrics_dir / "intrusive_se.csv", index=False)
@@ -247,7 +249,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         estimated_1: torch.Tensor,
         estimated_2: torch.Tensor,
         wav_sr: int,
-        use_gpu: bool,
+        device: torch.device,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         wav_dict = {
             "source_1": source_1,
@@ -259,13 +261,20 @@ class DialogueSeparatorLightningModule(LightningModule):
             "estimated_2": estimated_2,
         }
 
+        dnsmos = DeepNoiseSuppressionMeanOpinionScore(fs=wav_sr, personalized=False)
+        nisqa = NonIntrusiveSpeechQualityAssessment(fs=wav_sr)
+        utmos = torch.hub.load(
+            "tarepan/SpeechMOS:v1.2.0", "utmos22_strong", trust_repo=True
+        )
+        utmos = utmos.to(device=device)  # type: ignore
+
         noninstrusive_se = []
         for name, wav in wav_dict.items():
-            dnsmos = calc_dnsmos(wav, wav_sr, use_gpu)
-            nisqa = calc_nisqa(wav, wav_sr, use_gpu)
-            utmos = calc_utmos(wav, wav_sr, use_gpu)
+            _dnsmos = dnsmos(wav)[-1].item()
+            _nisqa = nisqa(wav)[0].item()
+            _utmos = utmos(wav.unsqueeze(0), wav_sr).item()  # type: ignore
             noninstrusive_se.append(
-                dict(key=name, dnsmos=dnsmos, nisqa=nisqa, utmos=utmos)
+                dict(key=name, dnsmos=_dnsmos, nisqa=_nisqa, utmos=_utmos)
             )
         df_noninstrusive_se = pd.DataFrame(noninstrusive_se)
 
@@ -275,11 +284,24 @@ class DialogueSeparatorLightningModule(LightningModule):
             "source_estimated_1": (source_1, estimated_1),
             "source_estimated_2": (source_2, estimated_2),
         }
+
+        pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode="wb")
+        estoi = ShortTimeObjectiveIntelligibility(fs=wav_sr, extended=True)
+        sdr = SignalDistortionRatio().to(device=device)
+
         intrusive_se = []
         for name, (ref, inf) in wav_pair_dict.items():
-            pesq = calc_pesq(ref, inf, wav_sr)
-            estoi = calc_estoi(ref, inf, wav_sr)
-            intrusive_se.append(dict(key=name, pesq=pesq, estoi=estoi))
+            if wav_sr != 16000:
+                ref_resample = torchaudio.functional.resample(ref, wav_sr, 16000)
+                inf_resample = torchaudio.functional.resample(inf, wav_sr, 16000)
+            else:
+                ref_resample = ref
+                inf_resample = inf
+
+            _pesq = pesq(ref_resample, inf_resample).item()
+            _estoi = estoi(ref, inf).item()
+            _sdr = sdr(ref, inf).item()
+            intrusive_se.append(dict(key=name, pesq=_pesq, estoi=_estoi, sdr=_sdr))
         df_intrusive_se = pd.DataFrame(intrusive_se)
 
         return df_noninstrusive_se, df_intrusive_se

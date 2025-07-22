@@ -14,12 +14,10 @@ dependencies = [
     "litmodels>=0.1.8",
     "matplotlib>=3.10.3",
     "mmdit>=0.2.2",
-    "onnx2torch>=1.5.15",
-    "pesq>=0.0.4",
-    "pystoi>=0.4.1",
     "python-dotenv>=1.1.1",
     "torch>=2.6.0",
     "torchaudio>=2.6.0",
+    "torchmetrics[audio]>=1.7.1",
     "transformers>=4.52.3",
     "wandb>=0.19.10",
     "webdataset>=0.2.111",
@@ -36,7 +34,7 @@ dev = [
 ]
 
 [tool.ruff]
-exclude = [".venv", "src/dialogue_separator/metrics/nonintrusive_se/nisqa_util.py", "src/dialogue_separator/lib/**/*"]
+exclude = [".venv"]
 indent-width = 4
 fix = true
 
