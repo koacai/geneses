@@ -13,12 +13,14 @@ from lightning.pytorch import LightningModule, loggers
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRSchedulerConfig
 from omegaconf import DictConfig
 from torchmetrics.audio.dnsmos import DeepNoiseSuppressionMeanOpinionScore
+from torchmetrics.audio.nisqa import (
+    NonIntrusiveSpeechQualityAssessment,
+)
 from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 
 import wandb
 from dialogue_separator.metrics.intrusive_se.estoi import calc_estoi
 from dialogue_separator.metrics.intrusive_se.pesq import calc_pesq
-from dialogue_separator.metrics.nonintrusive_se.nisqa import calc_nisqa
 from dialogue_separator.metrics.nonintrusive_se.utmos import calc_utmos
 from dialogue_separator.model.components import MMDiT
 from dialogue_separator.util.util import create_mask
@@ -260,14 +262,15 @@ class DialogueSeparatorLightningModule(LightningModule):
         }
 
         dnsmos = DeepNoiseSuppressionMeanOpinionScore(fs=wav_sr, personalized=False)
+        nisqa = NonIntrusiveSpeechQualityAssessment(fs=wav_sr)
 
         noninstrusive_se = []
         for name, wav in wav_dict.items():
             _dnsmos = dnsmos(wav)[-1].item()
-            nisqa = calc_nisqa(wav, wav_sr, use_gpu)
+            _nisqa = nisqa(wav)[0].item()
             utmos = calc_utmos(wav, wav_sr, use_gpu)
             noninstrusive_se.append(
-                dict(key=name, dnsmos=_dnsmos, nisqa=nisqa, utmos=utmos)
+                dict(key=name, dnsmos=_dnsmos, nisqa=_nisqa, utmos=utmos)
             )
         df_noninstrusive_se = pd.DataFrame(noninstrusive_se)
 
