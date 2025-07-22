@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 import hydra
 import numpy as np
@@ -87,7 +88,7 @@ class DialogueSeparatorLightningModule(LightningModule):
     def on_test_start(self) -> None:
         self.dacvae.to(self.device)
 
-    def calc_loss(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
+    def calc_loss(self, batch: dict[str, Any]) -> torch.Tensor:
         vae_1 = batch["vae_feature_1"].permute(0, 2, 1)
         vae_2 = batch["vae_feature_2"].permute(0, 2, 1)
         ssl_merged = batch["ssl_feature"]
@@ -115,9 +116,7 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         return loss
 
-    def training_step(
-        self, batch: dict[str, torch.Tensor], batch_idx: int
-    ) -> STEP_OUTPUT:
+    def training_step(self, batch: dict[str, Any], batch_idx: int) -> STEP_OUTPUT:
         _ = batch_idx
 
         loss = self.calc_loss(batch)
@@ -126,9 +125,7 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         return loss
 
-    def validation_step(
-        self, batch: dict[str, torch.Tensor], batch_idx: int
-    ) -> STEP_OUTPUT:
+    def validation_step(self, batch: dict[str, Any], batch_idx: int) -> STEP_OUTPUT:
         _ = batch_idx
 
         loss = self.calc_loss(batch)
@@ -175,7 +172,7 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         return loss
 
-    def test_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> None:
+    def test_step(self, batch: dict[str, Any], batch_idx: int) -> None:
         est_feature1, est_feature2 = self.forward(batch, step_size=0.01)
         est_feature1, est_feature2 = self.change_permutation(
             est_feature1, est_feature2, batch["vae_feature_1"], batch["vae_feature_2"]
@@ -394,7 +391,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         return loss
 
     def forward(
-        self, batch: dict[str, torch.Tensor], step_size: float = 0.01
+        self, batch: dict[str, Any], step_size: float = 0.01
     ) -> tuple[torch.Tensor, torch.Tensor]:
         ssl_merged = batch["ssl_feature"]
 

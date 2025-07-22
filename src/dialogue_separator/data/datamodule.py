@@ -1,3 +1,5 @@
+from typing import Any
+
 import torch
 import torchaudio
 import webdataset as wds
@@ -84,7 +86,7 @@ class DialogueSeparatorDataModule(LightningDataModule):
     def identity(self, x):
         return x[0]
 
-    def collate_fn(self, batch) -> dict[str, torch.Tensor]:
+    def collate_fn(self, batch) -> dict[str, Any]:
         max_duration = self.cfg.vae.max_duration
 
         wav_1 = torch.zeros(len(batch), self.cfg.vae.sample_rate * max_duration)
@@ -96,6 +98,8 @@ class DialogueSeparatorDataModule(LightningDataModule):
         vae_feature_2 = []
         ssl_feature = []
         vae_len = []
+        text_1 = []
+        text_2 = []
 
         for i, sample in enumerate(batch):
             dialogue, sr = sample["audio.flac"]
@@ -122,6 +126,9 @@ class DialogueSeparatorDataModule(LightningDataModule):
             )
             vae_len.append(_vae_len)
 
+            text_1.append(sample["text_1.txt"])
+            text_2.append(sample["text_2.txt"])
+
         vae_feature_1 = pad_sequence(vae_feature_1, batch_first=True)
         vae_feature_2 = pad_sequence(vae_feature_2, batch_first=True)
         ssl_feature = pad_sequence(ssl_feature, batch_first=True)
@@ -135,6 +142,8 @@ class DialogueSeparatorDataModule(LightningDataModule):
             "ssl_feature": ssl_feature,
             "vae_feature_1": vae_feature_1,
             "vae_feature_2": vae_feature_2,
+            "text_1": text_1,
+            "text_2": text_2,
         }
 
         return output
