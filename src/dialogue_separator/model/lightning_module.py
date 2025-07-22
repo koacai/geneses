@@ -22,6 +22,7 @@ from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
 from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 
 import wandb
+from dialogue_separator.metrics.lps import LevenshteinPhonemeSimilarity, lps_metrics
 from dialogue_separator.metrics.lsd import lsd_metric
 from dialogue_separator.metrics.mcd import mcd_metric
 from dialogue_separator.metrics.speech_bert_score import (
@@ -322,11 +323,16 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         speech_bert_score = SpeechBERTScore(device)
         speech_bert_score.speech_bert_score.model.eval()
+        lps = LevenshteinPhonemeSimilarity(device=device)
+        lps.phoneme_predictor.eval()
 
         downstream_task_independent = []
         for name, (ref, inf) in wav_pair_dict.items():
             _sbs = speech_bert_score_metric(speech_bert_score, ref, inf, wav_sr)
-            downstream_task_independent.append(dict(key=name, speech_bert_score=_sbs))
+            _lps = lps_metrics(lps, ref, inf, wav_sr)
+            downstream_task_independent.append(
+                dict(key=name, speech_bert_score=_sbs, lps=_lps)
+            )
         df_downstream_task_independent = pd.DataFrame(downstream_task_independent)
 
         return df_noninstrusive_se, df_intrusive_se, df_downstream_task_independent
