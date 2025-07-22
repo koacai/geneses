@@ -228,24 +228,19 @@ class DialogueSeparatorLightningModule(LightningModule):
                 sample_dir / "estimated_2.wav", estimated_2.cpu().unsqueeze(0), wav_sr
             )
 
-            df_nonintrusive_se, df_intrusive_se, df_downstream_task_independent = (
-                self.evaluation_metrics(
-                    source_1,
-                    source_2,
-                    source_merged,
-                    decoded_1,
-                    decoded_2,
-                    estimated_1,
-                    estimated_2,
-                    wav_sr,
-                    self.device,
-                )
+            df_without_ref, df_with_ref = self.evaluation_metrics(
+                source_1,
+                source_2,
+                source_merged,
+                decoded_1,
+                decoded_2,
+                estimated_1,
+                estimated_2,
+                wav_sr,
+                self.device,
             )
-            df_nonintrusive_se.to_csv(metrics_dir / "nonintrusive_se.csv", index=False)
-            df_intrusive_se.to_csv(metrics_dir / "intrusive_se.csv", index=False)
-            df_downstream_task_independent.to_csv(
-                metrics_dir / "downstream_task_independent.csv", index=False
-            )
+            df_without_ref.to_csv(metrics_dir / "without_ref.csv", index=False)
+            df_with_ref.to_csv(metrics_dir / "with_ref.csv", index=False)
 
     @staticmethod
     def evaluation_metrics(
@@ -258,7 +253,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         estimated_2: torch.Tensor,
         wav_sr: int,
         device: torch.device,
-    ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         wav_dict = {
             "source_1": source_1,
             "source_2": source_2,
@@ -276,16 +271,16 @@ class DialogueSeparatorLightningModule(LightningModule):
         )
         utmos = utmos.to(device=device)  # type: ignore
 
-        noninstrusive_se = []
+        without_ref = []
         for name, wav in wav_dict.items():
             _dnsmos = dnsmos(wav)[-1].item()
             _nisqa = nisqa(wav)[0].item()
             with torch.no_grad():
                 _utmos = utmos(wav.unsqueeze(0), wav_sr).item()  # type: ignore
-            noninstrusive_se.append(
+            without_ref.append(
                 dict(key=name, dnsmos=_dnsmos, nisqa=_nisqa, utmos=_utmos)
             )
-        df_noninstrusive_se = pd.DataFrame(noninstrusive_se)
+        df_without_ref = pd.DataFrame(without_ref)
 
         wav_pair_dict = {
             "source_decoded_1": (source_1, decoded_1),
@@ -297,8 +292,10 @@ class DialogueSeparatorLightningModule(LightningModule):
         pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode="wb")
         estoi = ShortTimeObjectiveIntelligibility(fs=wav_sr, extended=True)
         sdr = SignalDistortionRatio().to(device=device)
+        speech_bert_score = SpeechBERTScore(device)
+        speech_bert_score.speech_bert_score.model.eval()
 
-        intrusive_se = []
+        with_ref = []
         for name, (ref, inf) in wav_pair_dict.items():
             if wav_sr != 16000:
                 ref_resample = torchaudio.functional.resample(ref, wav_sr, 16000)
@@ -312,21 +309,21 @@ class DialogueSeparatorLightningModule(LightningModule):
             _sdr = sdr(ref, inf).item()
             _mcd = mcd_metric(ref, inf, wav_sr)
             _lsd = lsd_metric(ref, inf, wav_sr)
-            intrusive_se.append(
-                dict(key=name, pesq=_pesq, estoi=_estoi, sdr=_sdr, mcd=_mcd, lsd=_lsd)
-            )
-        df_intrusive_se = pd.DataFrame(intrusive_se)
-
-        speech_bert_score = SpeechBERTScore(device)
-        speech_bert_score.speech_bert_score.model.eval()
-
-        downstream_task_independent = []
-        for name, (ref, inf) in wav_pair_dict.items():
             _sbs = speech_bert_score_metric(speech_bert_score, ref, inf, wav_sr)
-            downstream_task_independent.append(dict(key=name, speech_bert_score=_sbs))
-        df_downstream_task_independent = pd.DataFrame(downstream_task_independent)
+            with_ref.append(
+                dict(
+                    key=name,
+                    pesq=_pesq,
+                    estoi=_estoi,
+                    sdr=_sdr,
+                    mcd=_mcd,
+                    lsd=_lsd,
+                    speech_bert_score=_sbs,
+                )
+            )
+        df_with_ref = pd.DataFrame(with_ref)
 
-        return df_noninstrusive_se, df_intrusive_se, df_downstream_task_independent
+        return df_without_ref, df_with_ref
 
     def change_permutation(
         self,
