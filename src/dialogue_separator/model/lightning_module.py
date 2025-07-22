@@ -21,7 +21,6 @@ from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 import wandb
 from dialogue_separator.metrics.intrusive_se.estoi import calc_estoi
 from dialogue_separator.metrics.intrusive_se.pesq import calc_pesq
-from dialogue_separator.metrics.nonintrusive_se.utmos import calc_utmos
 from dialogue_separator.model.components import MMDiT
 from dialogue_separator.util.util import create_mask
 
@@ -263,14 +262,19 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         dnsmos = DeepNoiseSuppressionMeanOpinionScore(fs=wav_sr, personalized=False)
         nisqa = NonIntrusiveSpeechQualityAssessment(fs=wav_sr)
+        utmos = torch.hub.load(
+            "tarepan/SpeechMOS:v1.2.0", "utmos22_strong", trust_repo=True
+        )
+
+        utmos.device = torch.device("cuda" if use_gpu else "cpu")  # type: ignore
 
         noninstrusive_se = []
         for name, wav in wav_dict.items():
             _dnsmos = dnsmos(wav)[-1].item()
             _nisqa = nisqa(wav)[0].item()
-            utmos = calc_utmos(wav, wav_sr, use_gpu)
+            _utmos = utmos(wav.unsqueeze(0).to(device=utmos.device), wav_sr).item()
             noninstrusive_se.append(
-                dict(key=name, dnsmos=_dnsmos, nisqa=_nisqa, utmos=utmos)
+                dict(key=name, dnsmos=_dnsmos, nisqa=_nisqa, utmos=_utmos)
             )
         df_noninstrusive_se = pd.DataFrame(noninstrusive_se)
 
