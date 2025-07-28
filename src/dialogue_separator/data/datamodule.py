@@ -1,17 +1,20 @@
 from typing import Any
 
 import torch
+import torch.nn.functional as F
 import torchaudio
 import webdataset as wds
 from lightning.pytorch import LightningDataModule
 from omegaconf import DictConfig
 from torch.nn.utils.rnn import pad_sequence
+from transformers import AutoFeatureExtractor
 
 
 class DialogueSeparatorDataModule(LightningDataModule):
     def __init__(self, cfg: DictConfig) -> None:
         super(DialogueSeparatorDataModule, self).__init__()
         self.cfg = cfg
+        self.processor = AutoFeatureExtractor.from_pretrained(cfg.ssl_model.name)
 
     def setup(self, stage: str) -> None:
         nodesplitter = wds.split_by_worker if self.cfg.use_ddp else wds.single_node_only
@@ -96,10 +99,10 @@ class DialogueSeparatorDataModule(LightningDataModule):
         wav_len = []
         vae_feature_1 = []
         vae_feature_2 = []
-        ssl_feature = []
         vae_len = []
         text_1 = []
         text_2 = []
+        wav_ssl_input = []
 
         for i, sample in enumerate(batch):
             dialogue, sr = sample["audio.flac"]
@@ -119,7 +122,6 @@ class DialogueSeparatorDataModule(LightningDataModule):
 
             vae_feature_1.append(sample["vae_feature_1.pth"])
             vae_feature_2.append(sample["vae_feature_2.pth"])
-            ssl_feature.append(sample["ssl_feature.pth"])
 
             _vae_len = (
                 sample["vae_feature_1.pth"].shape[-1] * _wav_len // wav_1.shape[-1]
@@ -129,9 +131,23 @@ class DialogueSeparatorDataModule(LightningDataModule):
             text_1.append(sample["text_1.txt"])
             text_2.append(sample["text_2.txt"])
 
+            if sr != self.cfg.ssl_model.sample_rate:
+                dialogue = torchaudio.functional.resample(
+                    dialogue, sr, self.cfg.ssl_model.sample_rate
+                )
+
+            _wav_ssl_input = dialogue[0] + dialogue[1]
+            _wav_ssl_input = F.pad(_wav_ssl_input, (40, 40), mode="constant", value=0)
+            wav_ssl_input.append(_wav_ssl_input)
+
         vae_feature_1 = pad_sequence(vae_feature_1, batch_first=True)
         vae_feature_2 = pad_sequence(vae_feature_2, batch_first=True)
-        ssl_feature = pad_sequence(ssl_feature, batch_first=True)
+
+        ssl_input = self.processor(
+            [w.cpu().numpy() for w in wav_ssl_input],
+            sampling_rate=self.cfg.ssl_model.sample_rate,
+            return_tensors="pt",
+        )
 
         output = {
             "wav_1": wav_1,
@@ -139,9 +155,9 @@ class DialogueSeparatorDataModule(LightningDataModule):
             "wav_merged": wav_merged,
             "wav_len": torch.tensor(wav_len),
             "vae_len": torch.tensor(vae_len),
-            "ssl_feature": ssl_feature,
             "vae_feature_1": vae_feature_1,
             "vae_feature_2": vae_feature_2,
+            "ssl_input": ssl_input,
             "text_1": text_1,
             "text_2": text_2,
         }

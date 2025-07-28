@@ -30,6 +30,8 @@ from dialogue_separator.metrics.speech_bert_score import (
     speech_bert_score_metric,
 )
 from dialogue_separator.model.components import MMDiT
+from dialogue_separator.model.dacvae import DACVAE
+from dialogue_separator.model.ssl_feature_extractor import SSLFeatureExtractor
 from dialogue_separator.util.util import create_mask
 
 
@@ -43,20 +45,6 @@ class WrappedModel(ModelWrapper):
         return torch.stack([res_1, res_2], dim=1)
 
 
-class DACVAE:
-    def __init__(self, ckpt_path: str) -> None:
-        self.model = torch.jit.load(ckpt_path)
-        for param in self.model.parameters():
-            param.requires_grad = False
-
-    @torch.no_grad()
-    def decode(self, features: torch.Tensor) -> torch.Tensor:
-        return self.model.decode(features)
-
-    def to(self, device: torch.device) -> None:
-        self.model = self.model.to(device)
-
-
 class DialogueSeparatorLightningModule(LightningModule):
     def __init__(self, cfg: DictConfig) -> None:
         super(DialogueSeparatorLightningModule, self).__init__()
@@ -66,6 +54,9 @@ class DialogueSeparatorLightningModule(LightningModule):
         self.path = AffineProbPath(scheduler=CondOTScheduler())
 
         self.dacvae = DACVAE(cfg.model.vae.ckpt_path)
+        self.ssl_feature_extractor = SSLFeatureExtractor(
+            cfg.model.ssl_model.name, cfg.model.ssl_model.layer
+        )
 
         self.save_hyperparameters(cfg)
 
@@ -84,14 +75,16 @@ class DialogueSeparatorLightningModule(LightningModule):
 
     def on_fit_start(self) -> None:
         self.dacvae.to(self.device)
+        self.ssl_feature_extractor.to(self.device)
 
     def on_test_start(self) -> None:
         self.dacvae.to(self.device)
+        self.ssl_feature_extractor.to(self.device)
 
     def calc_loss(self, batch: dict[str, Any]) -> torch.Tensor:
         vae_1 = batch["vae_feature_1"].permute(0, 2, 1)
         vae_2 = batch["vae_feature_2"].permute(0, 2, 1)
-        ssl_merged = batch["ssl_feature"]
+        ssl_merged = self.ssl_feature_extractor.forward(batch["ssl_input"])
 
         batch_size = ssl_merged.size(0)
 
@@ -390,7 +383,7 @@ class DialogueSeparatorLightningModule(LightningModule):
     def forward(
         self, batch: dict[str, Any], step_size: float = 0.01
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        ssl_merged = batch["ssl_feature"]
+        ssl_merged = self.ssl_feature_extractor.forward(batch["ssl_input"])
 
         vae_size = (
             batch["wav_merged"].size(0),
