@@ -1,4 +1,4 @@
 corpus:
-  _target_: lhotse_dataset.Libri2MixClean
+  _target_: lhotse_dataset.LibriTTSRMixClean
 
-shar_dir: /groups/gag51394/users/asai/shar/libri2mix_clean
+shar_dir: /groups/gag51394/users/asai/shar/libritts_r_mix_clean
