@@ -1,23 +1,18 @@
 _target_: dialogue_separator.data.preprocessor.Preprocessor
 cfg:
   shar_dir: ${data.dataset.shar_dir}
-  webdataset_dir: /groups/gag51394/users/asai/webdataset/dialogue-separator/libri2mix_ssl
+  webdataset_dir: /groups/gag51394/users/asai/webdataset/dialogue-separator/libritts_r_mix
   device: cuda
 
   shard_size:
-    train: 1e9
-    valid: 3e7
-    test: 3e7
+    train: 1e8
+    valid: 3e6
+    test: 3e6
 
   vae:
     ckpt_path: /groups/gag51394/users/asai/dacvae_l16_librispeech.pt
     hidden_size: 16
     max_duration: 20
     sample_rate: 16000
-
-  ssl_model:
-    name: facebook/w2v-bert-2.0
-    sample_rate: 16000
-    layer: 13
 
   noise_amp: 1e-4
