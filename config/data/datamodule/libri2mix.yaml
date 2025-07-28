@@ -11,3 +11,8 @@ num_workers: 8
 use_ddp: true
 
 vae: ${data.preprocess.cfg.vae}
+
+ssl_model:
+  name: facebook/w2v-bert-2.0
+  sample_rate: 16000
+  layer: 13

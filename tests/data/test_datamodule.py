@@ -27,7 +27,7 @@ class TestDialogueSeparatorDataModule:
             assert batch["vae_len"].size(0) == batch_size
             assert batch["vae_feature_1"].size(0) == batch_size
             assert batch["vae_feature_2"].size(0) == batch_size
-            assert batch["ssl_feature"].size(0) == batch_size
+            assert isinstance(batch["ssl_input"], dict)
 
     def test_val_dataloader(self, init) -> None:
         _ = init
@@ -43,7 +43,7 @@ class TestDialogueSeparatorDataModule:
             assert batch["vae_len"].size(0) == batch_size
             assert batch["vae_feature_1"].size(0) == batch_size
             assert batch["vae_feature_2"].size(0) == batch_size
-            assert batch["ssl_feature"].size(0) == batch_size
+            assert isinstance(batch["ssl_input"], dict)
 
     def test_test_dataloader(self, init) -> None:
         _ = init
@@ -59,4 +59,4 @@ class TestDialogueSeparatorDataModule:
             assert batch["vae_len"].size(0) == batch_size
             assert batch["vae_feature_1"].size(0) == batch_size
             assert batch["vae_feature_2"].size(0) == batch_size
-            assert batch["ssl_feature"].size(0) == batch_size
+            assert isinstance(batch["ssl_input"], dict)
