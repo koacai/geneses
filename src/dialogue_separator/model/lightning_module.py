@@ -30,6 +30,7 @@ from dialogue_separator.metrics.speech_bert_score import (
     speech_bert_score_metric,
 )
 from dialogue_separator.model.components import MMDiT
+from dialogue_separator.model.dacvae import DACVAE
 from dialogue_separator.util.util import create_mask
 
 
@@ -41,20 +42,6 @@ class WrappedModel(ModelWrapper):
         vae_2 = x[:, 1, :, :]
         res_1, res_2 = self.model.forward(ssl_merged, t.unsqueeze(0), vae_1, vae_2)
         return torch.stack([res_1, res_2], dim=1)
-
-
-class DACVAE:
-    def __init__(self, ckpt_path: str) -> None:
-        self.model = torch.jit.load(ckpt_path)
-        for param in self.model.parameters():
-            param.requires_grad = False
-
-    @torch.no_grad()
-    def decode(self, features: torch.Tensor) -> torch.Tensor:
-        return self.model.decode(features)
-
-    def to(self, device: torch.device) -> None:
-        self.model = self.model.to(device)
 
 
 class DialogueSeparatorLightningModule(LightningModule):
