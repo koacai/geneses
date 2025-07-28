@@ -5,9 +5,9 @@ cfg:
   device: cuda
 
   shard_size:
-    train: 3e8
-    valid: 1e7
-    test: 1e7
+    train: 1e8
+    valid: 3e6
+    test: 3e6
 
   vae:
     ckpt_path: /groups/gag51394/users/asai/dacvae_l16_librispeech.pt

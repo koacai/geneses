@@ -16,6 +16,6 @@ mmdit:
   depth: 12
   heads: 6
 
-ssl_model: ${data.preprocess.cfg.ssl_model}
+ssl_model: ${data.datamodule.ssl_model}
 
 t_sampling_schema: logit_normal # [uniform, logit_normal]
