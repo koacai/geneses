@@ -84,7 +84,7 @@ class MMDiT(nn.Module):
         self.ssl_embedder_merged = nn.Linear(in_ssl_channels, hidden_size, bias=True)
         self.vae_embedder_1 = nn.Linear(in_channels, hidden_size, bias=True)
         self.vae_embedder_2 = nn.Linear(in_channels, hidden_size, bias=True)
-        
+
         self.dropout = nn.Dropout(dropout)
 
         self.ssl_pos_embed_merged = nn.Parameter(
@@ -142,12 +142,12 @@ class MMDiT(nn.Module):
             + self.ssl_pos_embed_merged[:, : ssl_merged.shape[1], :]
         )
         ssl_merged = self.dropout(ssl_merged)
-        
+
         vae_1 = (
             self.vae_embedder_1(vae_1) + self.vae_pos_embed_1[:, : vae_1.shape[1], :]
         )
         vae_1 = self.dropout(vae_1)
-        
+
         vae_2 = (
             self.vae_embedder_2(vae_2) + self.vae_pos_embed_2[:, : vae_2.shape[1], :]
         )
