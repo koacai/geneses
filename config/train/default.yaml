@@ -5,7 +5,7 @@ trainer:
   logger:
     _target_: lightning.pytorch.loggers.WandbLogger
     project: dialogue-separator
-  check_val_every_n_epoch: 10
+  check_val_every_n_epoch: 1
   precision: 16-mixed
   strategy:
     _target_: lightning.pytorch.strategies.DDPStrategy
@@ -16,7 +16,7 @@ trainer:
     - _target_: litmodels.integrations.LightningModelCheckpoint
       model_registry: koacai/speech/dialogue-separator
     - _target_: lightning.pytorch.callbacks.early_stopping.EarlyStopping
-      monitor: val_loss
+      monitor: validation_loss
       mode: min
       patience: 30
       verbose: true
