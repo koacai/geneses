@@ -92,7 +92,7 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         t = self.sampling_t(batch_size)
         vae = torch.stack([vae_1, vae_2], dim=1)
-        noise = torch.randn_like(vae)
+        noise = torch.randn_like(vae, device=self.device)
         path_sample = self.path.sample(x_0=noise, x_1=vae, t=t)
 
         x_t_1 = path_sample.x_t[:, 0, :, :] * mask
