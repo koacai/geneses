@@ -70,7 +70,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         return {
             "optimizer": optimizer,
             "lr_scheduler": lr_scheduler,
-            "monitor": "train_loss",
+            "monitor": "val_loss",
         }
 
     def on_fit_start(self) -> None:

@@ -10,7 +10,15 @@ trainer:
   strategy:
     _target_: lightning.pytorch.strategies.DDPStrategy
     static_graph: true
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: norm
   callbacks:
     - _target_: litmodels.integrations.LightningModelCheckpoint
       model_registry: koacai/speech/dialogue-separator
+    - _target_: lightning.pytorch.callbacks.early_stopping.EarlyStopping
+      monitor: val_loss
+      mode: min
+      patience: 30
+      verbose: true
+      min_delta: 0.001
   fast_dev_run: false
