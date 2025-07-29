@@ -13,4 +13,7 @@ trainer:
   callbacks:
     - _target_: litmodels.integrations.LightningModelCheckpoint
       model_registry: koacai/speech/dialogue-separator
+    - _target_: lightning.pytorch.callbacks.early_stopping.EarlyStopping
+      monitor: val_loss
+      mode: min
   fast_dev_run: false
