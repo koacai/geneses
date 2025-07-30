@@ -34,6 +34,10 @@ augment_datamodule:
   test:
     dataset_path: ${data.preprocess.cfg.webdataset_dir}/test/data-{000000..000290}.tar
     batch_size: 4
+  noise_paths:
+    - /groups/gag51394/users/asai/dataset_stripe/noise/
+  rir_paths:
+    - /groups/gag51394/users/asai/dataset_stripe/rir/dns5_fullband/
   num_workers: 8
 
   vae: ${data.preprocess.cfg.vae}

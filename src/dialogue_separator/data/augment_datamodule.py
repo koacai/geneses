@@ -8,6 +8,8 @@ from lightning.pytorch import LightningDataModule
 from omegaconf import DictConfig
 from transformers import AutoFeatureExtractor
 
+from dialogue_separator.data.util import glob_wds
+
 
 class AugmentDataModule(LightningDataModule):
     def __init__(self, cfg: DictConfig) -> None:
@@ -17,11 +19,40 @@ class AugmentDataModule(LightningDataModule):
 
     def setup(self, stage: str | None = None) -> None:
         _ = stage
+        self.noise_dataset = (
+            wds.WebDataset(
+                glob_wds(self.cfg.noise_paths),
+                shardshuffle=True,
+                nodesplitter=lambda x: x,
+                workersplitter=False,
+                repeat=True,
+                empty_check=True,
+            )
+            .decode(wds.torch_audio)
+            .compose(
+                partial(self.random_crop, n_crops=30, seconds=self.cfg.vae.max_duration)
+            )
+            .shuffle(10)
+            .repeat()
+        )
+        self.rir_dataset = (
+            wds.WebDataset(
+                glob_wds(self.cfg.rir_paths),
+                shardshuffle=True,
+                nodesplitter=lambda x: x,
+                workersplitter=False,
+                repeat=True,
+                empty_check=True,
+            )
+            .decode(wds.torch_audio)
+            .shuffle(10)
+            .repeat()
+        )
 
         self.train_dataset = self.setup_dataset_pipeline(
             wds.WebDataset(
                 self.cfg.train.dataset_path,
-                shardshuffle=100,
+                shardshuffle=True,
                 nodesplitter=lambda x: x,
                 repeat=True,
             ),
