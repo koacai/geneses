@@ -103,7 +103,8 @@ class AugmentDataModule(LightningDataModule):
         batch_size: int,
     ) -> wds.WebDataset:
         dataset = self.init_dataset(dataset)
-        dataset = self.add_noise(dataset, rir_dataset, noise_dataset)
+        for _ in range(self.cfg.noise_pipeline_times):
+            dataset = self.add_noise(dataset, rir_dataset, noise_dataset)
         dataset = dataset.batched(batch_size, collation_fn=self.collate_fn)
         return dataset
 

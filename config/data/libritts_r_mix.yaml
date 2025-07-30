@@ -47,7 +47,9 @@ augment_datamodule:
     name: facebook/w2v-bert-2.0
     sample_rate: 16000
 
-  out_dir: /groups/gag51394/users/asai/dialogue-separator/libritts_r_mix_noised
+  noise_pipeline_times: 4
+
+  out_dir: /groups/gag51394/users/asai/dialogue-separator/libritts_r_mix_noised_${data.augment_datamodule.noise_pipeline_times}
 
 datamodule:
   train:
