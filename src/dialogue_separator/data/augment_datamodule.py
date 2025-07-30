@@ -1,11 +1,14 @@
 import random
 from functools import partial
+from typing import Any
 
 import torch
+import torch.nn.functional as F
 import torchaudio
 import webdataset as wds
 from lightning.pytorch import LightningDataModule
 from omegaconf import DictConfig
+from torch.nn.utils.rnn import pad_sequence
 from transformers import AutoFeatureExtractor
 
 from dialogue_separator.data.functional_degrations import (
@@ -31,7 +34,6 @@ class AugmentDataModule(LightningDataModule):
         self.noise_dataset = (
             wds.WebDataset(
                 glob_wds(self.cfg.noise_paths),
-                shardshuffle=True,
                 nodesplitter=lambda x: x,
                 workersplitter=False,
                 repeat=True,
@@ -47,7 +49,6 @@ class AugmentDataModule(LightningDataModule):
         self.rir_dataset = (
             wds.WebDataset(
                 glob_wds(self.cfg.rir_paths),
-                shardshuffle=True,
                 nodesplitter=lambda x: x,
                 workersplitter=False,
                 repeat=True,
@@ -61,13 +62,13 @@ class AugmentDataModule(LightningDataModule):
         self.train_dataset = self.setup_dataset_pipeline(
             wds.WebDataset(
                 self.cfg.train.dataset_path,
-                shardshuffle=True,
+                shardshuffle=100,
                 nodesplitter=lambda x: x,
                 repeat=True,
             ),
             self.rir_dataset,
             self.noise_dataset,
-            shuffle=True,
+            batch_size=self.cfg.train.batch_size,
         )
         self.valid_dataset = self.setup_dataset_pipeline(
             wds.WebDataset(
@@ -78,7 +79,7 @@ class AugmentDataModule(LightningDataModule):
             ),
             self.rir_dataset,
             self.noise_dataset,
-            shuffle=False,
+            batch_size=self.cfg.valid.batch_size,
         )
         self.test_dataset = self.setup_dataset_pipeline(
             wds.WebDataset(
@@ -89,7 +90,7 @@ class AugmentDataModule(LightningDataModule):
             ),
             self.rir_dataset,
             self.noise_dataset,
-            shuffle=False,
+            batch_size=self.cfg.test.batch_size,
         )
 
     def setup_dataset_pipeline(
@@ -97,30 +98,31 @@ class AugmentDataModule(LightningDataModule):
         dataset: wds.WebDataset,
         rir_dataset: wds.WebDataset,
         noise_dataset: wds.WebDataset,
-        shuffle: bool,
+        batch_size: int,
     ) -> wds.WebDataset:
-        dataset = self.init_dataset(dataset, shuffle)
+        dataset = self.init_dataset(dataset)
         dataset = self.add_noise(dataset, rir_dataset, noise_dataset)
+        dataset = dataset.batched(batch_size, collation_fn=self.collate_fn)
         return dataset
 
-    def init_dataset(self, dataset: wds.WebDataset, shuffle: bool) -> wds.WebDataset:
+    def init_dataset(self, dataset: wds.WebDataset) -> wds.WebDataset:
         dataset = (
             dataset.decode(wds.autodecode.basichandlers, wds.torch_audio)
             .map(partial(self.lowcut, input_key="audio.flac", cutoff=50))
-            .compose(
-                partial(
-                    self.random_crop,
-                    n_crops=30,
-                    seconds=self.cfg.vae.max_duration,
-                    input_key="audio.flac",
-                )
-            )
             .map(
                 partial(self.normalize, input_key="audio.flac", output_key="audio.flac")
             )
-            .shuffle(100 if shuffle else 0)
-            .map(partial(self.rename_audio, input_key="audio.flac", output_key="clean"))
-            .map(partial(self.rename_audio, input_key="audio.flac", output_key="noisy"))
+            .map(
+                partial(
+                    self.rename_audio, input_key="audio.flac", output_key="clean_stereo"
+                )
+            )
+            .map(
+                partial(self.stereo_to_mono, input_key="audio.flac", output_key="noisy")
+            )
+            .map(
+                partial(self.stereo_to_mono, input_key="audio.flac", output_key="clean")
+            )
         )
         return dataset
 
@@ -260,12 +262,19 @@ class AugmentDataModule(LightningDataModule):
         return sample
 
     @staticmethod
+    def stereo_to_mono(sample, output_key: str, input_key: str):
+        wav, sr = sample[input_key]
+        assert wav.shape[0] == 2
+        sample[output_key] = (wav[0] + wav[1], sr)
+        return sample
+
+    @staticmethod
     @torch.inference_mode()
     def lowcut(sample, input_key: str, cutoff=50):
         wav, sr = sample[input_key]
         wav = torchaudio.functional.highpass_biquad(wav, sr, cutoff)
         new_sample = sample.copy()
-        new_sample[input_key] = (wav.view(1, -1), sr)
+        new_sample[input_key] = (wav, sr)
         return new_sample
 
     @staticmethod
@@ -301,3 +310,93 @@ class AugmentDataModule(LightningDataModule):
         new_sample = sample.copy()
         new_sample[output_key] = (wav, sr)
         return new_sample
+
+    def collate_fn(self, batch) -> dict[str, Any]:
+        max_duration = self.cfg.vae.max_duration
+
+        raw_wav_1 = torch.zeros(len(batch), self.cfg.vae.sample_rate * max_duration)
+        raw_wav_2 = torch.zeros(len(batch), self.cfg.vae.sample_rate * max_duration)
+        clean_wav = torch.zeros(len(batch), self.cfg.vae.sample_rate * max_duration)
+        noisy_wav = torch.zeros(
+            len(batch), self.cfg.ssl_model.sample_rate * max_duration
+        )
+
+        wav_len = []
+        vae_feature_1 = []
+        vae_feature_2 = []
+        vae_len = []
+        text_1 = []
+        text_2 = []
+        wav_ssl_input = []
+
+        for i, sample in enumerate(batch):
+            _raw, sr = sample["clean_stereo"]
+
+            if sr != self.cfg.vae.sample_rate:
+                _raw = torchaudio.functional.resample(
+                    _raw, sr, self.cfg.vae.sample_rate
+                )
+
+            _raw = _raw[:, : self.cfg.vae.sample_rate * max_duration]
+            raw_wav_1[i, : _raw.shape[-1]] = _raw[0]
+            raw_wav_2[i, : _raw.shape[-1]] = _raw[1]
+
+            _clean, sr = sample["clean"]
+
+            if sr != self.cfg.vae.sample_rate:
+                _clean = torchaudio.functional.resample(
+                    _clean, sr, self.cfg.vae.sample_rate
+                )
+            _clean = _clean[: self.cfg.vae.sample_rate * max_duration]
+            clean_wav[i, : _clean.shape[-1]] = _clean
+
+            _wav_len = _raw.shape[-1]
+            wav_len.append(_wav_len)
+
+            vae_feature_1.append(sample["vae_feature_1.pth"])
+            vae_feature_2.append(sample["vae_feature_2.pth"])
+
+            _vae_len = (
+                sample["vae_feature_1.pth"].shape[-1] * _wav_len // raw_wav_1.shape[-1]
+            )
+            vae_len.append(_vae_len)
+
+            text_1.append(sample["text_1.txt"])
+            text_2.append(sample["text_2.txt"])
+
+            _noisy, sr = sample["noisy"]
+
+            if sr != self.cfg.ssl_model.sample_rate:
+                _noisy = torchaudio.functional.resample(
+                    _noisy, sr, self.cfg.vae.sample_rate
+                )
+
+            _noisy = _noisy[: self.cfg.ssl_model.sample_rate * max_duration]
+            noisy_wav[i, : _noisy.shape[-1]] = _noisy
+            _wav_ssl_input = F.pad(_noisy, (40, 40), mode="constant", value=0)
+            wav_ssl_input.append(_wav_ssl_input)
+
+        vae_feature_1 = pad_sequence(vae_feature_1, batch_first=True)
+        vae_feature_2 = pad_sequence(vae_feature_2, batch_first=True)
+
+        ssl_input = self.processor(
+            [w.cpu().numpy() for w in wav_ssl_input],
+            sampling_rate=self.cfg.ssl_model.sample_rate,
+            return_tensors="pt",
+        )
+
+        output = {
+            "raw_wav_1": raw_wav_1,
+            "raw_wav_2": raw_wav_2,
+            "clean_wav": clean_wav,
+            "noisy_wav": noisy_wav,
+            "wav_len": torch.tensor(wav_len),
+            "vae_len": torch.tensor(vae_len),
+            "vae_feature_1": vae_feature_1,
+            "vae_feature_2": vae_feature_2,
+            "ssl_input": ssl_input,
+            "text_1": text_1,
+            "text_2": text_2,
+        }
+
+        return output
