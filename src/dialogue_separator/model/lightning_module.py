@@ -128,13 +128,15 @@ class DialogueSeparatorLightningModule(LightningModule):
         wav_sr = self.cfg.model.vae.sample_rate
         if batch_idx < 5 and self.global_rank == 0 and self.local_rank == 0:
             wav_len = batch["wav_len"][0]
-            source_1 = batch["wav_1"][0][:wav_len].cpu().numpy()
-            source_2 = batch["wav_2"][0][:wav_len].cpu().numpy()
-            source_merged = batch["wav_merged"][0][:wav_len].cpu().numpy()
+            wav_1 = batch["raw_wav_1"][0][:wav_len].cpu().numpy()
+            wav_2 = batch["raw_wav_2"][0][:wav_len].cpu().numpy()
+            clean_wav = batch["clean_wav"][0][:wav_len].cpu().numpy()
+            noisy_wav = batch["noisy_wav"][0][:wav_len].cpu().numpy()
 
-            self.log_audio(source_1, f"source_1/{batch_idx}", wav_sr)
-            self.log_audio(source_2, f"source_2/{batch_idx}", wav_sr)
-            self.log_audio(source_merged, f"source_merged/{batch_idx}", wav_sr)
+            self.log_audio(wav_1, f"wav_1/{batch_idx}", wav_sr)
+            self.log_audio(wav_2, f"wav_2/{batch_idx}", wav_sr)
+            self.log_audio(clean_wav, f"clean_wav/{batch_idx}", wav_sr)
+            self.log_audio(noisy_wav, f"noisy_wav/{batch_idx}", wav_sr)
 
             est_feature1, est_feature2 = self.forward(batch)
             est_feature1, est_feature2 = self.change_permutation(
@@ -178,7 +180,7 @@ class DialogueSeparatorLightningModule(LightningModule):
             estimated_2_all = self.dacvae.decode(est_feature2)
 
         wav_sr = self.cfg.model.vae.sample_rate
-        batch_size = batch["wav_1"].size(0)
+        batch_size = batch["raw_wav_1"].size(0)
         for i in range(batch_size):
             sample_dir = Path("test_output") / f"{batch_idx}" / f"{i}"
             sample_dir.mkdir(parents=True, exist_ok=True)
@@ -186,20 +188,18 @@ class DialogueSeparatorLightningModule(LightningModule):
             metrics_dir.mkdir(parents=True, exist_ok=True)
 
             wav_len = batch["wav_len"][i]
-            source_1 = batch["wav_1"][i][:wav_len]
-            source_2 = batch["wav_2"][i][:wav_len]
-            source_merged = batch["wav_merged"][i][:wav_len]
+            wav_1 = batch["raw_wav_1"][i][:wav_len]
+            wav_2 = batch["raw_wav_2"][i][:wav_len]
+            clean_wav = batch["clean_wav"][i][:wav_len]
+            noisy_wav = batch["noisy_wav"][i][:wav_len]
 
+            torchaudio.save(sample_dir / "wav_1.wav", wav_1.cpu().unsqueeze(0), wav_sr)
+            torchaudio.save(sample_dir / "wav_2.wav", wav_2.cpu().unsqueeze(0), wav_sr)
             torchaudio.save(
-                sample_dir / "source_1.wav", source_1.cpu().unsqueeze(0), wav_sr
+                sample_dir / "clean_wav.wav", clean_wav.cpu().unsqueeze(0), wav_sr
             )
             torchaudio.save(
-                sample_dir / "source_2.wav", source_2.cpu().unsqueeze(0), wav_sr
-            )
-            torchaudio.save(
-                sample_dir / "source_merged.wav",
-                source_merged.cpu().unsqueeze(0),
-                wav_sr,
+                sample_dir / "noisy_wav.wav", noisy_wav.cpu().unsqueeze(0), wav_sr
             )
 
             decoded_1 = decoded_1_all[i].squeeze()[:wav_len].to(torch.float32)
@@ -222,9 +222,9 @@ class DialogueSeparatorLightningModule(LightningModule):
             )
 
             df_without_ref, df_with_ref = self.evaluation_metrics(
-                source_1,
-                source_2,
-                source_merged,
+                wav_1,
+                wav_2,
+                clean_wav,
                 decoded_1,
                 decoded_2,
                 estimated_1,
@@ -386,7 +386,7 @@ class DialogueSeparatorLightningModule(LightningModule):
         ssl_merged = self.ssl_feature_extractor.forward(batch["ssl_input"])
 
         vae_size = (
-            batch["wav_merged"].size(0),
+            batch["clean_wav"].size(0),
             333,  # 20秒の音声のVAEは長さ333（ハードコーディング）
             self.cfg.model.vae.hidden_size,
         )
