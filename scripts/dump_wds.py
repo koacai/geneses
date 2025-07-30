@@ -5,7 +5,7 @@ from dialogue_separator.data.augment_datamodule import AugmentDataModule
 from dialogue_separator.data.wds_writer import run_parallel_writing
 
 
-@hydra.main(config_path="../config", config_name="default")
+@hydra.main(config_path="../config", config_name="default", version_base=None)
 def main(cfg: DictConfig) -> None:
     """Run the parallel preprocessing and writing for train and validation sets."""
     NUM_WRITERS = 32
