@@ -55,7 +55,9 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         self.dacvae = DACVAE(cfg.model.vae.ckpt_path)
         self.ssl_feature_extractor = SSLFeatureExtractor(
-            cfg.model.ssl_model.name, cfg.model.ssl_model.layer
+            cfg.model.ssl_model.name,
+            cfg.model.ssl_model.layer,
+            cfg.model.ssl_model.fine_tuning_mode,
         )
 
         self.save_hyperparameters(cfg)
@@ -75,11 +77,9 @@ class DialogueSeparatorLightningModule(LightningModule):
 
     def on_fit_start(self) -> None:
         self.dacvae.to(self.device)
-        self.ssl_feature_extractor.to(self.device)
 
     def on_test_start(self) -> None:
         self.dacvae.to(self.device)
-        self.ssl_feature_extractor.to(self.device)
 
     def calc_loss(self, batch: dict[str, Any]) -> torch.Tensor:
         vae_1 = batch["vae_feature_1"].permute(0, 2, 1)

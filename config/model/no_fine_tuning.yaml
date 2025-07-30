@@ -19,6 +19,9 @@ mmdit:
   depth: 12
   heads: 12
 
-ssl_model: ${data.augment_datamodule.ssl_model}
+ssl_model:
+  name: ${data.augment_datamodule.ssl_model.name}
+  layer: 13
+  fine_tuning_mode: none
 
 t_sampling_schema: logit_normal # [uniform, logit_normal]
