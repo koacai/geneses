@@ -99,6 +99,11 @@ class AugmentDataModule(LightningDataModule):
         noise_dataset: wds.WebDataset,
         shuffle: bool,
     ) -> wds.WebDataset:
+        dataset = self.init_dataset(dataset, shuffle)
+        dataset = self.add_noise(dataset, rir_dataset, noise_dataset)
+        return dataset
+
+    def init_dataset(self, dataset: wds.WebDataset, shuffle: bool) -> wds.WebDataset:
         dataset = (
             dataset.decode(wds.autodecode.basichandlers, wds.torch_audio)
             .map(partial(self.lowcut, input_key="audio.flac", cutoff=50))
@@ -116,8 +121,17 @@ class AugmentDataModule(LightningDataModule):
             .shuffle(100 if shuffle else 0)
             .map(partial(self.rename_audio, input_key="audio.flac", output_key="clean"))
             .map(partial(self.rename_audio, input_key="audio.flac", output_key="noisy"))
-            # add noise
-            .compose(
+        )
+        return dataset
+
+    def add_noise(
+        self,
+        dataset: wds.WebDataset,
+        rir_dataset: wds.WebDataset,
+        noise_dataset: wds.WebDataset,
+    ) -> wds.WebDataset:
+        dataset = (
+            dataset.compose(
                 partial(
                     random_apply,
                     prob=0.5,
