@@ -8,6 +8,15 @@ from lightning.pytorch import LightningDataModule
 from omegaconf import DictConfig
 from transformers import AutoFeatureExtractor
 
+from dialogue_separator.data.functional_degrations import (
+    add_non_parametric_noise,
+    band_limit,
+    clip,
+    codec,
+    convolve_rir_pra,
+    packet_loss,
+    random_apply,
+)
 from dialogue_separator.data.util import glob_wds
 
 
@@ -56,6 +65,8 @@ class AugmentDataModule(LightningDataModule):
                 nodesplitter=lambda x: x,
                 repeat=True,
             ),
+            self.rir_dataset,
+            self.noise_dataset,
             shuffle=True,
         )
         self.valid_dataset = self.setup_dataset_pipeline(
@@ -65,6 +76,8 @@ class AugmentDataModule(LightningDataModule):
                 nodesplitter=lambda x: x,
                 repeat=True,
             ),
+            self.rir_dataset,
+            self.noise_dataset,
             shuffle=False,
         )
         self.test_dataset = self.setup_dataset_pipeline(
@@ -74,11 +87,17 @@ class AugmentDataModule(LightningDataModule):
                 nodesplitter=lambda x: x,
                 repeat=True,
             ),
+            self.rir_dataset,
+            self.noise_dataset,
             shuffle=False,
         )
 
     def setup_dataset_pipeline(
-        self, dataset: wds.WebDataset, shuffle: bool
+        self,
+        dataset: wds.WebDataset,
+        rir_dataset: wds.WebDataset,
+        noise_dataset: wds.WebDataset,
+        shuffle: bool,
     ) -> wds.WebDataset:
         dataset = (
             dataset.decode(wds.autodecode.basichandlers, wds.torch_audio)
@@ -97,6 +116,87 @@ class AugmentDataModule(LightningDataModule):
             .shuffle(100 if shuffle else 0)
             .map(partial(self.rename_audio, input_key="audio.flac", output_key="clean"))
             .map(partial(self.rename_audio, input_key="audio.flac", output_key="noisy"))
+            # add noise
+            .compose(
+                partial(
+                    random_apply,
+                    prob=0.5,
+                    transform_fn=convolve_rir_pra,
+                    input_key="clean",
+                    direct_key="clean",
+                    reverb_key="noisy",
+                    rir_ds=iter(rir_dataset),
+                )
+            )
+            .compose(
+                partial(
+                    random_apply,
+                    prob=0.5,
+                    transform_fn=add_non_parametric_noise,
+                    input_key="noisy",
+                    output_key="noisy",
+                    noise_ds=iter(noise_dataset),
+                )
+            )
+            .compose(
+                partial(
+                    random_apply,
+                    prob=0.5,
+                    transform_fn=band_limit,
+                    candidate_srs=[8000, 16000, 22050, 24000, 44100, 48000],
+                    output_key="noisy",
+                    input_key="noisy",
+                )
+            )
+            .compose(
+                partial(
+                    random_apply,
+                    prob=0.5,
+                    transform_fn=clip,
+                    input_key="noisy",
+                    output_key="noisy",
+                )
+            )
+            .compose(
+                partial(
+                    random_apply,
+                    prob=0.5,
+                    transform_fn=codec,
+                    codec_effectors=[
+                        torchaudio.io.AudioEffector(
+                            format="mp3",
+                            codec_config=torchaudio.io.CodecConfig(qscale=10),
+                        ),
+                        torchaudio.io.AudioEffector(
+                            format="mp3",
+                            codec_config=torchaudio.io.CodecConfig(qscale=8),
+                        ),
+                        torchaudio.io.AudioEffector(
+                            format="mp3",
+                            codec_config=torchaudio.io.CodecConfig(qscale=4),
+                        ),
+                        torchaudio.io.AudioEffector(
+                            format="mp3",
+                            codec_config=torchaudio.io.CodecConfig(qscale=2),
+                        ),
+                        torchaudio.io.AudioEffector(
+                            format="mp3",
+                            codec_config=torchaudio.io.CodecConfig(qscale=1),
+                        ),
+                    ],
+                    input_key="noisy",
+                    output_key="noisy",
+                )
+            )
+            .compose(
+                partial(
+                    random_apply,
+                    prob=0.5,
+                    transform_fn=packet_loss,
+                    input_key="noisy",
+                    output_key="noisy",
+                )
+            )
         )
         return dataset
 
