@@ -53,12 +53,12 @@ augment_datamodule:
 datamodule:
   train:
     dataset_dir: ${data.augment_datamodule.out_dir}/train/
-    batch_size: 64
+    batch_size: 32
   valid:
     dataset_dir: ${data.augment_datamodule.out_dir}/valid/
     batch_size: 16
   test:
     dataset_dir: ${data.augment_datamodule.out_dir}/test/
     batch_size: 4
-  num_workers: 8
+  num_workers: 16
   use_ddp: true
