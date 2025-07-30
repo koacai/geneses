@@ -1,8 +1,9 @@
 import torch
+from torch import nn
 from transformers import Wav2Vec2BertModel
 
 
-class SSLFeatureExtractor:
+class SSLFeatureExtractor(nn.Module):
     def __init__(self, ssl_model_name: str, layer: int) -> None:
         self.model = Wav2Vec2BertModel.from_pretrained(ssl_model_name).eval()
         self.layer = layer
@@ -13,6 +14,3 @@ class SSLFeatureExtractor:
             self.layer
         ]
         return feature
-
-    def to(self, device: torch.device) -> None:
-        self.model = self.model.to(device)  # type: ignore
