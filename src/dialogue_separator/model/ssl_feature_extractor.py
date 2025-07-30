@@ -30,7 +30,7 @@ class SSLFeatureExtractor(nn.Module):
 
         elif fine_tuning_mode == "hf_adapter":
             self.model = Wav2Vec2BertModel.from_pretrained(
-                ssl_model_name, add_adapter=True
+                ssl_model_name, layerdrop=0.0, add_adapter=True
             )
             for param in self.model.parameters():
                 param.requires_grad = False
