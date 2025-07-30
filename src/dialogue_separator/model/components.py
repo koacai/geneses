@@ -75,7 +75,6 @@ class MMDiT(nn.Module):
         max_seq_len: int,
         depth: int,
         heads: int,
-        dropout: float = 0.1,
     ) -> None:
         super(MMDiT, self).__init__()
 
@@ -84,8 +83,6 @@ class MMDiT(nn.Module):
         self.ssl_embedder_merged = nn.Linear(in_ssl_channels, hidden_size, bias=True)
         self.vae_embedder_1 = nn.Linear(in_channels, hidden_size, bias=True)
         self.vae_embedder_2 = nn.Linear(in_channels, hidden_size, bias=True)
-
-        self.dropout = nn.Dropout(dropout)
 
         self.ssl_pos_embed_merged = nn.Parameter(
             torch.zeros(1, max_ssl_seq_len, hidden_size), requires_grad=False
@@ -141,7 +138,6 @@ class MMDiT(nn.Module):
             self.ssl_embedder_merged(ssl_merged)
             + self.ssl_pos_embed_merged[:, : ssl_merged.shape[1], :]
         )
-        ssl_merged = self.dropout(ssl_merged)
 
         vae_1 = (
             self.vae_embedder_1(vae_1) + self.vae_pos_embed_1[:, : vae_1.shape[1], :]
