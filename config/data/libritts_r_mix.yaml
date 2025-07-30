@@ -46,7 +46,6 @@ augment_datamodule:
   ssl_model:
     name: facebook/w2v-bert-2.0
     sample_rate: 16000
-    layer: 13
 
   out_dir: /groups/gag51394/users/asai/dialogue-separator/libritts_r_mix_noised
 

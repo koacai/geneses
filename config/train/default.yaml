@@ -21,4 +21,4 @@ trainer:
       patience: 30
       verbose: true
       min_delta: 0.001
-  fast_dev_run: false
+  fast_dev_run: true

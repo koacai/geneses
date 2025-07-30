@@ -55,7 +55,9 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         self.dacvae = DACVAE(cfg.model.vae.ckpt_path)
         self.ssl_feature_extractor = SSLFeatureExtractor(
-            cfg.model.ssl_model.name, cfg.model.ssl_model.layer
+            cfg.model.ssl_model.name,
+            cfg.model.ssl_model.layer,
+            cfg.model.ssl_model.fine_tuning_mode,
         )
 
         self.save_hyperparameters(cfg)
