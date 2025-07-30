@@ -1,4 +1,4 @@
 defaults:
   - data: libritts_r_mix
-  - model: no_fine_tuning
+  - model: hf_adapter
   - train: default
