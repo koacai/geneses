@@ -520,6 +520,7 @@ dependencies = [
     { name = "matplotlib" },
     { name = "mmdit" },
     { name = "phonemizer" },
+    { name = "pyroomacoustics" },
     { name = "pysptk" },
     { name = "python-dotenv" },
     { name = "torch", version = "2.6.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
@@ -549,6 +550,7 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.3" },
     { name = "mmdit", specifier = ">=0.2.2" },
     { name = "phonemizer", specifier = ">=3.3.0" },
+    { name = "pyroomacoustics", specifier = ">=0.8.4" },
     { name = "pysptk", specifier = ">=1.0.1" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "torch", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'", specifier = ">=2.6.0" },
@@ -2148,6 +2150,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pybind11"
+version = "3.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ef/83/698d120e257a116f2472c710932023ad779409adf2734d2e940f34eea2c5/pybind11-3.0.0.tar.gz", hash = "sha256:c3f07bce3ada51c3e4b76badfa85df11688d12c46111f9d242bc5c9415af7862", size = 544819, upload-time = "2025-07-10T16:52:09.335Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/41/9c/85f50a5476832c3efc67b6d7997808388236ae4754bf53e1749b3bc27577/pybind11-3.0.0-py3-none-any.whl", hash = "sha256:7c5cac504da5a701b5163f0e6a7ba736c713a096a5378383c5b4b064b753f607", size = 292118, upload-time = "2025-07-10T16:52:07.828Z" },
+]
+
+[[package]]
 name = "pycparser"
 version = "2.22"
 source = { registry = "https://pypi.org/simple" }
@@ -2249,6 +2260,22 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/0f/49/4cea918a08f02817aabae639e3d0ac046fef9f9180518a3ad394e22da148/pyreadline3-3.5.4.tar.gz", hash = "sha256:8d57d53039a1c75adba8e50dd3d992b28143480816187ea5efbd5c78e6c885b7", size = 99839, upload-time = "2024-09-19T02:40:10.062Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5a/dc/491b7661614ab97483abf2056be1deee4dc2490ecbf7bff9ab5cdbac86e1/pyreadline3-3.5.4-py3-none-any.whl", hash = "sha256:eaf8e6cc3c49bcccf145fc6067ba8643d1df34d604a1ec0eccbf7a18e6d3fae6", size = 83178, upload-time = "2024-09-19T02:40:08.598Z" },
+]
+
+[[package]]
+name = "pyroomacoustics"
+version = "0.8.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cython" },
+    { name = "numpy" },
+    { name = "pybind11" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bb/3a/7bc15b0d46e1e2de5f4a6a1a568f52316f003530061e0caff3e3365b32fc/pyroomacoustics-0.8.4.tar.gz", hash = "sha256:cb70e511c41952f0f578355ae261b72acc4b688d995d02780ac0847d0b400d99", size = 35092344, upload-time = "2025-05-18T15:20:26.888Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f6/02/d4fb192a7da1cc11284d3771f6c5b0ec4c77938cce80c4285510c4fabdb3/pyroomacoustics-0.8.4-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:fac868b720c18ec60f9dbbfe92d2f5dfab1b50b0e7bbce00b35e8f2b37337181", size = 34911325, upload-time = "2025-05-18T15:23:31.74Z" },
+    { url = "https://files.pythonhosted.org/packages/17/84/73b83f4d14aa4f789bc17becbddf00d5a269d488a1a13e061101437e431d/pyroomacoustics-0.8.4-cp312-cp312-win_amd64.whl", hash = "sha256:b00acce7e7501b85ee263efd70bc765f08f0cabf713a289ae8a77b923078aeae", size = 34361455, upload-time = "2025-05-18T15:28:34.842Z" },
 ]
 
 [[package]]
