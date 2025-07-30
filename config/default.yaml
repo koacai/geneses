@@ -1,4 +1,4 @@
 defaults:
   - data: libritts_r_mix
-  - model: hf_adapter
+  - model: lora
   - train: default
