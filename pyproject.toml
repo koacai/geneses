@@ -17,6 +17,7 @@ dependencies = [
     "matplotlib>=3.10.3",
     "mmdit>=0.2.2",
     "phonemizer>=3.3.0",
+    "pyroomacoustics>=0.8.4",
     "pysptk>=1.0.1",
     "python-dotenv>=1.1.1",
     "torch>=2.6.0",

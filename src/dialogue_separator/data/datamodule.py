@@ -1,27 +1,26 @@
+from collections import defaultdict
 from typing import Any
 
 import torch
-import torch.nn.functional as F
-import torchaudio
 import webdataset as wds
 from lightning.pytorch import LightningDataModule
 from omegaconf import DictConfig
 from torch.nn.utils.rnn import pad_sequence
-from transformers import AutoFeatureExtractor
+
+from dialogue_separator.data.util import glob_wds
 
 
 class DialogueSeparatorDataModule(LightningDataModule):
     def __init__(self, cfg: DictConfig) -> None:
         super(DialogueSeparatorDataModule, self).__init__()
         self.cfg = cfg
-        self.processor = AutoFeatureExtractor.from_pretrained(cfg.ssl_model.name)
 
     def setup(self, stage: str) -> None:
         nodesplitter = wds.split_by_worker if self.cfg.use_ddp else wds.single_node_only
         if stage == "fit":
             self.train_dataset = (
                 wds.WebDataset(
-                    self.cfg.train.dataset_path,
+                    glob_wds(self.cfg.train.dataset_dir),
                     shardshuffle=100,
                     nodesplitter=nodesplitter,
                     repeat=True,
@@ -32,7 +31,7 @@ class DialogueSeparatorDataModule(LightningDataModule):
 
             self.valid_dataset = (
                 wds.WebDataset(
-                    self.cfg.valid.dataset_path,
+                    glob_wds(self.cfg.valid.dataset_dir),
                     shardshuffle=False,
                     nodesplitter=nodesplitter,
                     repeat=True,
@@ -44,7 +43,7 @@ class DialogueSeparatorDataModule(LightningDataModule):
         elif stage == "test":
             self.test_dataset = (
                 wds.WebDataset(
-                    self.cfg.test.dataset_path,
+                    glob_wds(self.cfg.test.dataset_dir),
                     shardshuffle=False,
                     nodesplitter=wds.single_node_only,
                     repeat=True,
@@ -90,76 +89,45 @@ class DialogueSeparatorDataModule(LightningDataModule):
         return x[0]
 
     def collate_fn(self, batch) -> dict[str, Any]:
-        max_duration = self.cfg.vae.max_duration
-
-        wav_1 = torch.zeros(len(batch), self.cfg.vae.sample_rate * max_duration)
-        wav_2 = torch.zeros(len(batch), self.cfg.vae.sample_rate * max_duration)
-        wav_merged = torch.zeros(len(batch), self.cfg.vae.sample_rate * max_duration)
-
+        raw_wav_1 = []
+        raw_wav_2 = []
+        clean_wav = []
+        noisy_wav = []
         wav_len = []
+        vae_len = []
         vae_feature_1 = []
         vae_feature_2 = []
-        vae_len = []
         text_1 = []
         text_2 = []
-        wav_ssl_input = []
+        ssl_input = defaultdict(list)
 
-        for i, sample in enumerate(batch):
-            dialogue, sr = sample["audio.flac"]
+        for sample in batch:
+            raw_wav_1.append(sample["raw_wav_1.pth"].squeeze())
+            raw_wav_2.append(sample["raw_wav_2.pth"].squeeze())
+            clean_wav.append(sample["clean_wav.pth"].squeeze())
+            noisy_wav.append(sample["noisy_wav.pth"].squeeze())
+            wav_len.append(sample["wav_len.pth"][0])
+            vae_len.append(sample["vae_len.pth"][0])
+            vae_feature_1.append(sample["vae_feature_1.pth"].squeeze())
+            vae_feature_2.append(sample["vae_feature_2.pth"].squeeze())
+            text_1.append(sample["text_1.pickle"][0])
+            text_2.append(sample["text_2.pickle"][0])
 
-            if sr != self.cfg.vae.sample_rate:
-                dialogue = torchaudio.functional.resample(
-                    dialogue, sr, self.cfg.vae.sample_rate
-                )
+            for k, v in sample["ssl_input.pickle"].items():
+                ssl_input[k].append(v.squeeze())
 
-            dialogue = dialogue[:, : self.cfg.vae.sample_rate * max_duration]
-            wav_1[i, : dialogue.shape[-1]] = dialogue[0]
-            wav_2[i, : dialogue.shape[-1]] = dialogue[1]
-            wav_merged[i, : dialogue.shape[-1]] = dialogue[0] + dialogue[1]
-
-            _wav_len = dialogue.shape[-1]
-            wav_len.append(_wav_len)
-
-            vae_feature_1.append(sample["vae_feature_1.pth"])
-            vae_feature_2.append(sample["vae_feature_2.pth"])
-
-            _vae_len = (
-                sample["vae_feature_1.pth"].shape[-1] * _wav_len // wav_1.shape[-1]
-            )
-            vae_len.append(_vae_len)
-
-            text_1.append(sample["text_1.txt"])
-            text_2.append(sample["text_2.txt"])
-
-            if sr != self.cfg.ssl_model.sample_rate:
-                dialogue = torchaudio.functional.resample(
-                    dialogue, sr, self.cfg.ssl_model.sample_rate
-                )
-
-            _wav_ssl_input = dialogue[0] + dialogue[1]
-            _wav_ssl_input = F.pad(_wav_ssl_input, (40, 40), mode="constant", value=0)
-            wav_ssl_input.append(_wav_ssl_input)
-
-        vae_feature_1 = pad_sequence(vae_feature_1, batch_first=True)
-        vae_feature_2 = pad_sequence(vae_feature_2, batch_first=True)
-
-        ssl_input = self.processor(
-            [w.cpu().numpy() for w in wav_ssl_input],
-            sampling_rate=self.cfg.ssl_model.sample_rate,
-            return_tensors="pt",
-        )
-
-        output = {
-            "wav_1": wav_1,
-            "wav_2": wav_2,
-            "wav_merged": wav_merged,
-            "wav_len": torch.tensor(wav_len),
-            "vae_len": torch.tensor(vae_len),
-            "vae_feature_1": vae_feature_1,
-            "vae_feature_2": vae_feature_2,
-            "ssl_input": ssl_input,
+        return {
+            "raw_wav_1": torch.stack(raw_wav_1),
+            "raw_wav_2": torch.stack(raw_wav_2),
+            "clean_wav": torch.stack(clean_wav),
+            "noisy_wav": torch.stack(noisy_wav),
+            "wav_len": torch.stack(wav_len),
+            "vae_len": torch.stack(vae_len),
+            "vae_feature_1": torch.stack(vae_feature_1),
+            "vae_feature_2": torch.stack(vae_feature_2),
             "text_1": text_1,
             "text_2": text_2,
+            "ssl_input": {
+                k: pad_sequence(v, batch_first=True) for k, v in ssl_input.items()
+            },
         }
-
-        return output

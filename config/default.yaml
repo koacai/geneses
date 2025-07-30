@@ -1,4 +1,4 @@
 defaults:
-  - data: libri2mix
+  - data: libritts_r_mix
   - model: default
   - train: default

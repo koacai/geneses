@@ -1,0 +1,64 @@
+dataset:
+  corpus:
+    _target_: lhotse_dataset.LibriTTSRMixClean
+
+  shar_dir: /groups/gag51394/users/asai/shar/libritts_r_mix_clean
+
+preprocess:
+  _target_: dialogue_separator.data.preprocessor.Preprocessor
+  cfg:
+    shar_dir: ${data.dataset.shar_dir}
+    webdataset_dir: /groups/gag51394/users/asai/webdataset/dialogue-separator/libritts_r_mix
+    device: cuda
+
+    shard_size:
+      train: 1e8
+      valid: 3e6
+      test: 3e6
+
+    vae:
+      ckpt_path: /groups/gag51394/users/asai/dacvae_l16_librispeech.pt
+      hidden_size: 16
+      max_duration: 20
+      sample_rate: 16000
+
+    noise_amp: 1e-4
+
+augment_datamodule:
+  train:
+    dataset_dir: ${data.preprocess.cfg.webdataset_dir}/train/
+    batch_size: 1
+    shard_maxcount: 100
+  valid:
+    dataset_dir: ${data.preprocess.cfg.webdataset_dir}/valid/
+    batch_size: 1
+    shard_maxcount: 30
+  test:
+    dataset_dir: ${data.preprocess.cfg.webdataset_dir}/test/
+    batch_size: 1
+    shard_maxcount: 30
+  noise_dir: /groups/gag51394/users/asai/dataset_stripe/noise/
+  rir_dir: /groups/gag51394/users/asai/dataset_stripe/rir/dns5_fullband/
+  num_workers: 16
+
+  vae: ${data.preprocess.cfg.vae}
+
+  ssl_model:
+    name: facebook/w2v-bert-2.0
+    sample_rate: 16000
+    layer: 13
+
+  out_dir: /groups/gag51394/users/asai/dialogue-separator/libritts_r_mix_noised
+
+datamodule:
+  train:
+    dataset_dir: ${data.augment_datamodule.out_dir}/train/
+    batch_size: 32
+  valid:
+    dataset_dir: ${data.augment_datamodule.out_dir}/valid/
+    batch_size: 16
+  test:
+    dataset_dir: ${data.augment_datamodule.out_dir}/test/
+    batch_size: 4
+  num_workers: 32
+  use_ddp: true

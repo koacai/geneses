@@ -13,12 +13,12 @@ mmdit:
   in_channels: ${model.vae.hidden_size}
   in_ssl_channels: 1024
   out_channels: ${model.vae.hidden_size}
-  hidden_size: 384
+  hidden_size: 512
   max_ssl_seq_len: 1000
   max_seq_len: 334
   depth: 12
-  heads: 6
+  heads: 12
 
-ssl_model: ${data.datamodule.ssl_model}
+ssl_model: ${data.augment_datamodule.ssl_model}
 
 t_sampling_schema: logit_normal # [uniform, logit_normal]
