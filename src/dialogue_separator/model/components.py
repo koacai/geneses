@@ -146,12 +146,10 @@ class MMDiT(nn.Module):
         vae_1 = (
             self.vae_embedder_1(vae_1) + self.vae_pos_embed_1[:, : vae_1.shape[1], :]
         )
-        vae_1 = self.dropout(vae_1)
 
         vae_2 = (
             self.vae_embedder_2(vae_2) + self.vae_pos_embed_2[:, : vae_2.shape[1], :]
         )
-        vae_2 = self.dropout(vae_2)
         t = t * 1000
 
         t = self.t_embedder(t)  # (N, D)
