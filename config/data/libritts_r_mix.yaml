@@ -27,18 +27,18 @@ preprocess:
 augment_datamodule:
   train:
     dataset_path: ${data.preprocess.cfg.webdataset_dir}/train/data-{000000..000219}.tar
-    batch_size: 64
+    batch_size: 1
   valid:
     dataset_path: ${data.preprocess.cfg.webdataset_dir}/valid/data-{000000..000312}.tar
-    batch_size: 16
+    batch_size: 1
   test:
     dataset_path: ${data.preprocess.cfg.webdataset_dir}/test/data-{000000..000290}.tar
-    batch_size: 4
+    batch_size: 1
   noise_paths:
     - /groups/gag51394/users/asai/dataset_stripe/noise/
   rir_paths:
     - /groups/gag51394/users/asai/dataset_stripe/rir/dns5_fullband/
-  num_workers: 8
+  num_workers: 16
 
   vae: ${data.preprocess.cfg.vae}
 
@@ -46,6 +46,8 @@ augment_datamodule:
     name: facebook/w2v-bert-2.0
     sample_rate: 16000
     layer: 13
+
+  out_dir: /groups/gag51394/users/asai/dialogue-separator/libritts_r_mix_noised
 
 datamodule:
   train:
