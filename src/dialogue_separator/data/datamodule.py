@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Any
 
 import torch
@@ -98,8 +99,7 @@ class DialogueSeparatorDataModule(LightningDataModule):
         vae_feature_2 = []
         text_1 = []
         text_2 = []
-        input_features = []
-        attention_mask = []
+        ssl_input = defaultdict(list)
 
         for sample in batch:
             raw_wav_1.append(sample["raw_wav_1.pth"].squeeze())
@@ -113,12 +113,8 @@ class DialogueSeparatorDataModule(LightningDataModule):
             text_1.append(sample["text_1.pickle"][0])
             text_2.append(sample["text_2.pickle"][0])
 
-            ssl_input = sample["ssl_input.pickle"]
-            input_features.append(ssl_input["input_features"].squeeze())
-            attention_mask.append(ssl_input["attention_mask"].squeeze())
-
-        input_features_padded = pad_sequence(input_features, batch_first=True)
-        attention_mask_padded = pad_sequence(attention_mask, batch_first=True)
+            for k, v in sample["ssl_input.pickle"].items():
+                ssl_input[k].append(v.squeeze())
 
         return {
             "raw_wav_1": torch.stack(raw_wav_1),
@@ -132,7 +128,6 @@ class DialogueSeparatorDataModule(LightningDataModule):
             "text_1": text_1,
             "text_2": text_2,
             "ssl_input": {
-                "input_features": input_features_padded,
-                "attention_mask": attention_mask_padded,
+                k: pad_sequence(v, batch_first=True) for k, v in ssl_input.items()
             },
         }

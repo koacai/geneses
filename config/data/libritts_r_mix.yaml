@@ -60,5 +60,5 @@ datamodule:
   test:
     dataset_dir: ${data.augment_datamodule.out_dir}/test/
     batch_size: 4
-  num_workers: 16
+  num_workers: 32
   use_ddp: true
