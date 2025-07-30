@@ -6,14 +6,9 @@ from multiprocessing import Manager, Process, Queue
 import torch
 import tqdm
 import webdataset as wds
-from omegaconf import DictConfig
 
 
 def process_item(item):
-    """
-    Processes a single data item, converting its contents into a format
-    suitable for WebDataset, with specific file extensions based on type.
-    """
     output_item = dict()
     for k, v in item.items():
         if isinstance(v, torch.Tensor):
@@ -28,21 +23,10 @@ def process_item(item):
     return output_item
 
 
-def writer_process(worker_id: int, queue: Queue, cfg: DictConfig, output_dir: str):
-    """
-    A worker process that consumes data from a queue and writes it to its own set of shards.
-
-    Args:
-        worker_id (int): A unique ID for this worker to ensure output files are unique.
-        queue (Queue): The shared queue from which to pull data items.
-        cfg (DictConfig): The Hydra configuration object.
-        output_dir (str): The directory where shards will be saved.
-    """
+def writer_process(worker_id: int, queue: Queue, output_dir: str, shard_maxcount: int):
     shard_pattern = os.path.join(output_dir, f"worker-{worker_id}-dataset-%06d.tar")
 
-    with wds.ShardWriter(
-        shard_pattern, maxcount=cfg.data.get("shard_maxcount", 1000)
-    ) as sink:
+    with wds.ShardWriter(shard_pattern, maxcount=shard_maxcount) as sink:
         while True:
             item = queue.get()
 
@@ -54,20 +38,8 @@ def writer_process(worker_id: int, queue: Queue, cfg: DictConfig, output_dir: st
 
 
 def run_parallel_writing(
-    dataloader: wds.WebLoader,
-    output_dir: str,
-    num_writers: int,
-    cfg: DictConfig,
+    dataloader: wds.WebLoader, output_dir: str, num_writers: int, shard_maxcount: int
 ):
-    """
-    Orchestrates the parallel writing process for a given dataloader.
-
-    Args:
-        dataloader (DataLoader): The dataloader to source data from.
-        output_dir (str): The target directory for the output shards.
-        num_writers (int): The number of parallel writer processes to spawn.
-        cfg (DictConfig): The Hydra configuration object.
-    """
     pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     with Manager() as manager:
@@ -75,7 +47,9 @@ def run_parallel_writing(
 
         processes = []
         for i in range(num_writers):
-            p = Process(target=writer_process, args=(i, data_queue, cfg, output_dir))
+            p = Process(
+                target=writer_process, args=(i, data_queue, output_dir, shard_maxcount)
+            )
             processes.append(p)
             p.start()
 

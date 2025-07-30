@@ -33,7 +33,8 @@ class AugmentDataModule(LightningDataModule):
         _ = stage
         self.noise_dataset = (
             wds.WebDataset(
-                glob_wds(self.cfg.noise_paths),
+                glob_wds(self.cfg.noise_dir),
+                shardshuffle=False,
                 nodesplitter=lambda x: x,
                 workersplitter=False,
                 repeat=True,
@@ -48,7 +49,8 @@ class AugmentDataModule(LightningDataModule):
         )
         self.rir_dataset = (
             wds.WebDataset(
-                glob_wds(self.cfg.rir_paths),
+                glob_wds(self.cfg.rir_dir),
+                shardshuffle=False,
                 nodesplitter=lambda x: x,
                 workersplitter=False,
                 repeat=True,
@@ -61,7 +63,7 @@ class AugmentDataModule(LightningDataModule):
 
         self.train_dataset = self.setup_dataset_pipeline(
             wds.WebDataset(
-                self.cfg.train.dataset_path,
+                glob_wds(self.cfg.train.dataset_dir),
                 shardshuffle=100,
                 nodesplitter=lambda x: x,
                 repeat=True,
@@ -72,7 +74,7 @@ class AugmentDataModule(LightningDataModule):
         )
         self.valid_dataset = self.setup_dataset_pipeline(
             wds.WebDataset(
-                self.cfg.valid.dataset_path,
+                glob_wds(self.cfg.valid.dataset_dir),
                 shardshuffle=False,
                 nodesplitter=lambda x: x,
                 repeat=True,
@@ -83,7 +85,7 @@ class AugmentDataModule(LightningDataModule):
         )
         self.test_dataset = self.setup_dataset_pipeline(
             wds.WebDataset(
-                self.cfg.test.dataset_path,
+                glob_wds(self.cfg.test.dataset_dir),
                 shardshuffle=False,
                 nodesplitter=lambda x: x,
                 repeat=True,

@@ -26,18 +26,19 @@ preprocess:
 
 augment_datamodule:
   train:
-    dataset_path: ${data.preprocess.cfg.webdataset_dir}/train/data-{000000..000219}.tar
+    dataset_dir: ${data.preprocess.cfg.webdataset_dir}/train/
     batch_size: 1
+    shard_maxcount: 100
   valid:
-    dataset_path: ${data.preprocess.cfg.webdataset_dir}/valid/data-{000000..000312}.tar
+    dataset_dir: ${data.preprocess.cfg.webdataset_dir}/valid/
     batch_size: 1
+    shard_maxcount: 30
   test:
-    dataset_path: ${data.preprocess.cfg.webdataset_dir}/test/data-{000000..000290}.tar
+    dataset_dir: ${data.preprocess.cfg.webdataset_dir}/test/
     batch_size: 1
-  noise_paths:
-    - /groups/gag51394/users/asai/dataset_stripe/noise/
-  rir_paths:
-    - /groups/gag51394/users/asai/dataset_stripe/rir/dns5_fullband/
+    shard_maxcount: 30
+  noise_dir: /groups/gag51394/users/asai/dataset_stripe/noise/
+  rir_dir: /groups/gag51394/users/asai/dataset_stripe/rir/dns5_fullband/
   num_workers: 16
 
   vae: ${data.preprocess.cfg.vae}
