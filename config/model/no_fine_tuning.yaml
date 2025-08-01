@@ -7,7 +7,7 @@ lr_scheduler:
   T_max: 100
   eta_min: 1e-6
 
-vae: ${data.preprocess.cfg.vae}
+vae: ${data.preprocess_datamodule.vae}
 
 mmdit:
   in_channels: ${model.vae.hidden_size}
@@ -20,7 +20,7 @@ mmdit:
   heads: 12
 
 ssl_model:
-  name: ${data.augment_datamodule.ssl_model.name}
+  name: ${data.preprocess_datamodule.ssl_model.name}
   layer: 13
   fine_tuning_mode: none
 
