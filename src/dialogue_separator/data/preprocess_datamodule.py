@@ -10,6 +10,7 @@ import webdataset as wds
 from lhotse import CutSet, MultiCut
 from lightning.pytorch import LightningDataModule
 from omegaconf import DictConfig
+from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
 from transformers import AutoFeatureExtractor
 
@@ -138,7 +139,7 @@ class PreprocessDataModule(LightningDataModule):
             )
             .map(
                 partial(
-                    self.align_duration,
+                    self.cut_by_duration,
                     input_key="audio",
                     duration=self.cfg.vae.max_duration,
                 )
@@ -250,7 +251,6 @@ class PreprocessDataModule(LightningDataModule):
             shuffle=False,
             collate_fn=lambda x: x[0],
             drop_last=True,
-            persistent_workers=True,
         )
 
     def val_dataloader(self) -> DataLoader:
@@ -261,7 +261,6 @@ class PreprocessDataModule(LightningDataModule):
             shuffle=False,
             collate_fn=lambda x: x[0],
             drop_last=True,
-            persistent_workers=True,
         )
 
     def test_dataloader(self) -> DataLoader:
@@ -272,7 +271,6 @@ class PreprocessDataModule(LightningDataModule):
             shuffle=False,
             collate_fn=lambda x: x[0],
             drop_last=True,
-            persistent_workers=True,
         )
 
     @staticmethod
@@ -292,13 +290,11 @@ class PreprocessDataModule(LightningDataModule):
         return new_sample
 
     @staticmethod
-    def align_duration(sample, input_key: str, duration: int):
+    def cut_by_duration(sample, input_key: str, duration: int):
         wav, sr = sample[input_key]
         assert wav.shape[0] == 2
-        new_wav = torch.zeros((wav.shape[0], sr * duration))
-        new_wav[:, : wav.shape[1]] = wav
         new_sample = sample.copy()
-        new_sample[input_key] = (new_wav, sr)
+        new_sample[input_key] = (wav[:, : sr * duration], sr)
         return new_sample
 
     @staticmethod
@@ -361,36 +357,41 @@ class PreprocessDataModule(LightningDataModule):
         return new_sample
 
     def collate_fn(self, batch) -> dict[str, Any]:
-        raw_wav_1 = []
-        raw_wav_2 = []
-        clean = []
-        noisy = []
+        max_duration = self.cfg.vae.max_duration
+
+        raw_wav_1 = torch.zeros(len(batch), self.cfg.vae.sample_rate * max_duration)
+        raw_wav_2 = torch.zeros(len(batch), self.cfg.vae.sample_rate * max_duration)
+        clean_wav = torch.zeros(len(batch), self.cfg.vae.sample_rate * max_duration)
+
+        noisy_wav = []
+        wav_len = []
         wav_ssl_input = []
         text_1 = []
         text_2 = []
 
-        for sample in batch:
+        for i, sample in enumerate(batch):
             _raw, sr = sample["clean_stereo"]
             if sr != self.cfg.vae.sample_rate:
                 _raw = torchaudio.functional.resample(
                     _raw, sr, self.cfg.vae.sample_rate
                 )
-            raw_wav_1.append(_raw[0])
-            raw_wav_2.append(_raw[1])
+            raw_wav_1[i, : _raw.shape[-1]] = _raw[0]
+            raw_wav_2[i, : _raw.shape[-1]] = _raw[1]
+            wav_len.append(_raw.shape[-1])
 
             _clean, sr = sample["clean"]
             if sr != self.cfg.vae.sample_rate:
                 _clean = torchaudio.functional.resample(
                     _clean, sr, self.cfg.vae.sample_rate
                 )
-            clean.append(_clean.squeeze(0))
+            clean_wav[i, : _clean.shape[-1]] = _clean
 
             _noisy, sr = sample["noisy"]
             if sr != self.cfg.ssl_model.sample_rate:
                 _noisy = torchaudio.functional.resample(
                     _noisy, sr, self.cfg.vae.sample_rate
                 )
-            noisy.append(_noisy.squeeze(0))
+            noisy_wav.append(_noisy.squeeze(0))
 
             _wav_ssl_input = F.pad(_noisy, (40, 40), mode="constant", value=0)
             wav_ssl_input.append(_wav_ssl_input)
@@ -399,10 +400,16 @@ class PreprocessDataModule(LightningDataModule):
             text_2.append(sample["text_2"])
 
         with torch.no_grad():
-            raw_wav_1_tensor = torch.stack(raw_wav_1).to(self.device)
-            vae_feature_1, _, _, _ = self.dacvae.encode(raw_wav_1_tensor)
-            raw_wav_2_tensor = torch.stack(raw_wav_2).to(self.device)
-            vae_feature_2, _, _, _ = self.dacvae.encode(raw_wav_2_tensor)
+            vae_feature_1, _, _, _ = self.dacvae.encode(
+                raw_wav_1.unsqueeze(1).to(self.device)
+            )
+            vae_feature_2, _, _, _ = self.dacvae.encode(
+                raw_wav_2.unsqueeze(1).to(self.device)
+            )
+
+        vae_len = [
+            vae_feature_1.shape[-1] * wl // raw_wav_1.shape[-1] for wl in wav_len
+        ]
 
         ssl_input = self.processor(
             [w.cpu().numpy() for w in wav_ssl_input],
@@ -411,12 +418,14 @@ class PreprocessDataModule(LightningDataModule):
         )
 
         output = {
-            "raw_wav_1": raw_wav_1_tensor,
-            "raw_wav_2": raw_wav_2_tensor,
-            "clean_wav": torch.stack(clean),
-            "noisy_wav": torch.stack(noisy),
-            "vae_feature_1": vae_feature_1,
-            "vae_feature_2": vae_feature_2,
+            "raw_wav_1": raw_wav_1,
+            "raw_wav_2": raw_wav_2,
+            "wav_len": torch.tensor(wav_len),
+            "vae_len": torch.tensor(vae_len),
+            "clean_wav": clean_wav,
+            "noisy_wav": pad_sequence(noisy_wav, batch_first=True),
+            "vae_feature_1": vae_feature_1.cpu(),
+            "vae_feature_2": vae_feature_2.cpu(),
             "ssl_input": ssl_input,
             "text_1": text_1,
             "text_2": text_2,

@@ -57,7 +57,7 @@ preprocess_datamodule:
   rir_dir: /groups/gag51394/users/asai/dataset_stripe/rir/dns5_fullband/
 
   batch_size: 4
-  num_workers: 16
+  num_workers: 0
   noise_pipeline_times: 4
   device: cuda
 
