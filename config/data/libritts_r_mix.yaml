@@ -53,6 +53,7 @@ augment_datamodule:
 
 augment_datamodule_2:
   shar_dir: ${data.dataset.shar_dir}
+  num_workers: 16
 
 datamodule:
   train:

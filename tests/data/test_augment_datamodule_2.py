@@ -1,3 +1,4 @@
+import itertools
 
 from hydra import compose, initialize
 
@@ -10,3 +11,5 @@ def test_augment_datamodule_train_dataloader() -> None:
         datamodule = AugmentDataModule2(cfg)
 
     datamodule.setup()
+    for batch in itertools.islice(datamodule.train_dataloader(), 3):
+        print(batch)
