@@ -6,6 +6,7 @@ from multiprocessing import Manager, Process, Queue
 import torch
 import tqdm
 import webdataset as wds
+from torch.utils.data import DataLoader
 
 
 def process_item(item):
@@ -38,7 +39,7 @@ def writer_process(worker_id: int, queue: Queue, output_dir: str, shard_maxcount
 
 
 def run_parallel_writing(
-    dataloader: wds.WebLoader, output_dir: str, num_writers: int, shard_maxcount: int
+    dataloader: DataLoader, output_dir: str, num_writers: int, shard_maxcount: int
 ):
     pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
 
