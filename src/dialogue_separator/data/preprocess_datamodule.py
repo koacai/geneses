@@ -107,12 +107,22 @@ class PreprocessDataModule(LightningDataModule):
         dataset = self.init_dataset(dataset)
         for _ in range(self.cfg.noise_pipeline_times):
             dataset = self.add_noise(dataset, rir_dataset, noise_dataset)
+        dataset = (
+            dataset.map(
+                partial(
+                    self.normalize, input_key="clean_stereo", output_key="clean_stereo"
+                )
+            )
+            .map(partial(self.normalize, input_key="clean", output_key="clean"))
+            .map(partial(self.normalize, input_key="noisy", output_key="noisy"))
+        )
         dataset = dataset.batched(batch_size, collation_fn=self.collate_fn)
         return dataset
 
     def init_dataset(self, dataset: LibriTTSRMixDataset) -> LibriTTSRMixDataset:
         dataset = (
             dataset.map(partial(self.lowcut, input_key="audio", cutoff=50))
+            .map(partial(self.normalize, input_key="audio", output_key="audio"))
             .map(
                 partial(self.rename_audio, input_key="audio", output_key="clean_stereo")
             )
@@ -294,6 +304,14 @@ class PreprocessDataModule(LightningDataModule):
                 new_sample = sample.copy()
                 new_sample[audio_key] = (cropped, sr)
                 yield new_sample
+
+    @staticmethod
+    def normalize(sample, input_key: str, output_key: str):
+        wav, sr = sample[input_key]
+        wav = (wav / wav.abs().max() + 1e-7) * 0.9
+        new_sample = sample.copy()
+        new_sample[output_key] = (wav, sr)
+        return new_sample
 
     def collate_fn(self, batch) -> dict[str, Any]:
         text_1 = []
