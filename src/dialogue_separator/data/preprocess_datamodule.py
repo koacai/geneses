@@ -9,9 +9,9 @@ from torch.utils.data import DataLoader
 from dialogue_separator.data.dataset import LibriTTSRMixDataset
 
 
-class AugmentDataModule2(LightningDataModule):
+class PreprocessDataModule(LightningDataModule):
     def __init__(self, cfg: DictConfig) -> None:
-        super(AugmentDataModule2, self).__init__()
+        super(PreprocessDataModule, self).__init__()
         self.cfg = cfg
 
     def setup(self, stage: str | None = None) -> None:

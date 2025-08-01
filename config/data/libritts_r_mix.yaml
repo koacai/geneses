@@ -51,7 +51,7 @@ augment_datamodule:
 
   out_dir: /groups/gag51394/users/asai/dialogue-separator/libritts_r_mix_noised_${data.augment_datamodule.noise_pipeline_times}
 
-augment_datamodule_2:
+preprocess_datamodule:
   shar_dir: ${data.dataset.shar_dir}
   num_workers: 16
 
