@@ -358,19 +358,33 @@ class PreprocessDataModule(LightningDataModule):
     def collate_fn(self, batch) -> dict[str, Any]:
         raw_wav_1 = []
         raw_wav_2 = []
+        clean = []
+        noisy = []
         text_1 = []
         text_2 = []
 
         for sample in batch:
             _raw, sr = sample["clean_stereo"]
-
             if sr != self.cfg.vae.sample_rate:
                 _raw = torchaudio.functional.resample(
                     _raw, sr, self.cfg.vae.sample_rate
                 )
-
             raw_wav_1.append(_raw[0])
             raw_wav_2.append(_raw[1])
+
+            _clean, sr = sample["clean"]
+            if sr != self.cfg.vae.sample_rate:
+                _clean = torchaudio.functional.resample(
+                    _clean, sr, self.cfg.vae.sample_rate
+                )
+            clean.append(_clean.squeeze(0))
+
+            _noisy, sr = sample["noisy"]
+            if sr != self.cfg.ssl_model.sample_rate:
+                _noisy = torchaudio.functional.resample(
+                    _noisy, sr, self.cfg.vae.sample_rate
+                )
+            noisy.append(_noisy.squeeze(0))
 
             text_1.append(sample["text_1"])
             text_2.append(sample["text_2"])
@@ -378,6 +392,8 @@ class PreprocessDataModule(LightningDataModule):
         output = {
             "raw_wav_1": torch.stack(raw_wav_1),
             "raw_wav_2": torch.stack(raw_wav_2),
+            "clean_wav": torch.stack(clean),
+            "noisy_wav": torch.stack(noisy),
             "text_1": text_1,
             "text_2": text_2,
         }

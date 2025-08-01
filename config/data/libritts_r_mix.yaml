@@ -67,6 +67,10 @@ preprocess_datamodule:
     sample_rate: 16000
     noise_amp: 1e-4 # 0 paddingでは再構成できないため、微小なノイズを付与している
 
+  ssl_model:
+    name: facebook/w2v-bert-2.0
+    sample_rate: 16000
+
 datamodule:
   train:
     dataset_dir: ${data.augment_datamodule.out_dir}/train/
