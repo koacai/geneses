@@ -53,8 +53,18 @@ augment_datamodule:
 
 preprocess_datamodule:
   shar_dir: ${data.dataset.shar_dir}
+  noise_dir: /groups/gag51394/users/asai/dataset_stripe/noise/
+  rir_dir: /groups/gag51394/users/asai/dataset_stripe/rir/dns5_fullband/
+
   batch_size: 4
   num_workers: 16
+  noise_pipeline_times: 4
+
+  vae:
+    ckpt_path: /groups/gag51394/users/asai/dacvae_l16_librispeech.pt
+    hidden_size: 16
+    max_duration: 20
+    sample_rate: 16000
 
 datamodule:
   train:

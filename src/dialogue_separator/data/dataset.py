@@ -1,5 +1,3 @@
-from typing import Any, Generator
-
 import torch
 from lhotse import CutSet
 from webdataset import FluidInterface
@@ -10,8 +8,12 @@ class LibriTTSRMixDataset(DataPipeline, FluidInterface):
     def __init__(self, cuts: CutSet) -> None:
         super(LibriTTSRMixDataset, self).__init__()
         self.cuts = cuts
+        self.pipeline = [self._process_cuts]
+        self.length = -1
+        self.repetitions = 1
+        self.nsamples = -1
 
-    def __iter__(self) -> Generator[dict[str, Any], None, None]:
+    def _process_cuts(self):
         for cut in self.cuts.data:
             wav = torch.from_numpy(cut.load_audio())
             assert len(cut.supervisions) == 2
