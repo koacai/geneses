@@ -1,6 +1,9 @@
+from functools import partial
 from pathlib import Path
 from typing import Any
 
+import torch
+import torchaudio
 from lhotse import CutSet, MultiCut
 from lightning.pytorch import LightningDataModule
 from omegaconf import DictConfig
@@ -30,13 +33,25 @@ class PreprocessDataModule(LightningDataModule):
         train_cuts = cuts.filter(
             lambda c: _in_subset(c, ["train-clean-360", "train-clean-100"])
         )
-        self.train_dataset = LibriTTSRMixDataset(train_cuts)
-
         valid_cuts = cuts.filter(lambda c: _in_subset(c, ["dev-clean"]))
-        self.valid_dataset = LibriTTSRMixDataset(valid_cuts)
-
         test_cuts = cuts.filter(lambda c: _in_subset(c, ["test-clean"]))
-        self.test_dataset = LibriTTSRMixDataset(test_cuts)
+
+        self.train_dataset = self.setup_dataset_pipeline(
+            LibriTTSRMixDataset(train_cuts)
+        )
+        self.valid_dataset = self.setup_dataset_pipeline(
+            LibriTTSRMixDataset(valid_cuts)
+        )
+        self.test_dataset = self.setup_dataset_pipeline(LibriTTSRMixDataset(test_cuts))
+
+    def setup_dataset_pipeline(
+        self, dataset: LibriTTSRMixDataset
+    ) -> LibriTTSRMixDataset:
+        return dataset
+
+    def init_dataset(self, dataset: LibriTTSRMixDataset) -> LibriTTSRMixDataset:
+        dataset = dataset.map(partial(self.lowcut, input_key="audio", cutoff=50))
+        return dataset
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
@@ -81,3 +96,12 @@ class PreprocessDataModule(LightningDataModule):
             text_1.append(sample["text_1"])
             text_2.append(sample["text_2"])
         return {"text_1": text_1, "text_2": text_2}
+
+    @staticmethod
+    @torch.inference_mode()
+    def lowcut(sample, input_key: str, cutoff=50):
+        wav, sr = sample[input_key]
+        wav = torchaudio.functional.highpass_biquad(wav, sr, cutoff)
+        new_sample = sample.copy()
+        new_sample[input_key] = (wav, sr)
+        return new_sample

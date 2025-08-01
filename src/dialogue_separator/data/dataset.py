@@ -2,6 +2,7 @@ from typing import Any, Generator
 
 import torch
 from lhotse import CutSet
+from webdataset import filters
 from webdataset.pipeline import DataPipeline
 
 
@@ -23,3 +24,6 @@ class LibriTTSRMixDataset(DataPipeline):
                 "wav_len_1": cut.supervisions[0].custom["wav_len"],
                 "wav_len_2": cut.supervisions[1].custom["wav_len"],
             }
+
+    def map(self, f, handler=filters.reraise_exception):
+        return self.compose(filters.map(f, handler=handler))
