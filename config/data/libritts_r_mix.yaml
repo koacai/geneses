@@ -59,6 +59,7 @@ preprocess_datamodule:
   batch_size: 4
   num_workers: 16
   noise_pipeline_times: 4
+  device: cuda
 
   vae:
     ckpt_path: /groups/gag51394/users/asai/dacvae_l16_librispeech.pt

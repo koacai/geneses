@@ -31,6 +31,8 @@ class PreprocessDataModule(LightningDataModule):
         super(PreprocessDataModule, self).__init__()
         self.cfg = cfg
         self.processor = AutoFeatureExtractor.from_pretrained(cfg.ssl_model.name)
+        self.device = torch.device(cfg.device)
+        self.dacvae = torch.jit.load(cfg.vae.ckpt_path).to(self.device)
 
     def setup(self, stage: str | None = None) -> None:
         _ = stage
@@ -396,6 +398,12 @@ class PreprocessDataModule(LightningDataModule):
             text_1.append(sample["text_1"])
             text_2.append(sample["text_2"])
 
+        with torch.no_grad():
+            raw_wav_1_tensor = torch.stack(raw_wav_1).to(self.device)
+            vae_feature_1, _, _, _ = self.dacvae.encode(raw_wav_1_tensor)
+            raw_wav_2_tensor = torch.stack(raw_wav_2).to(self.device)
+            vae_feature_2, _, _, _ = self.dacvae.encode(raw_wav_2_tensor)
+
         ssl_input = self.processor(
             [w.cpu().numpy() for w in wav_ssl_input],
             sampling_rate=self.cfg.ssl_model.sample_rate,
@@ -403,10 +411,12 @@ class PreprocessDataModule(LightningDataModule):
         )
 
         output = {
-            "raw_wav_1": torch.stack(raw_wav_1),
-            "raw_wav_2": torch.stack(raw_wav_2),
+            "raw_wav_1": raw_wav_1_tensor,
+            "raw_wav_2": raw_wav_2_tensor,
             "clean_wav": torch.stack(clean),
             "noisy_wav": torch.stack(noisy),
+            "vae_feature_1": vae_feature_1,
+            "vae_feature_2": vae_feature_2,
             "ssl_input": ssl_input,
             "text_1": text_1,
             "text_2": text_2,
