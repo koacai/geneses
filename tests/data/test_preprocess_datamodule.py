@@ -2,16 +2,18 @@ import itertools
 
 from hydra import compose, initialize
 
-from dialogue_separator.data.augment_datamodule import AugmentDataModule
+from dialogue_separator.data.preprocess_datamodule import PreprocessDataModule
 
 
-def test_augment_datamodule_train_dataloader() -> None:
+def test_preprocess_datamodule_train_dataloader() -> None:
     with initialize(config_path="../../config", version_base=None):
-        cfg = compose(config_name="default").data.augment_datamodule
-        datamodule = AugmentDataModule(cfg)
+        cfg = compose(config_name="default").data.preprocess_datamodule
+        # Set num_workers to 0 for testing to avoid multiprocessing issues
+        cfg.num_workers = 0
+        datamodule = PreprocessDataModule(cfg)
 
     datamodule.setup()
-    batch_size = datamodule.cfg.train.batch_size
+    batch_size = datamodule.cfg.batch_size
     for batch in itertools.islice(datamodule.train_dataloader(), 3):
         assert batch["raw_wav_1"].size(0) == batch_size
         assert batch["raw_wav_2"].size(0) == batch_size
