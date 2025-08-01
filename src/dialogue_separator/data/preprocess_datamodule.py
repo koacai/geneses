@@ -4,12 +4,14 @@ from pathlib import Path
 from typing import Any
 
 import torch
+import torch.nn.functional as F
 import torchaudio
 import webdataset as wds
 from lhotse import CutSet, MultiCut
 from lightning.pytorch import LightningDataModule
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
+from transformers import AutoFeatureExtractor
 
 from dialogue_separator.data.dataset import LibriTTSRMixDataset
 from dialogue_separator.data.functional_degrations import (
@@ -28,6 +30,7 @@ class PreprocessDataModule(LightningDataModule):
     def __init__(self, cfg: DictConfig) -> None:
         super(PreprocessDataModule, self).__init__()
         self.cfg = cfg
+        self.processor = AutoFeatureExtractor.from_pretrained(cfg.ssl_model.name)
 
     def setup(self, stage: str | None = None) -> None:
         _ = stage
@@ -360,6 +363,7 @@ class PreprocessDataModule(LightningDataModule):
         raw_wav_2 = []
         clean = []
         noisy = []
+        wav_ssl_input = []
         text_1 = []
         text_2 = []
 
@@ -386,14 +390,24 @@ class PreprocessDataModule(LightningDataModule):
                 )
             noisy.append(_noisy.squeeze(0))
 
+            _wav_ssl_input = F.pad(_noisy, (40, 40), mode="constant", value=0)
+            wav_ssl_input.append(_wav_ssl_input)
+
             text_1.append(sample["text_1"])
             text_2.append(sample["text_2"])
+
+        ssl_input = self.processor(
+            [w.cpu().numpy() for w in wav_ssl_input],
+            sampling_rate=self.cfg.ssl_model.sample_rate,
+            return_tensors="pt",
+        )
 
         output = {
             "raw_wav_1": torch.stack(raw_wav_1),
             "raw_wav_2": torch.stack(raw_wav_2),
             "clean_wav": torch.stack(clean),
             "noisy_wav": torch.stack(noisy),
+            "ssl_input": ssl_input,
             "text_1": text_1,
             "text_2": text_2,
         }
