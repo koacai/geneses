@@ -2,10 +2,10 @@ from typing import Any, Generator
 
 import torch
 from lhotse import CutSet
-from torch.utils.data import IterableDataset
+from webdataset.pipeline import DataPipeline
 
 
-class LibriTTSRMixDataset(IterableDataset):
+class LibriTTSRMixDataset(DataPipeline):
     def __init__(self, cuts: CutSet) -> None:
         self.cuts = cuts
 

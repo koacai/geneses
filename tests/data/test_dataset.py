@@ -1,3 +1,4 @@
+import itertools
 from pathlib import Path
 
 from lhotse import CutSet
@@ -12,6 +13,5 @@ def test_libritts_r_mix_dataset() -> None:
     cuts = CutSet.from_shar({"cuts": cut_paths, "recording": recording_paths})
 
     dataset = LibriTTSRMixDataset(cuts)
-    for data in dataset:
+    for data in itertools.islice(dataset, 3):
         print(data)
-        break
