@@ -65,6 +65,7 @@ preprocess_datamodule:
     hidden_size: 16
     max_duration: 20
     sample_rate: 16000
+    noise_amp: 1e-4 # 0 paddingでは再構成できないため、微小なノイズを付与している
 
 datamodule:
   train:

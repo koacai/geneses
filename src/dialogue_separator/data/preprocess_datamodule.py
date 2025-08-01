@@ -122,6 +122,22 @@ class PreprocessDataModule(LightningDataModule):
     def init_dataset(self, dataset: LibriTTSRMixDataset) -> LibriTTSRMixDataset:
         dataset = (
             dataset.map(partial(self.lowcut, input_key="audio", cutoff=50))
+            .map(
+                partial(
+                    self.padding_by_noise,
+                    input_key="audio",
+                    wav_len_1_key="wav_len_1",
+                    wav_len_2_key="wav_len_2",
+                    noise_amp=self.cfg.vae.noise_amp,
+                )
+            )
+            .map(
+                partial(
+                    self.align_duration,
+                    input_key="audio",
+                    duration=self.cfg.vae.max_duration,
+                )
+            )
             .map(partial(self.normalize, input_key="audio", output_key="audio"))
             .map(
                 partial(self.rename_audio, input_key="audio", output_key="clean_stereo")
@@ -255,6 +271,32 @@ class PreprocessDataModule(LightningDataModule):
         )
 
     @staticmethod
+    def padding_by_noise(
+        sample, input_key: str, wav_len_1_key: str, wav_len_2_key: str, noise_amp: float
+    ):
+        wav, sr = sample[input_key]
+        assert wav.shape[0] == 2
+        wav_len_1 = sample[wav_len_1_key]
+        wav_len_2 = sample[wav_len_2_key]
+        if wav_len_1 > wav_len_2:
+            wav[1, wav_len_2:] = torch.randn(1, wav_len_1 - wav_len_2) * noise_amp
+        else:
+            wav[0, wav_len_1:] = torch.randn(1, wav_len_2 - wav_len_1) * noise_amp
+        new_sample = sample.copy()
+        new_sample[input_key] = (wav, sr)
+        return new_sample
+
+    @staticmethod
+    def align_duration(sample, input_key: str, duration: int):
+        wav, sr = sample[input_key]
+        assert wav.shape[0] == 2
+        new_wav = torch.zeros((wav.shape[0], sr * duration))
+        new_wav[:, : wav.shape[1]] = wav
+        new_sample = sample.copy()
+        new_sample[input_key] = (new_wav, sr)
+        return new_sample
+
+    @staticmethod
     @torch.inference_mode()
     def lowcut(sample, input_key: str, cutoff=50):
         wav, sr = sample[input_key]
@@ -314,11 +356,30 @@ class PreprocessDataModule(LightningDataModule):
         return new_sample
 
     def collate_fn(self, batch) -> dict[str, Any]:
+        raw_wav_1 = []
+        raw_wav_2 = []
         text_1 = []
         text_2 = []
 
         for sample in batch:
+            _raw, sr = sample["clean_stereo"]
+
+            if sr != self.cfg.vae.sample_rate:
+                _raw = torchaudio.functional.resample(
+                    _raw, sr, self.cfg.vae.sample_rate
+                )
+
+            raw_wav_1.append(_raw[0])
+            raw_wav_2.append(_raw[1])
+
             text_1.append(sample["text_1"])
             text_2.append(sample["text_2"])
 
-        return {"text_1": text_1, "text_2": text_2}
+        output = {
+            "raw_wav_1": torch.stack(raw_wav_1),
+            "raw_wav_2": torch.stack(raw_wav_2),
+            "text_1": text_1,
+            "text_2": text_2,
+        }
+
+        return output
