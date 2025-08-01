@@ -53,6 +53,7 @@ augment_datamodule:
 
 preprocess_datamodule:
   shar_dir: ${data.dataset.shar_dir}
+  batch_size: 4
   num_workers: 16
 
 datamodule:

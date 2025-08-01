@@ -41,10 +41,11 @@ class PreprocessDataModule(LightningDataModule):
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
             self.train_dataset,
+            batch_size=self.cfg.batch_size,
             num_workers=self.cfg.num_workers,
             pin_memory=True,
             shuffle=False,
-            collate_fn=self.identity,
+            collate_fn=self.collate_fn,
             drop_last=True,
             persistent_workers=True,
         )
@@ -52,10 +53,11 @@ class PreprocessDataModule(LightningDataModule):
     def val_dataloader(self) -> DataLoader:
         return DataLoader(
             self.valid_dataset,
+            batch_size=self.cfg.batch_size,
             num_workers=self.cfg.num_workers,
             pin_memory=True,
             shuffle=False,
-            collate_fn=self.identity,
+            collate_fn=self.collate_fn,
             drop_last=True,
             persistent_workers=True,
         )
@@ -63,13 +65,19 @@ class PreprocessDataModule(LightningDataModule):
     def test_dataloader(self) -> DataLoader:
         return DataLoader(
             self.test_dataset,
+            batch_size=self.cfg.batch_size,
             num_workers=self.cfg.num_workers,
             pin_memory=True,
             shuffle=False,
-            collate_fn=self.identity,
+            collate_fn=self.collate_fn,
             drop_last=True,
             persistent_workers=True,
         )
 
-    def identity(self, x):
-        return x[0]
+    def collate_fn(self, batch) -> dict[str, Any]:
+        text_1 = []
+        text_2 = []
+        for sample in batch:
+            text_1.append(sample["text_1"])
+            text_2.append(sample["text_2"])
+        return {"text_1": text_1, "text_2": text_2}
