@@ -120,7 +120,7 @@ class DialogueSeparatorDataModule(LightningDataModule):
             "raw_wav_1": torch.stack(raw_wav_1),
             "raw_wav_2": torch.stack(raw_wav_2),
             "clean_wav": torch.stack(clean_wav),
-            "noisy_wav": torch.stack(noisy_wav),
+            "noisy_wav": pad_sequence(noisy_wav, batch_first=True),
             "wav_len": torch.stack(wav_len),
             "vae_len": torch.stack(vae_len),
             "vae_feature_1": torch.stack(vae_feature_1),
