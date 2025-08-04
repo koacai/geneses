@@ -8,6 +8,11 @@ class DACVAE:
             param.requires_grad = False
 
     @torch.no_grad()
+    def encode(self, wav: torch.Tensor) -> torch.Tensor:
+        feature, _, _, _ = self.model.encode(wav.unsqueeze(1))
+        return feature
+
+    @torch.no_grad()
     def decode(self, features: torch.Tensor) -> torch.Tensor:
         return self.model.decode(features)
 

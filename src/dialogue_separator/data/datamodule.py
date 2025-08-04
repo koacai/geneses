@@ -94,9 +94,6 @@ class DialogueSeparatorDataModule(LightningDataModule):
         clean_wav = []
         noisy_wav = []
         wav_len = []
-        vae_len = []
-        vae_feature_1 = []
-        vae_feature_2 = []
         text_1 = []
         text_2 = []
         ssl_input = defaultdict(list)
@@ -107,9 +104,6 @@ class DialogueSeparatorDataModule(LightningDataModule):
             clean_wav.append(sample["clean_wav.pth"].squeeze())
             noisy_wav.append(sample["noisy_wav.pth"].squeeze())
             wav_len.append(sample["wav_len.pth"][0])
-            vae_len.append(sample["vae_len.pth"][0])
-            vae_feature_1.append(sample["vae_feature_1.pth"].squeeze())
-            vae_feature_2.append(sample["vae_feature_2.pth"].squeeze())
             text_1.append(sample["text_1.pickle"][0])
             text_2.append(sample["text_2.pickle"][0])
 
@@ -122,9 +116,6 @@ class DialogueSeparatorDataModule(LightningDataModule):
             "clean_wav": torch.stack(clean_wav),
             "noisy_wav": pad_sequence(noisy_wav, batch_first=True),
             "wav_len": torch.stack(wav_len),
-            "vae_len": torch.stack(vae_len),
-            "vae_feature_1": torch.stack(vae_feature_1),
-            "vae_feature_2": torch.stack(vae_feature_2),
             "text_1": text_1,
             "text_2": text_2,
             "ssl_input": {
