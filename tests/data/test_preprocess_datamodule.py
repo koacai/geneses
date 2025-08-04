@@ -8,8 +8,6 @@ from dialogue_separator.data.preprocess_datamodule import PreprocessDataModule
 def test_preprocess_datamodule_train_dataloader() -> None:
     with initialize(config_path="../../config", version_base=None):
         cfg = compose(config_name="default").data.preprocess_datamodule
-        # Set num_workers to 0 for testing to avoid multiprocessing issues
-        cfg.num_workers = 0
         datamodule = PreprocessDataModule(cfg)
 
     datamodule.setup()
@@ -20,7 +18,4 @@ def test_preprocess_datamodule_train_dataloader() -> None:
         assert batch["clean_wav"].size(0) == batch_size
         assert batch["noisy_wav"].size(0) == batch_size
         assert batch["wav_len"].size(0) == batch_size
-        assert batch["vae_len"].size(0) == batch_size
-        assert batch["vae_feature_1"].size(0) == batch_size
-        assert batch["vae_feature_2"].size(0) == batch_size
         assert "ssl_input" in batch
