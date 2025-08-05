@@ -33,19 +33,23 @@ def main(cfg: DictConfig) -> None:
 
     for cut in tqdm(corpus.get_cuts()):
         assert isinstance(cut, MultiCut)
-        assert isinstance(cut.custom, dict)
 
         buf = io.BytesIO()
         audio = torch.from_numpy(cut.load_audio())
         torchaudio.save(buf, audio, cut.sampling_rate, format="flac")
 
+        assert isinstance(cut.custom, dict)
         assert len(cut.supervisions) == 2
+        assert cut.supervisions[0].custom is not None
+        assert cut.supervisions[1].custom is not None
 
         sample = {
             "__key__": uuid.uuid1().hex,
             "audio.flac": buf.getvalue(),
             "text_1.txt": cut.supervisions[0].text,
             "text_2.txt": cut.supervisions[1].text,
+            "wav_len_1.cls": cut.supervisions[0].custom["wav_len"],
+            "wav_len_2.cls": cut.supervisions[1].custom["wav_len"],
         }
         if cut.custom["subset"] == "dev-clean":
             valid_sink.write(sample)

@@ -12,7 +12,7 @@ def test_preprocess_datamodule_train_dataloader() -> None:
 
     datamodule.setup()
     batch_size = datamodule.cfg.batch_size
-    for batch in itertools.islice(datamodule.train_dataloader(), 3):
+    for batch in itertools.islice(datamodule.val_dataloader(), 3):
         assert batch["raw_wav_1"].size(0) == batch_size
         assert batch["raw_wav_2"].size(0) == batch_size
         assert batch["clean_wav"].size(0) == batch_size

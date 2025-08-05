@@ -10,7 +10,7 @@ dataset:
     test: 30
 
 preprocess_datamodule:
-  shar_dir: ${data.dataset.shar_dir}
+  shard_dir: ${data.dataset.shard_dir}
   noise_dir: /groups/gag51394/users/asai/dataset_stripe/noise/
   rir_dir: /groups/gag51394/users/asai/dataset_stripe/rir/dns5_fullband/
 
