@@ -16,7 +16,8 @@ preprocess_datamodule:
 
   batch_size: 1
   num_workers: 32
-  noise_pipeline_times: 4
+  noise_pipeline_times: 1
+  only_bg_noise: true
 
   shard_maxcount:
     train: 100
@@ -34,7 +35,7 @@ preprocess_datamodule:
     name: facebook/w2v-bert-2.0
     sample_rate: 16000
 
-  out_dir: /groups/gag51394/users/asai/dialogue-separator/libritts_r_mix_noised_${data.preprocess_datamodule.noise_pipeline_times}
+  out_dir: /groups/gag51394/users/asai/dialogue-separator/libritts_r_mix_bg_noise
 
 datamodule:
   train:

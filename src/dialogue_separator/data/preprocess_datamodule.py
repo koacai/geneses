@@ -108,7 +108,12 @@ class PreprocessDataModule(LightningDataModule):
     ) -> wds.WebDataset:
         dataset = self.init_dataset(dataset)
         for _ in range(self.cfg.noise_pipeline_times):
-            dataset = self.add_noise(dataset, rir_dataset, noise_dataset)
+            dataset = self.add_noise(
+                dataset,
+                rir_dataset,
+                noise_dataset,
+                only_bg_noise=self.cfg.only_bg_noise,
+            )
         dataset = (
             dataset.map(
                 partial(
@@ -156,7 +161,21 @@ class PreprocessDataModule(LightningDataModule):
         dataset: wds.WebDataset,
         rir_dataset: wds.WebDataset,
         noise_dataset: wds.WebDataset,
+        only_bg_noise: bool,
     ) -> wds.WebDataset:
+        dataset = dataset.compose(
+            partial(
+                random_apply,
+                prob=0.5,
+                transform_fn=add_non_parametric_noise,
+                input_key="noisy",
+                output_key="noisy",
+                noise_ds=iter(noise_dataset),
+            )
+        )
+        if only_bg_noise:
+            return dataset
+
         dataset = (
             dataset.compose(
                 partial(
@@ -167,16 +186,6 @@ class PreprocessDataModule(LightningDataModule):
                     direct_key="clean",
                     reverb_key="noisy",
                     rir_ds=iter(rir_dataset),
-                )
-            )
-            .compose(
-                partial(
-                    random_apply,
-                    prob=0.5,
-                    transform_fn=add_non_parametric_noise,
-                    input_key="noisy",
-                    output_key="noisy",
-                    noise_ds=iter(noise_dataset),
                 )
             )
             .compose(
