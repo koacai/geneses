@@ -2,7 +2,12 @@ dataset:
   corpus:
     _target_: lhotse_dataset.LibriTTSRMixClean
 
-  shar_dir: /groups/gag51394/users/asai/shar/libritts_r_mix_clean
+  shard_dir: /groups/gag51394/users/asai/dialogue-separator/libritts_r_mix_raw
+
+  shard_maxcount:
+    train: 100
+    valid: 30
+    test: 30
 
 preprocess_datamodule:
   shar_dir: ${data.dataset.shar_dir}
