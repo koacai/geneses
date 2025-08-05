@@ -7,4 +7,4 @@
 #PBS -k oed
 
 cd ${PBS_O_WORKDIR}
-PYTHONUTF8=1 uv run scripts/preprocess.py
+PYTHONUTF8=1 uv run scripts/download_data.py

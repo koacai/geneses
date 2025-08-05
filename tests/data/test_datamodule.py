@@ -17,9 +17,6 @@ def test_augment_datamodule_test_dataloader() -> None:
         assert batch["raw_wav_2"].size(0) == batch_size
         assert batch["clean_wav"].size(0) == batch_size
         assert batch["wav_len"].size(0) == batch_size
-        assert batch["vae_len"].size(0) == batch_size
-        assert batch["vae_feature_1"].size(0) == batch_size
-        assert batch["vae_feature_2"].size(0) == batch_size
         assert len(batch["text_1"]) == batch_size
         assert len(batch["text_2"]) == batch_size
         assert "ssl_input" in batch

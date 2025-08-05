@@ -82,13 +82,18 @@ class DialogueSeparatorLightningModule(LightningModule):
         self.dacvae.to(self.device)
 
     def calc_loss(self, batch: dict[str, Any]) -> torch.Tensor:
-        vae_1 = batch["vae_feature_1"].permute(0, 2, 1)
-        vae_2 = batch["vae_feature_2"].permute(0, 2, 1)
-        ssl_merged = self.ssl_feature_extractor.forward(batch["ssl_input"])
+        with torch.no_grad():
+            vae_1 = self.dacvae.encode(batch["raw_wav_1"]).permute(0, 2, 1)
+            vae_2 = self.dacvae.encode(batch["raw_wav_2"]).permute(0, 2, 1)
+            ssl_merged = self.ssl_feature_extractor.forward(batch["ssl_input"])
 
         batch_size = ssl_merged.size(0)
 
-        mask = create_mask(batch["vae_len"], batch["vae_feature_1"]).permute(0, 2, 1)
+        vae_len = [
+            vae_1.shape[-1] * wl // batch["raw_wav_1"].shape[-1]
+            for wl in batch["wav_len"]
+        ]
+        mask = create_mask(torch.tensor(vae_len), vae_1)
 
         t = self.sampling_t(batch_size)
         vae = torch.stack([vae_1, vae_2], dim=1)
@@ -139,12 +144,13 @@ class DialogueSeparatorLightningModule(LightningModule):
             self.log_audio(noisy_wav, f"noisy_wav/{batch_idx}", wav_sr)
 
             est_feature1, est_feature2 = self.forward(batch)
-            est_feature1, est_feature2 = self.change_permutation(
-                est_feature1,
-                est_feature2,
-                batch["vae_feature_1"],
-                batch["vae_feature_2"],
-            )
+
+            with torch.no_grad():
+                vae_1 = self.dacvae.encode(batch["raw_wav_1"])
+                vae_2 = self.dacvae.encode(batch["raw_wav_2"])
+                est_feature1, est_feature2 = self.change_permutation(
+                    est_feature1, est_feature2, vae_1, vae_2
+                )
 
             with torch.no_grad():
                 estimated_1 = (
@@ -383,10 +389,11 @@ class DialogueSeparatorLightningModule(LightningModule):
     def forward(
         self, batch: dict[str, Any], step_size: float = 0.01
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        ssl_merged = self.ssl_feature_extractor.forward(batch["ssl_input"])
+        with torch.no_grad():
+            ssl_merged = self.ssl_feature_extractor.forward(batch["ssl_input"])
 
         vae_size = (
-            batch["clean_wav"].size(0),
+            ssl_merged.size(0),
             333,  # 20秒の音声のVAEは長さ333（ハードコーディング）
             self.cfg.model.vae.hidden_size,
         )
