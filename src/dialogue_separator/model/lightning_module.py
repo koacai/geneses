@@ -83,8 +83,8 @@ class DialogueSeparatorLightningModule(LightningModule):
 
     def calc_loss(self, batch: dict[str, Any]) -> torch.Tensor:
         with torch.no_grad():
-            vae_1 = self.dacvae.encode(batch["raw_wav_1"]).permute(0, 2, 1)
-            vae_2 = self.dacvae.encode(batch["raw_wav_2"]).permute(0, 2, 1)
+            vae_1 = self.dacvae.encode(batch["raw_wav_1"])
+            vae_2 = self.dacvae.encode(batch["raw_wav_2"])
             ssl_merged = self.ssl_feature_extractor.forward(batch["ssl_input"])
 
         batch_size = ssl_merged.size(0)
@@ -103,11 +103,13 @@ class DialogueSeparatorLightningModule(LightningModule):
         x_t_1 = path_sample.x_t[:, 0, :, :] * mask
         x_t_2 = path_sample.x_t[:, 1, :, :] * mask
 
-        est_dxt_1, est_dxt_2 = self.mmdit.forward(ssl_merged, t, x_t_1, x_t_2)
+        est_dxt_1, est_dxt_2 = self.mmdit.forward(
+            ssl_merged, t, x_t_1.permute(0, 2, 1), x_t_2.permute(0, 2, 1)
+        )
 
         loss = self.loss_fn(
-            est_dxt_1 * mask,
-            est_dxt_2 * mask,
+            est_dxt_1.permute(0, 2, 1) * mask,
+            est_dxt_2.permute(0, 2, 1) * mask,
             path_sample.dx_t[:, 0, :, :] * mask,
             path_sample.dx_t[:, 1, :, :] * mask,
         )
