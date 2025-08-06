@@ -288,6 +288,8 @@ class PreprocessDataModule(LightningDataModule):
         assert wav.shape[0] == 2
         wav_len_1 = sample[wav_len_1_key]
         wav_len_2 = sample[wav_len_2_key]
+        # Clone the tensor to avoid in-place modification of inference tensor
+        wav = wav.clone()
         if wav_len_1 > wav_len_2:
             wav[1, wav_len_2:] = torch.randn(1, wav_len_1 - wav_len_2) * noise_amp
         else:
