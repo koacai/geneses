@@ -152,7 +152,21 @@ class DialogueSeparatorLightningModule(LightningModule):
                     est_feature1, est_feature2, vae_1, vae_2
                 )
 
-            with torch.no_grad():
+                decoded_1 = (
+                    self.dacvae.decode(vae_1)[0]
+                    .squeeze()[:wav_len]
+                    .to(torch.float32)
+                    .cpu()
+                    .numpy()
+                )
+                decoded_2 = (
+                    self.dacvae.decode(vae_2)[0]
+                    .squeeze()[:wav_len]
+                    .to(torch.float32)
+                    .cpu()
+                    .numpy()
+                )
+
                 estimated_1 = (
                     self.dacvae.decode(est_feature1)[0]
                     .squeeze()[:wav_len]
@@ -168,6 +182,8 @@ class DialogueSeparatorLightningModule(LightningModule):
                     .numpy()
                 )
 
+            self.log_audio(decoded_1, f"decoded_1/{batch_idx}", wav_sr)
+            self.log_audio(decoded_2, f"decoded_2/{batch_idx}", wav_sr)
             self.log_audio(estimated_1, f"estimated_1/{batch_idx}", wav_sr)
             self.log_audio(estimated_2, f"estimated_2/{batch_idx}", wav_sr)
 
