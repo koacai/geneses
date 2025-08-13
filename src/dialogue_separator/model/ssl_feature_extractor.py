@@ -16,7 +16,7 @@ class SSLFeatureExtractor(nn.Module):
 
         elif fine_tuning_mode == "lora":
             self.model = Wav2Vec2BertModel.from_pretrained(
-                ssl_model_name, layerdrop=0.0
+                ssl_model_name, num_hidden_layers=8, layerdrop=0.0
             ).train()
             adapter_config = LoraConfig(
                 lora_alpha=16,

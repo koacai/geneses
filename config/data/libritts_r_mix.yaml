@@ -1,11 +1,9 @@
 dataset:
-  corpus:
-    _target_: lhotse_dataset.LibriTTSRMixClean
-
+  shar_dir: /groups/gag51394/users/asai/shar/libritts_r_mix_large/
   shard_dir: /groups/gag51394/users/asai/dialogue-separator/libritts_r_mix_raw
 
   shard_maxcount:
-    train: 100
+    train: 1000
     valid: 30
     test: 30
 
@@ -20,7 +18,7 @@ preprocess_datamodule:
   only_bg_noise: true
 
   shard_maxcount:
-    train: 100
+    train: 1000
     valid: 30
     test: 30
 
@@ -35,7 +33,7 @@ preprocess_datamodule:
     name: facebook/w2v-bert-2.0
     sample_rate: 16000
 
-  out_dir: /groups/gag51394/users/asai/dialogue-separator/libritts_r_mix_noised_4/
+  out_dir: /groups/gag51394/users/asai/dialogue-separator/libritts_r_mix_large_noised_4
 
 datamodule:
   train:

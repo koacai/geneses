@@ -6,14 +6,19 @@ import hydra
 import torch
 import torchaudio
 import webdataset as wds
-from lhotse import MultiCut
+from lhotse import CutSet, MultiCut
 from omegaconf import DictConfig
 from tqdm import tqdm
 
 
 @hydra.main(config_path="../config", config_name="default", version_base=None)
 def main(cfg: DictConfig) -> None:
-    corpus = hydra.utils.instantiate(cfg.data.dataset.corpus)
+    shar_dir = Path(cfg.data.dataset.shar_dir)
+
+    cut_paths = sorted(list(map(str, shar_dir.glob("**/cuts.*.jsonl.gz"))))
+    recording_paths = sorted(list(map(str, shar_dir.glob("**/recording.*.tar"))))
+
+    cuts = CutSet.from_shar({"cuts": cut_paths, "recording": recording_paths})
 
     Path(f"{cfg.data.dataset.shard_dir}/train").mkdir(parents=True, exist_ok=True)
     Path(f"{cfg.data.dataset.shard_dir}/valid").mkdir(parents=True, exist_ok=True)
@@ -31,7 +36,7 @@ def main(cfg: DictConfig) -> None:
         maxcount=cfg.data.dataset.shard_maxcount.test,
     )
 
-    for cut in tqdm(corpus.get_cuts()):
+    for cut in tqdm(cuts.data):
         assert isinstance(cut, MultiCut)
 
         buf = io.BytesIO()
@@ -51,11 +56,11 @@ def main(cfg: DictConfig) -> None:
             "wav_len_1.cls": cut.supervisions[0].custom["wav_len"],
             "wav_len_2.cls": cut.supervisions[1].custom["wav_len"],
         }
-        if cut.custom["subset"] == "dev-clean":
+        if cut.custom["subset"] == "dev_clean":
             valid_sink.write(sample)
-        elif cut.custom["subset"] == "test-clean":
+        elif cut.custom["subset"] == "test_clean":
             test_sink.write(sample)
-        elif cut.custom["subset"] in ["train-clean-100", "train-clean-360"]:
+        elif cut.custom["subset"] in ["train_clean-100", "train_clean_360"]:
             train_sink.write(sample)
 
     train_sink.close()
