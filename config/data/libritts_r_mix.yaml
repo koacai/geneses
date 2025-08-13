@@ -3,9 +3,9 @@ dataset:
   shard_dir: /groups/gag51394/users/asai/dialogue-separator/libritts_r_mix_raw
 
   shard_maxcount:
-    train: 100
-    valid: 30
-    test: 30
+    train: 1000
+    valid: 300
+    test: 300
 
 preprocess_datamodule:
   shard_dir: ${data.dataset.shard_dir}
@@ -18,9 +18,9 @@ preprocess_datamodule:
   only_bg_noise: true
 
   shard_maxcount:
-    train: 100
-    valid: 30
-    test: 30
+    train: 1000
+    valid: 300
+    test: 300
 
   vae:
     ckpt_path: /groups/gag51394/users/asai/dacvae_l16_librispeech.pt
@@ -33,7 +33,7 @@ preprocess_datamodule:
     name: facebook/w2v-bert-2.0
     sample_rate: 16000
 
-  out_dir: /groups/gag51394/users/asai/dialogue-separator/libritts_r_mix_noised_4
+  out_dir: /groups/gag51394/users/asai/dialogue-separator/libritts_r_mix_large_noised_4
 
 datamodule:
   train:
