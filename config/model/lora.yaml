@@ -13,7 +13,7 @@ mmdit:
   in_channels: ${model.vae.hidden_size}
   in_ssl_channels: 1024
   out_channels: ${model.vae.hidden_size}
-  hidden_size: 512
+  hidden_size: 768
   max_ssl_seq_len: 1000
   max_seq_len: 334
   depth: 12

@@ -4,8 +4,8 @@ dataset:
 
   shard_maxcount:
     train: 1000
-    valid: 300
-    test: 300
+    valid: 30
+    test: 30
 
 preprocess_datamodule:
   shard_dir: ${data.dataset.shard_dir}
@@ -19,8 +19,8 @@ preprocess_datamodule:
 
   shard_maxcount:
     train: 1000
-    valid: 300
-    test: 300
+    valid: 30
+    test: 30
 
   vae:
     ckpt_path: /groups/gag51394/users/asai/dacvae_l16_librispeech.pt
