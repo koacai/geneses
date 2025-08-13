@@ -2,7 +2,7 @@
 #PBS -q rt_HC
 #PBS -l select=1
 #PBS -P gag51394
-#PBS -l walltime=12:00:00
+#PBS -l walltime=24:00:00
 #PBS -j oe
 #PBS -k oed
 
