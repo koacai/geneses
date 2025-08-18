@@ -192,14 +192,17 @@ class DialogueSeparatorLightningModule(LightningModule):
         return loss
 
     def test_step(self, batch: dict[str, Any], batch_idx: int) -> None:
-        est_feature1, est_feature2 = self.forward(batch, step_size=0.01)
-        est_feature1, est_feature2 = self.change_permutation(
-            est_feature1, est_feature2, batch["vae_feature_1"], batch["vae_feature_2"]
-        )
-
         with torch.no_grad():
-            decoded_1_all = self.dacvae.decode(batch["vae_feature_1"])
-            decoded_2_all = self.dacvae.decode(batch["vae_feature_2"])
+            vae_1 = self.dacvae.encode(batch["raw_wav_1"])
+            vae_2 = self.dacvae.encode(batch["raw_wav_2"])
+
+            est_feature1, est_feature2 = self.forward(batch, step_size=0.01)
+            est_feature1, est_feature2 = self.change_permutation(
+                est_feature1, est_feature2, vae_1, vae_2
+            )
+
+            decoded_1_all = self.dacvae.decode(vae_1)
+            decoded_2_all = self.dacvae.decode(vae_2)
             estimated_1_all = self.dacvae.decode(est_feature1)
             estimated_2_all = self.dacvae.decode(est_feature2)
 
@@ -248,7 +251,6 @@ class DialogueSeparatorLightningModule(LightningModule):
             df_without_ref, df_with_ref = self.evaluation_metrics(
                 wav_1,
                 wav_2,
-                clean_wav,
                 decoded_1,
                 decoded_2,
                 estimated_1,
@@ -263,7 +265,6 @@ class DialogueSeparatorLightningModule(LightningModule):
     def evaluation_metrics(
         source_1: torch.Tensor,
         source_2: torch.Tensor,
-        source_merged: torch.Tensor,
         decoded_1: torch.Tensor,
         decoded_2: torch.Tensor,
         estimated_1: torch.Tensor,
@@ -274,7 +275,6 @@ class DialogueSeparatorLightningModule(LightningModule):
         wav_dict = {
             "source_1": source_1,
             "source_2": source_2,
-            "source_merged": source_merged,
             "decoded_1": decoded_1,
             "decoded_2": decoded_2,
             "estimated_1": estimated_1,
