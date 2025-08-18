@@ -263,8 +263,8 @@ class DialogueSeparatorLightningModule(LightningModule):
 
     @staticmethod
     def evaluation_metrics(
-        source_1: torch.Tensor,
-        source_2: torch.Tensor,
+        wav_1: torch.Tensor,
+        wav_2: torch.Tensor,
         decoded_1: torch.Tensor,
         decoded_2: torch.Tensor,
         estimated_1: torch.Tensor,
@@ -273,8 +273,8 @@ class DialogueSeparatorLightningModule(LightningModule):
         device: torch.device,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         wav_dict = {
-            "source_1": source_1,
-            "source_2": source_2,
+            "wav_1": wav_1,
+            "wav_2": wav_2,
             "decoded_1": decoded_1,
             "decoded_2": decoded_2,
             "estimated_1": estimated_1,
@@ -300,10 +300,10 @@ class DialogueSeparatorLightningModule(LightningModule):
         df_without_ref = pd.DataFrame(without_ref)
 
         wav_pair_dict = {
-            "source_decoded_1": (source_1, decoded_1),
-            "source_decoded_2": (source_2, decoded_2),
-            "source_estimated_1": (source_1, estimated_1),
-            "source_estimated_2": (source_2, estimated_2),
+            "wav_decoded_1": (wav_1, decoded_1),
+            "wav_decoded_2": (wav_2, decoded_2),
+            "wav_estimated_1": (wav_1, estimated_1),
+            "wav_estimated_2": (wav_2, estimated_2),
         }
 
         pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode="wb")
