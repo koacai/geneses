@@ -22,6 +22,7 @@ from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
 from torchmetrics.audio.sdr import SignalDistortionRatio
 from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
 from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
+from utmosv2._core.create import UTMOSv2Model
 
 import wandb
 from dialogue_separator.metrics.lsd import lsd_metric
@@ -208,6 +209,15 @@ class DialogueSeparatorLightningModule(LightningModule):
             estimated_2_all = self.dacvae.decode(est_feature2)
 
         wav_sr = self.cfg.model.vae.sample_rate
+        dnsmos = DeepNoiseSuppressionMeanOpinionScore(fs=wav_sr, personalized=False)
+        nisqa = NonIntrusiveSpeechQualityAssessment(fs=wav_sr)
+        utmos = utmosv2.create_model(pretrained=True, device=self.device)
+        pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode="wb")
+        estoi = ShortTimeObjectiveIntelligibility(fs=wav_sr, extended=True)
+        sdr = SignalDistortionRatio().to(device=self.device)
+        speech_bert_score = SpeechBERTScore(self.device)
+        speech_bert_score.speech_bert_score.model.eval()
+
         batch_size = batch["raw_wav_1"].size(0)
         for i in range(batch_size):
             sample_dir = Path("test_output") / f"{batch_idx}" / f"{i}"
@@ -250,6 +260,13 @@ class DialogueSeparatorLightningModule(LightningModule):
             )
 
             df_without_ref, df_with_ref = self.evaluation_metrics(
+                dnsmos,
+                nisqa,
+                utmos,
+                pesq,
+                estoi,
+                sdr,
+                speech_bert_score,
                 wav_1,
                 wav_2,
                 decoded_1,
@@ -258,13 +275,19 @@ class DialogueSeparatorLightningModule(LightningModule):
                 estimated_2,
                 wav_sr,
                 sample_dir,
-                self.device,
             )
             df_without_ref.to_csv(metrics_dir / "without_ref.csv", index=False)
             df_with_ref.to_csv(metrics_dir / "with_ref.csv", index=False)
 
     @staticmethod
     def evaluation_metrics(
+        dnsmos: DeepNoiseSuppressionMeanOpinionScore,
+        nisqa: NonIntrusiveSpeechQualityAssessment,
+        utmos: UTMOSv2Model,
+        pesq: PerceptualEvaluationSpeechQuality,
+        estoi: ShortTimeObjectiveIntelligibility,
+        sdr: SignalDistortionRatio,
+        speech_bert_score: SpeechBERTScore,
         wav_1: torch.Tensor,
         wav_2: torch.Tensor,
         decoded_1: torch.Tensor,
@@ -273,7 +296,6 @@ class DialogueSeparatorLightningModule(LightningModule):
         estimated_2: torch.Tensor,
         wav_sr: int,
         sample_dir: Path,
-        device: torch.device,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         wav_dict = {
             "wav_1": (wav_1, sample_dir / "wav_1.wav"),
@@ -283,10 +305,6 @@ class DialogueSeparatorLightningModule(LightningModule):
             "estimated_1": (estimated_1, sample_dir / "estimated_1.wav"),
             "estimated_2": (estimated_2, sample_dir / "estimated_2.wav"),
         }
-
-        dnsmos = DeepNoiseSuppressionMeanOpinionScore(fs=wav_sr, personalized=False)
-        nisqa = NonIntrusiveSpeechQualityAssessment(fs=wav_sr)
-        utmos = utmosv2.create_model(pretrained=True)
 
         without_ref = []
         for name, (wav, path) in wav_dict.items():
@@ -305,12 +323,6 @@ class DialogueSeparatorLightningModule(LightningModule):
             "wav_estimated_1": (wav_1, estimated_1),
             "wav_estimated_2": (wav_2, estimated_2),
         }
-
-        pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode="wb")
-        estoi = ShortTimeObjectiveIntelligibility(fs=wav_sr, extended=True)
-        sdr = SignalDistortionRatio().to(device=device)
-        speech_bert_score = SpeechBERTScore(device)
-        speech_bert_score.speech_bert_score.model.eval()
 
         with_ref = []
         for name, (ref, inf) in wav_pair_dict.items():
