@@ -25,6 +25,7 @@ dependencies = [
     "torchaudio>=2.6.0",
     "torchmetrics[audio]>=1.7.1",
     "transformers>=4.52.3",
+    "utmosv2",
     "wandb>=0.19.10",
     "webdataset>=0.2.111",
 ]
@@ -63,6 +64,7 @@ lhotse-dataset = { git = "ssh://github.com/koacai/lhotse-dataset.git" }
 torch = { index = "torch-aarch", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'"}
 torchaudio = { index = "torch-aarch", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'"}
 discrete-speech-metrics = { git = "https://github.com/kohei0209/DiscreteSpeechMetrics.git", rev = "mhubert_wo_pypesq" }
+utmosv2 = { git = "https://github.com/sarulab-speech/UTMOSv2.git" }
 
 [[tool.uv.index]]
 name = "torch-aarch"

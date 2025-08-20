@@ -1,11 +1,9 @@
 dataset:
-  shar_dir: /groups/gag51394/users/asai/shar/libritts_r_mix_large/
-  shard_dir: /groups/gag51394/users/asai/dialogue-separator/libritts_r_mix_raw
+  shar_dir: /groups/gag51394/users/asai/shar/callhome_en/
+  shard_dir: /groups/gag51394/users/asai/dialogue-separator/callhome_en_raw
 
   shard_maxcount:
-    train: 1000
-    valid: 30
-    test: 30
+    test: 3
 
 preprocess_datamodule:
   shard_dir: ${data.dataset.shard_dir}
@@ -14,12 +12,10 @@ preprocess_datamodule:
 
   batch_size: 1
   num_workers: 32
-  noise_pipeline_times: 4
+  noise_pipeline_times: 0
 
   shard_maxcount:
-    train: 1000
-    valid: 30
-    test: 30
+    test: 3
 
   vae:
     ckpt_path: /groups/gag51394/users/asai/dacvae_l16_librispeech.pt
@@ -32,17 +28,11 @@ preprocess_datamodule:
     name: facebook/w2v-bert-2.0
     sample_rate: 16000
 
-  out_dir: /groups/gag51394/users/asai/dialogue-separator/libritts_r_mix_large_noised_4
+  out_dir: /groups/gag51394/users/asai/dialogue-separator/callhome_en_preprocessed
 
 datamodule:
-  train:
-    dataset_dir: ${data.preprocess_datamodule.out_dir}/train/
-    batch_size: 32
-  valid:
-    dataset_dir: ${data.preprocess_datamodule.out_dir}/valid/
-    batch_size: 16
   test:
     dataset_dir: ${data.preprocess_datamodule.out_dir}/test/
-    batch_size: 4
+    batch_size: 16
   num_workers: 8
   use_ddp: true
