@@ -15,7 +15,6 @@ preprocess_datamodule:
   batch_size: 1
   num_workers: 32
   noise_pipeline_times: 4
-  only_bg_noise: true
 
   shard_maxcount:
     train: 1000
