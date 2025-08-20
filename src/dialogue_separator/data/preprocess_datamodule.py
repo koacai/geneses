@@ -370,6 +370,8 @@ class PreprocessDataModule(LightningDataModule):
 
         noisy_wav = []
         wav_len = []
+        wav_len_1 = []
+        wav_len_2 = []
         wav_ssl_input = []
         text_1 = []
         text_2 = []
@@ -383,6 +385,12 @@ class PreprocessDataModule(LightningDataModule):
             raw_wav_1[i, : _raw.shape[-1]] = _raw[0]
             raw_wav_2[i, : _raw.shape[-1]] = _raw[1]
             wav_len.append(_raw.shape[-1])
+            wav_len_1.append(
+                int(sample["wav_len_1.cls"] * self.cfg.vae.sample_rate / sr)
+            )
+            wav_len_2.append(
+                int(sample["wav_len_2.cls"] * self.cfg.vae.sample_rate / sr)
+            )
 
             _clean, sr = sample["clean"]
             if sr != self.cfg.vae.sample_rate:
@@ -414,6 +422,8 @@ class PreprocessDataModule(LightningDataModule):
             "raw_wav_1": raw_wav_1,
             "raw_wav_2": raw_wav_2,
             "wav_len": torch.tensor(wav_len),
+            "wav_len_1": torch.tensor(wav_len_1),
+            "wav_len_2": torch.tensor(wav_len_2),
             "clean_wav": clean_wav,
             "noisy_wav": pad_sequence(noisy_wav, batch_first=True),
             "ssl_input": ssl_input,
