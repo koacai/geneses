@@ -386,10 +386,16 @@ class PreprocessDataModule(LightningDataModule):
             raw_wav_2[i, : _raw.shape[-1]] = _raw[1]
             wav_len.append(_raw.shape[-1])
             wav_len_1.append(
-                int(sample["wav_len_1.cls"] * self.cfg.vae.sample_rate / sr)
+                min(
+                    int(sample["wav_len_1.cls"] * self.cfg.vae.sample_rate / sr),
+                    self.cfg.vae.sample_rate * max_duration,
+                )
             )
             wav_len_2.append(
-                int(sample["wav_len_2.cls"] * self.cfg.vae.sample_rate / sr)
+                min(
+                    int(sample["wav_len_2.cls"] * self.cfg.vae.sample_rate / sr),
+                    self.cfg.vae.sample_rate * max_duration,
+                )
             )
 
             _clean, sr = sample["clean"]
