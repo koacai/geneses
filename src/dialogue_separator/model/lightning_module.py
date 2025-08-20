@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torchaudio
+import utmosv2
 from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import ODESolver
@@ -256,6 +257,7 @@ class DialogueSeparatorLightningModule(LightningModule):
                 estimated_1,
                 estimated_2,
                 wav_sr,
+                sample_dir,
                 self.device,
             )
             df_without_ref.to_csv(metrics_dir / "without_ref.csv", index=False)
@@ -270,30 +272,28 @@ class DialogueSeparatorLightningModule(LightningModule):
         estimated_1: torch.Tensor,
         estimated_2: torch.Tensor,
         wav_sr: int,
+        sample_dir: Path,
         device: torch.device,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         wav_dict = {
-            "wav_1": wav_1,
-            "wav_2": wav_2,
-            "decoded_1": decoded_1,
-            "decoded_2": decoded_2,
-            "estimated_1": estimated_1,
-            "estimated_2": estimated_2,
+            "wav_1": (wav_1, sample_dir / "wav_1.wav"),
+            "wav_2": (wav_2, sample_dir / "wav_2.wav"),
+            "decoded_1": (decoded_1, sample_dir / "decoded_1.wav"),
+            "decoded_2": (decoded_2, sample_dir / "decoded_2.wav"),
+            "estimated_1": (estimated_1, sample_dir / "estimated_1.wav"),
+            "estimated_2": (estimated_2, sample_dir / "estimated_2.wav"),
         }
 
         dnsmos = DeepNoiseSuppressionMeanOpinionScore(fs=wav_sr, personalized=False)
         nisqa = NonIntrusiveSpeechQualityAssessment(fs=wav_sr)
-        utmos = torch.hub.load(
-            "tarepan/SpeechMOS:v1.2.0", "utmos22_strong", trust_repo=True
-        )
-        utmos = utmos.to(device=device)  # type: ignore
+        utmos = utmosv2.create_model(pretrained=True)
 
         without_ref = []
-        for name, wav in wav_dict.items():
+        for name, (wav, path) in wav_dict.items():
             _dnsmos = dnsmos(wav)[-1].item()
             _nisqa = nisqa(wav)[0].item()
             with torch.no_grad():
-                _utmos = utmos(wav.unsqueeze(0), wav_sr).item()  # type: ignore
+                _utmos = utmos.predict(input_path=path)
             without_ref.append(
                 dict(key=name, dnsmos=_dnsmos, nisqa=_nisqa, utmos=_utmos)
             )

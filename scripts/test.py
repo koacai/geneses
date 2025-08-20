@@ -22,7 +22,7 @@ def main(cfg: DictConfig) -> None:
 
     L.seed_everything(42)
 
-    trainer = L.Trainer(limit_test_batches=100)
+    trainer = L.Trainer(limit_test_batches=1)
 
     dialogue_separator = DialogueSeparatorLightningModule.load_from_checkpoint(
         f"model_ckpt/{ckpt_paths[0]}",
