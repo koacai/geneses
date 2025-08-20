@@ -33,6 +33,6 @@ preprocess_datamodule:
 datamodule:
   test:
     dataset_dir: ${data.preprocess_datamodule.out_dir}/test/
-    batch_size: 16
+    batch_size: 4
   num_workers: 8
   use_ddp: true

@@ -94,6 +94,8 @@ class DialogueSeparatorDataModule(LightningDataModule):
         clean_wav = []
         noisy_wav = []
         wav_len = []
+        wav_len_1 = []
+        wav_len_2 = []
         text_1 = []
         text_2 = []
         ssl_input = defaultdict(list)
@@ -104,21 +106,31 @@ class DialogueSeparatorDataModule(LightningDataModule):
             clean_wav.append(sample["clean_wav.pth"].squeeze())
             noisy_wav.append(sample["noisy_wav.pth"].squeeze())
             wav_len.append(sample["wav_len.pth"][0])
-            text_1.append(sample["text_1.pickle"][0])
-            text_2.append(sample["text_2.pickle"][0])
+            wav_len_1.append(sample["wav_len_1.pth"][0])
+            wav_len_2.append(sample["wav_len_2.pth"][0])
+            if "text_1.pickle" in sample:
+                text_1.append(sample["text_1.pickle"][0])
+            if "text_2.pickle" in sample:
+                text_2.append(sample["text_2.pickle"][0])
 
             for k, v in sample["ssl_input.pickle"].items():
                 ssl_input[k].append(v.squeeze())
 
-        return {
+        output = {
             "raw_wav_1": torch.stack(raw_wav_1),
             "raw_wav_2": torch.stack(raw_wav_2),
             "clean_wav": torch.stack(clean_wav),
             "noisy_wav": pad_sequence(noisy_wav, batch_first=True),
             "wav_len": torch.stack(wav_len),
-            "text_1": text_1,
-            "text_2": text_2,
+            "wav_len_1": torch.stack(wav_len_1),
+            "wav_len_2": torch.stack(wav_len_2),
             "ssl_input": {
                 k: pad_sequence(v, batch_first=True) for k, v in ssl_input.items()
             },
         }
+        if len(text_1) == 0:
+            output["text_1"] = text_1
+        if len(text_2) == 0:
+            output["text_2"] = text_2
+
+        return output
