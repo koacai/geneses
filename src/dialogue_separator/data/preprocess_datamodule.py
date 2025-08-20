@@ -112,7 +112,6 @@ class PreprocessDataModule(LightningDataModule):
                 dataset,
                 rir_dataset,
                 noise_dataset,
-                only_bg_noise=self.cfg.only_bg_noise,
             )
         dataset = (
             dataset.map(
@@ -161,23 +160,19 @@ class PreprocessDataModule(LightningDataModule):
         dataset: wds.WebDataset,
         rir_dataset: wds.WebDataset,
         noise_dataset: wds.WebDataset,
-        only_bg_noise: bool,
     ) -> wds.WebDataset:
-        dataset = dataset.compose(
-            partial(
-                random_apply,
-                prob=0.5,
-                transform_fn=add_non_parametric_noise,
-                input_key="noisy",
-                output_key="noisy",
-                noise_ds=iter(noise_dataset),
-            )
-        )
-        if only_bg_noise:
-            return dataset
-
         dataset = (
             dataset.compose(
+                partial(
+                    random_apply,
+                    prob=0.5,
+                    transform_fn=add_non_parametric_noise,
+                    input_key="noisy",
+                    output_key="noisy",
+                    noise_ds=iter(noise_dataset),
+                )
+            )
+            .compose(
                 partial(
                     random_apply,
                     prob=0.5,
@@ -248,6 +243,7 @@ class PreprocessDataModule(LightningDataModule):
                 )
             )
         )
+
         return dataset
 
     def train_dataloader(self) -> wds.WebLoader:
