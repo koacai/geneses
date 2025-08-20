@@ -226,8 +226,10 @@ class DialogueSeparatorLightningModule(LightningModule):
             metrics_dir.mkdir(parents=True, exist_ok=True)
 
             wav_len = batch["wav_len"][i]
-            wav_1 = batch["raw_wav_1"][i][:wav_len]
-            wav_2 = batch["raw_wav_2"][i][:wav_len]
+            wav_len_1 = batch["wav_len_1"][i]
+            wav_len_2 = batch["wav_len_2"][i]
+            wav_1 = batch["raw_wav_1"][i][:wav_len_1]
+            wav_2 = batch["raw_wav_2"][i][:wav_len_2]
             clean_wav = batch["clean_wav"][i][:wav_len]
             noisy_wav = batch["noisy_wav"][i][:wav_len]
 
@@ -240,8 +242,8 @@ class DialogueSeparatorLightningModule(LightningModule):
                 sample_dir / "noisy_wav.wav", noisy_wav.cpu().unsqueeze(0), wav_sr
             )
 
-            decoded_1 = decoded_1_all[i].squeeze()[:wav_len].to(torch.float32)
-            decoded_2 = decoded_2_all[i].squeeze()[:wav_len].to(torch.float32)
+            decoded_1 = decoded_1_all[i].squeeze()[:wav_len_1].to(torch.float32)
+            decoded_2 = decoded_2_all[i].squeeze()[:wav_len_2].to(torch.float32)
             torchaudio.save(
                 sample_dir / "decoded_1.wav", decoded_1.cpu().unsqueeze(0), wav_sr
             )
@@ -249,8 +251,8 @@ class DialogueSeparatorLightningModule(LightningModule):
                 sample_dir / "decoded_2.wav", decoded_2.cpu().unsqueeze(0), wav_sr
             )
 
-            estimated_1 = estimated_1_all[i].squeeze()[:wav_len].to(torch.float32)
-            estimated_2 = estimated_2_all[i].squeeze()[:wav_len].to(torch.float32)
+            estimated_1 = estimated_1_all[i].squeeze()[:wav_len_1].to(torch.float32)
+            estimated_2 = estimated_2_all[i].squeeze()[:wav_len_2].to(torch.float32)
 
             torchaudio.save(
                 sample_dir / "estimated_1.wav", estimated_1.cpu().unsqueeze(0), wav_sr
@@ -326,6 +328,12 @@ class DialogueSeparatorLightningModule(LightningModule):
 
         with_ref = []
         for name, (ref, inf) in wav_pair_dict.items():
+            # NOTE: これをやる必要があるのは、max_durationいっぱいいっぱいの音声のみ（VAEの都合）
+            if ref.shape[-1] > inf.shape[-1]:
+                ref = ref[: inf.shape[-1]]
+            elif inf.shape[-1] > ref.shape[-1]:
+                inf = inf[: ref.shape[-1]]
+
             if wav_sr != 16000:
                 ref_resample = torchaudio.functional.resample(ref, wav_sr, 16000)
                 inf_resample = torchaudio.functional.resample(inf, wav_sr, 16000)

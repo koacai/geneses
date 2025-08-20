@@ -370,6 +370,8 @@ class PreprocessDataModule(LightningDataModule):
 
         noisy_wav = []
         wav_len = []
+        wav_len_1 = []
+        wav_len_2 = []
         wav_ssl_input = []
         text_1 = []
         text_2 = []
@@ -383,6 +385,18 @@ class PreprocessDataModule(LightningDataModule):
             raw_wav_1[i, : _raw.shape[-1]] = _raw[0]
             raw_wav_2[i, : _raw.shape[-1]] = _raw[1]
             wav_len.append(_raw.shape[-1])
+            wav_len_1.append(
+                min(
+                    int(sample["wav_len_1.cls"] * self.cfg.vae.sample_rate / sr),
+                    self.cfg.vae.sample_rate * max_duration,
+                )
+            )
+            wav_len_2.append(
+                min(
+                    int(sample["wav_len_2.cls"] * self.cfg.vae.sample_rate / sr),
+                    self.cfg.vae.sample_rate * max_duration,
+                )
+            )
 
             _clean, sr = sample["clean"]
             if sr != self.cfg.vae.sample_rate:
@@ -401,8 +415,10 @@ class PreprocessDataModule(LightningDataModule):
             _wav_ssl_input = F.pad(_noisy, (40, 40), mode="constant", value=0)
             wav_ssl_input.append(_wav_ssl_input)
 
-            text_1.append(sample["text_1.txt"])
-            text_2.append(sample["text_2.txt"])
+            if "text_1.txt" in sample:
+                text_1.append(sample["text_1.txt"])
+            if "text_2.txt" in sample:
+                text_2.append(sample["text_2.txt"])
 
         ssl_input = self.processor(
             [w.cpu().numpy() for w in wav_ssl_input],
@@ -414,11 +430,16 @@ class PreprocessDataModule(LightningDataModule):
             "raw_wav_1": raw_wav_1,
             "raw_wav_2": raw_wav_2,
             "wav_len": torch.tensor(wav_len),
+            "wav_len_1": torch.tensor(wav_len_1),
+            "wav_len_2": torch.tensor(wav_len_2),
             "clean_wav": clean_wav,
             "noisy_wav": pad_sequence(noisy_wav, batch_first=True),
             "ssl_input": ssl_input,
-            "text_1": text_1,
-            "text_2": text_2,
         }
+
+        if len(text_1) != 0:
+            output["text_1"] = text_1
+        if len(text_2) != 0:
+            output["text_2"] = text_2
 
         return output
