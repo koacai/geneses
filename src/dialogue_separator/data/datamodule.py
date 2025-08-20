@@ -128,9 +128,9 @@ class DialogueSeparatorDataModule(LightningDataModule):
                 k: pad_sequence(v, batch_first=True) for k, v in ssl_input.items()
             },
         }
-        if len(text_1) == 0:
+        if len(text_1) != 0:
             output["text_1"] = text_1
-        if len(text_2) == 0:
+        if len(text_2) != 0:
             output["text_2"] = text_2
 
         return output

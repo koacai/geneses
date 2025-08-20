@@ -415,8 +415,10 @@ class PreprocessDataModule(LightningDataModule):
             _wav_ssl_input = F.pad(_noisy, (40, 40), mode="constant", value=0)
             wav_ssl_input.append(_wav_ssl_input)
 
-            text_1.append(sample["text_1.txt"])
-            text_2.append(sample["text_2.txt"])
+            if "text_1.txt" in sample:
+                text_1.append(sample["text_1.txt"])
+            if "text_2.txt" in sample:
+                text_2.append(sample["text_2.txt"])
 
         ssl_input = self.processor(
             [w.cpu().numpy() for w in wav_ssl_input],
@@ -433,8 +435,11 @@ class PreprocessDataModule(LightningDataModule):
             "clean_wav": clean_wav,
             "noisy_wav": pad_sequence(noisy_wav, batch_first=True),
             "ssl_input": ssl_input,
-            "text_1": text_1,
-            "text_2": text_2,
         }
+
+        if len(text_1) != 0:
+            output["text_1"] = text_1
+        if len(text_2) != 0:
+            output["text_2"] = text_2
 
         return output
