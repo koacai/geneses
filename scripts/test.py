@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 from litmodels import download_model
 from omegaconf import DictConfig
 
-from ditse.data.datamodule import DialogueSeparatorDataModule
-from ditse.model.lightning_module import DialogueSeparatorLightningModule
+from ditse.data.datamodule import DiTSEDataModule
+from ditse.model.lightning_module import DiTSELightningModule
 
 
 @hydra.main(config_path="../config", config_name="default", version_base=None)
@@ -24,10 +24,10 @@ def main(cfg: DictConfig) -> None:
 
     trainer = L.Trainer(limit_test_batches=1)
 
-    dialogue_separator = DialogueSeparatorLightningModule.load_from_checkpoint(
+    dialogue_separator = DiTSELightningModule.load_from_checkpoint(
         f"model_ckpt/{ckpt_paths[0]}",
     )
-    datamodule = DialogueSeparatorDataModule(cfg.data.datamodule)
+    datamodule = DiTSEDataModule(cfg.data.datamodule)
 
     datamodule.setup("test")
 

@@ -4,8 +4,8 @@ import torch
 from dotenv import load_dotenv
 from omegaconf import DictConfig
 
-from ditse.data.datamodule import DialogueSeparatorDataModule
-from ditse.model.lightning_module import DialogueSeparatorLightningModule
+from ditse.data.datamodule import DiTSEDataModule
+from ditse.model.lightning_module import DiTSELightningModule
 
 
 @hydra.main(config_path="../config", config_name="default", version_base=None)
@@ -18,8 +18,8 @@ def main(cfg: DictConfig) -> None:
 
     trainer = hydra.utils.instantiate(cfg.train.trainer)
 
-    dialogue_separator = DialogueSeparatorLightningModule(cfg)
-    datamodule = DialogueSeparatorDataModule(cfg.data.datamodule)
+    dialogue_separator = DiTSELightningModule(cfg)
+    datamodule = DiTSEDataModule(cfg.data.datamodule)
 
     datamodule.setup("fit")
 

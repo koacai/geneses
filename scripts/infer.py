@@ -5,13 +5,13 @@ import torchaudio
 from huggingface_hub import hf_hub_download
 from lhotse import CutSet
 
-from ditse.model.lightning_module import DialogueSeparatorLightningModule
+from ditse.model.lightning_module import DiTSELightningModule
 
 if __name__ == "__main__":
     ckpt_path = hf_hub_download(
         "koacai/dialogue-separator", "Libri2Mix/epoch=50-step=25449.ckpt"
     )
-    dialogue_separator = DialogueSeparatorLightningModule.load_from_checkpoint(
+    dialogue_separator = DiTSELightningModule.load_from_checkpoint(
         ckpt_path
     ).eval()
 

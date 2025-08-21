@@ -10,9 +10,9 @@ from torch.nn.utils.rnn import pad_sequence
 from ditse.data.util import glob_wds
 
 
-class DialogueSeparatorDataModule(LightningDataModule):
+class DiTSEDataModule(LightningDataModule):
     def __init__(self, cfg: DictConfig) -> None:
-        super(DialogueSeparatorDataModule, self).__init__()
+        super(DiTSEDataModule, self).__init__()
         self.cfg = cfg
 
     def setup(self, stage: str) -> None:

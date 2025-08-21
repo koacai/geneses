@@ -47,9 +47,9 @@ class WrappedModel(ModelWrapper):
         return torch.stack([res_1, res_2], dim=1)
 
 
-class DialogueSeparatorLightningModule(LightningModule):
+class DiTSELightningModule(LightningModule):
     def __init__(self, cfg: DictConfig) -> None:
-        super(DialogueSeparatorLightningModule, self).__init__()
+        super(DiTSELightningModule, self).__init__()
         self.cfg = cfg
 
         self.mmdit = MMDiT(**cfg.model.mmdit)
