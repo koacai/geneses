@@ -22,7 +22,6 @@ from torchmetrics.audio.nisqa import (
 from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
 from torchmetrics.audio.sdr import SignalDistortionRatio
 from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
-from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 from utmosv2._core.create import UTMOSv2Model
 
 from ditse.metrics.lsd import lsd_metric
@@ -460,62 +459,3 @@ class DiTSELightningModule(LightningModule):
     def log_audio(self, audio: np.ndarray, name: str, sampling_rate: int) -> None:
         if isinstance(self.logger, loggers.WandbLogger):
             wandb.log({name: wandb.Audio(audio, sample_rate=sampling_rate)})
-
-    def separate(self, wav: torch.Tensor, sr: int) -> tuple[torch.Tensor, torch.Tensor]:
-        if sr != self.cfg.model.vae.sample_rate:
-            wav = torchaudio.functional.resample(
-                wav, sr, self.cfg.model.vae.sample_rate
-            )
-
-        wav_merged = torch.zeros(
-            1,
-            self.cfg.model.vae.sample_rate * self.cfg.model.vae.max_duration,
-        )
-        wav_len = wav.shape[-1]
-        wav_merged[0, : wav.shape[-1]] = wav
-
-        wav_merged_ssl = torchaudio.functional.resample(
-            wav_merged,
-            self.cfg.model.vae.sample_rate,
-            self.cfg.model.ssl_model.sample_rate,
-        )
-
-        processor = AutoFeatureExtractor.from_pretrained(self.cfg.model.ssl_model.name)
-        ssl_model = (
-            Wav2Vec2BertModel.from_pretrained(
-                self.cfg.model.ssl_model.name,
-            )
-            .eval()
-            .to(self.device)  # type: ignore
-        )
-
-        with torch.no_grad():
-            inputs = processor(
-                [w.cpu().numpy() for w in wav_merged_ssl],
-                sampling_rate=self.cfg.model.ssl_model.sample_rate,
-                return_tensors="pt",
-            )
-            inputs["input_features"] = inputs["input_features"].to(self.device)
-            inputs["attention_mask"] = inputs["attention_mask"].to(self.device)
-            ssl_feature = ssl_model(**inputs, output_hidden_states=True).hidden_states[
-                self.cfg.model.ssl_model.layer
-            ]
-
-        batch = {"wav_merged": wav_merged, "ssl_feature": ssl_feature}
-        est_feature1, est_feature2 = self.forward(batch)
-
-        with torch.no_grad():
-            estimated_1 = (
-                self.dacvae.decode(est_feature1)[0]
-                .squeeze()[:wav_len]
-                .to(torch.float32)
-                .cpu()
-            )
-            estimated_2 = (
-                self.dacvae.decode(est_feature2)[0]
-                .squeeze()[:wav_len]
-                .to(torch.float32)
-                .cpu()
-            )
-
-        return estimated_1.unsqueeze(0), estimated_2.unsqueeze(0)
