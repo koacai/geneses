@@ -7,6 +7,7 @@ import pandas as pd
 import torch
 import torchaudio
 import utmosv2
+import wandb
 from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import ODESolver
@@ -24,17 +25,16 @@ from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
 from transformers import AutoFeatureExtractor, Wav2Vec2BertModel
 from utmosv2._core.create import UTMOSv2Model
 
-import wandb
-from dialogue_separator.metrics.lsd import lsd_metric
-from dialogue_separator.metrics.mcd import mcd_metric
-from dialogue_separator.metrics.speech_bert_score import (
+from ditse.metrics.lsd import lsd_metric
+from ditse.metrics.mcd import mcd_metric
+from ditse.metrics.speech_bert_score import (
     SpeechBERTScore,
     speech_bert_score_metric,
 )
-from dialogue_separator.model.components import MMDiT
-from dialogue_separator.model.dacvae import DACVAE
-from dialogue_separator.model.ssl_feature_extractor import SSLFeatureExtractor
-from dialogue_separator.util.util import create_mask
+from ditse.model.components import MMDiT
+from ditse.model.dacvae import DACVAE
+from ditse.model.ssl_feature_extractor import SSLFeatureExtractor
+from ditse.util.util import create_mask
 
 
 class WrappedModel(ModelWrapper):

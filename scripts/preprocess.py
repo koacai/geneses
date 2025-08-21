@@ -1,8 +1,8 @@
 import hydra
 from omegaconf import DictConfig
 
-from dialogue_separator.data.preprocess_datamodule import PreprocessDataModule
-from dialogue_separator.data.wds_writer import run_parallel_writing
+from ditse.data.preprocess_datamodule import PreprocessDataModule
+from ditse.data.wds_writer import run_parallel_writing
 
 
 @hydra.main(config_path="../config", config_name="default", version_base=None)

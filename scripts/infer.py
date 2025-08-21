@@ -5,7 +5,7 @@ import torchaudio
 from huggingface_hub import hf_hub_download
 from lhotse import CutSet
 
-from dialogue_separator.model.lightning_module import DialogueSeparatorLightningModule
+from ditse.model.lightning_module import DialogueSeparatorLightningModule
 
 if __name__ == "__main__":
     ckpt_path = hf_hub_download(

@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 from litmodels import download_model
 from omegaconf import DictConfig
 
-from dialogue_separator.data.datamodule import DialogueSeparatorDataModule
-from dialogue_separator.model.lightning_module import DialogueSeparatorLightningModule
+from ditse.data.datamodule import DialogueSeparatorDataModule
+from ditse.model.lightning_module import DialogueSeparatorLightningModule
 
 
 @hydra.main(config_path="../config", config_name="default", version_base=None)

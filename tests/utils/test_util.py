@@ -1,6 +1,6 @@
 import torch
 
-from dialogue_separator.util.util import create_mask
+from ditse.util.util import create_mask
 
 
 def test_create_mask() -> None:

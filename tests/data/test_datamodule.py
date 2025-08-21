@@ -2,7 +2,7 @@ import itertools
 
 from hydra import compose, initialize
 
-from dialogue_separator.data.datamodule import DialogueSeparatorDataModule
+from ditse.data.datamodule import DialogueSeparatorDataModule
 
 
 def test_augment_datamodule_test_dataloader() -> None:

@@ -11,7 +11,7 @@ from omegaconf import DictConfig
 from torch.nn.utils.rnn import pad_sequence
 from transformers import AutoFeatureExtractor
 
-from dialogue_separator.data.functional_degrations import (
+from ditse.data.functional_degrations import (
     add_non_parametric_noise,
     band_limit,
     clip,
@@ -20,7 +20,7 @@ from dialogue_separator.data.functional_degrations import (
     packet_loss,
     random_apply,
 )
-from dialogue_separator.data.util import glob_wds
+from ditse.data.util import glob_wds
 
 
 class PreprocessDataModule(LightningDataModule):
