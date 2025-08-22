@@ -2,13 +2,13 @@ import itertools
 
 from hydra import compose, initialize
 
-from flowditse.data.datamodule import DiTSEDataModule
+from flowditse.data.datamodule import FlowDiTSEDataModule
 
 
 def test_augment_datamodule_test_dataloader() -> None:
     with initialize(config_path="../../config", version_base=None):
         cfg = compose(config_name="default").data.datamodule
-        datamodule = DiTSEDataModule(cfg)
+        datamodule = FlowDiTSEDataModule(cfg)
 
     datamodule.setup("test")
     batch_size = datamodule.cfg.test.batch_size

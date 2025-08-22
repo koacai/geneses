@@ -46,9 +46,9 @@ class WrappedModel(ModelWrapper):
         return torch.stack([res_1, res_2], dim=1)
 
 
-class DiTSELightningModule(LightningModule):
+class FlowDiTSELightningModule(LightningModule):
     def __init__(self, cfg: DictConfig) -> None:
-        super(DiTSELightningModule, self).__init__()
+        super(FlowDiTSELightningModule, self).__init__()
         self.cfg = cfg
 
         self.mmdit = MMDiT(**cfg.model.mmdit)
