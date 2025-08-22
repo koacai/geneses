@@ -1,6 +1,6 @@
 dataset:
   shar_dir: /groups/gag51394/users/asai/shar/callhome_en/
-  shard_dir: /groups/gag51394/users/asai/dialogue-separator/callhome_en_raw
+  shard_dir: /groups/gag51394/users/asai/flowditse/callhome_en_raw
 
   shard_maxcount:
     test: 3
@@ -28,7 +28,7 @@ preprocess_datamodule:
     name: facebook/w2v-bert-2.0
     sample_rate: 16000
 
-  out_dir: /groups/gag51394/users/asai/dialogue-separator/callhome_en_preprocessed
+  out_dir: /groups/gag51394/users/asai/flowditse/callhome_en_preprocessed
 
 datamodule:
   test:

@@ -4,7 +4,7 @@ trainer:
   max_epochs: 3300
   logger:
     _target_: lightning.pytorch.loggers.WandbLogger
-    project: dialogue-separator
+    project: flowditse
   check_val_every_n_epoch: 1
   precision: 16-mixed
   strategy:
@@ -14,7 +14,7 @@ trainer:
   gradient_clip_algorithm: norm
   callbacks:
     - _target_: litmodels.integrations.LightningModelCheckpoint
-      model_registry: koacai/speech/dialogue-separator
+      model_registry: koacai/speech/flowditse
     - _target_: lightning.pytorch.callbacks.early_stopping.EarlyStopping
       monitor: validation_loss
       mode: min

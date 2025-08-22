@@ -526,73 +526,6 @@ wheels = [
 ]
 
 [[package]]
-name = "dialogue-separator"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "discrete-speech-metrics" },
-    { name = "fastdtw" },
-    { name = "flow-matching" },
-    { name = "lhotse-dataset" },
-    { name = "lightning", extra = ["extra"] },
-    { name = "litmodels" },
-    { name = "matplotlib" },
-    { name = "mmdit" },
-    { name = "peft" },
-    { name = "phonemizer" },
-    { name = "pyroomacoustics" },
-    { name = "pysptk" },
-    { name = "python-dotenv" },
-    { name = "torch", version = "2.6.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
-    { name = "torch", version = "2.6.0+cu126", source = { registry = "https://download.pytorch.org/whl/cu126" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-    { name = "torchaudio", version = "2.6.0", source = { registry = "https://download.pytorch.org/whl/cu126" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-    { name = "torchaudio", version = "2.6.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
-    { name = "torchmetrics", extra = ["audio"] },
-    { name = "transformers" },
-    { name = "utmosv2" },
-    { name = "wandb" },
-    { name = "webdataset" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "discrete-speech-metrics", git = "https://github.com/kohei0209/DiscreteSpeechMetrics.git?rev=mhubert_wo_pypesq" },
-    { name = "fastdtw", specifier = ">=0.3.4" },
-    { name = "flow-matching", specifier = ">=1.0.10" },
-    { name = "lhotse-dataset", git = "ssh://github.com/koacai/lhotse-dataset.git" },
-    { name = "lightning", extras = ["extra"], specifier = ">=2.5.1.post0" },
-    { name = "litmodels", specifier = ">=0.1.8" },
-    { name = "matplotlib", specifier = ">=3.10.3" },
-    { name = "mmdit", specifier = ">=0.2.2" },
-    { name = "peft", specifier = ">=0.16.0" },
-    { name = "phonemizer", specifier = ">=3.3.0" },
-    { name = "pyroomacoustics", specifier = ">=0.8.4" },
-    { name = "pysptk", specifier = ">=1.0.1" },
-    { name = "python-dotenv", specifier = ">=1.1.1" },
-    { name = "torch", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'", specifier = ">=2.6.0" },
-    { name = "torch", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", specifier = ">=2.6.0", index = "https://download.pytorch.org/whl/cu126" },
-    { name = "torchaudio", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'", specifier = ">=2.6.0" },
-    { name = "torchaudio", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", specifier = ">=2.6.0", index = "https://download.pytorch.org/whl/cu126" },
-    { name = "torchmetrics", extras = ["audio"], specifier = ">=1.7.1" },
-    { name = "transformers", specifier = ">=4.52.3" },
-    { name = "utmosv2", git = "https://github.com/sarulab-speech/UTMOSv2.git" },
-    { name = "wandb", specifier = ">=0.19.10" },
-    { name = "webdataset", specifier = ">=0.2.111" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8.3.5" },
-    { name = "ruff", specifier = ">=0.11.7" },
-]
-
-[[package]]
 name = "dill"
 version = "0.3.8"
 source = { registry = "https://pypi.org/simple" }
@@ -745,6 +678,73 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/52/5d/e92c12d1df3d685c595371a9dcae5ce4c79d0e095c07217b80d02bfe5333/flow_matching-1.0.10.tar.gz", hash = "sha256:b9cebb2534a1bead4fd8b6af9269cf75da88335adec629865be41e5f93bf5821", size = 33400, upload-time = "2024-12-18T14:51:53.803Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/05/13/80d356a38b976df17be3fc3208da468488d5af7437aab4a694cd35432610/flow_matching-1.0.10-py3-none-any.whl", hash = "sha256:9e7bb6c51b5804bbb1450f59fbd04e2f843adc0b7665d0f4f341f420dce04136", size = 48680, upload-time = "2024-12-18T14:51:51.431Z" },
+]
+
+[[package]]
+name = "flowditse"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "discrete-speech-metrics" },
+    { name = "fastdtw" },
+    { name = "flow-matching" },
+    { name = "lhotse-dataset" },
+    { name = "lightning", extra = ["extra"] },
+    { name = "litmodels" },
+    { name = "matplotlib" },
+    { name = "mmdit" },
+    { name = "peft" },
+    { name = "phonemizer" },
+    { name = "pyroomacoustics" },
+    { name = "pysptk" },
+    { name = "python-dotenv" },
+    { name = "torch", version = "2.6.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
+    { name = "torch", version = "2.6.0+cu126", source = { registry = "https://download.pytorch.org/whl/cu126" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+    { name = "torchaudio", version = "2.6.0", source = { registry = "https://download.pytorch.org/whl/cu126" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+    { name = "torchaudio", version = "2.6.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
+    { name = "torchmetrics", extra = ["audio"] },
+    { name = "transformers" },
+    { name = "utmosv2" },
+    { name = "wandb" },
+    { name = "webdataset" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "discrete-speech-metrics", git = "https://github.com/kohei0209/DiscreteSpeechMetrics.git?rev=mhubert_wo_pypesq" },
+    { name = "fastdtw", specifier = ">=0.3.4" },
+    { name = "flow-matching", specifier = ">=1.0.10" },
+    { name = "lhotse-dataset", git = "ssh://github.com/koacai/lhotse-dataset.git" },
+    { name = "lightning", extras = ["extra"], specifier = ">=2.5.1.post0" },
+    { name = "litmodels", specifier = ">=0.1.8" },
+    { name = "matplotlib", specifier = ">=3.10.3" },
+    { name = "mmdit", specifier = ">=0.2.2" },
+    { name = "peft", specifier = ">=0.16.0" },
+    { name = "phonemizer", specifier = ">=3.3.0" },
+    { name = "pyroomacoustics", specifier = ">=0.8.4" },
+    { name = "pysptk", specifier = ">=1.0.1" },
+    { name = "python-dotenv", specifier = ">=1.1.1" },
+    { name = "torch", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'", specifier = ">=2.6.0" },
+    { name = "torch", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", specifier = ">=2.6.0", index = "https://download.pytorch.org/whl/cu126" },
+    { name = "torchaudio", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'", specifier = ">=2.6.0" },
+    { name = "torchaudio", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", specifier = ">=2.6.0", index = "https://download.pytorch.org/whl/cu126" },
+    { name = "torchmetrics", extras = ["audio"], specifier = ">=1.7.1" },
+    { name = "transformers", specifier = ">=4.52.3" },
+    { name = "utmosv2", git = "https://github.com/sarulab-speech/UTMOSv2.git" },
+    { name = "wandb", specifier = ">=0.19.10" },
+    { name = "webdataset", specifier = ">=0.2.111" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.3.5" },
+    { name = "ruff", specifier = ">=0.11.7" },
 ]
 
 [[package]]

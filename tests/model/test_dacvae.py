@@ -1,6 +1,6 @@
 import torch
 
-from dialogue_separator.model.dacvae import DACVAE
+from flowditse.model.dacvae import DACVAE
 
 
 def test_dacvae_encode_decode() -> None:

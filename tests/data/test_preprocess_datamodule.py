@@ -2,7 +2,7 @@ import itertools
 
 from hydra import compose, initialize
 
-from dialogue_separator.data.preprocess_datamodule import PreprocessDataModule
+from flowditse.data.preprocess_datamodule import PreprocessDataModule
 
 
 def test_preprocess_datamodule_train_dataloader() -> None:

@@ -7,12 +7,12 @@ from lightning.pytorch import LightningDataModule
 from omegaconf import DictConfig
 from torch.nn.utils.rnn import pad_sequence
 
-from dialogue_separator.data.util import glob_wds
+from flowditse.data.util import glob_wds
 
 
-class DialogueSeparatorDataModule(LightningDataModule):
+class FlowDiTSEDataModule(LightningDataModule):
     def __init__(self, cfg: DictConfig) -> None:
-        super(DialogueSeparatorDataModule, self).__init__()
+        super(FlowDiTSEDataModule, self).__init__()
         self.cfg = cfg
 
     def setup(self, stage: str) -> None:
