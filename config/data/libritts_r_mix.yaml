@@ -1,6 +1,6 @@
 dataset:
   shar_dir: /groups/gag51394/users/asai/shar/libritts_r_mix_large/
-  shard_dir: /groups/gag51394/users/asai/ditse/libritts_r_mix_raw
+  shard_dir: /groups/gag51394/users/asai/flowditse/libritts_r_mix_raw
 
   shard_maxcount:
     train: 1000
@@ -32,7 +32,7 @@ preprocess_datamodule:
     name: facebook/w2v-bert-2.0
     sample_rate: 16000
 
-  out_dir: /groups/gag51394/users/asai/ditse/libritts_r_mix_large_noised_4
+  out_dir: /groups/gag51394/users/asai/flowditse/libritts_r_mix_large_noised_4
 
 datamodule:
   train:
