@@ -7,7 +7,7 @@ from lightning.pytorch import LightningDataModule
 from omegaconf import DictConfig
 from torch.nn.utils.rnn import pad_sequence
 
-from ditse.data.util import glob_wds
+from flowditse.data.util import glob_wds
 
 
 class DiTSEDataModule(LightningDataModule):

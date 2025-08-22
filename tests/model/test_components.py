@@ -1,6 +1,6 @@
 import torch
 
-from ditse.model.components import MMDiT
+from flowditse.model.components import MMDiT
 
 
 def test_mmdit() -> None:

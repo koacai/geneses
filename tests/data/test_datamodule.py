@@ -2,7 +2,7 @@ import itertools
 
 from hydra import compose, initialize
 
-from ditse.data.datamodule import DiTSEDataModule
+from flowditse.data.datamodule import DiTSEDataModule
 
 
 def test_augment_datamodule_test_dataloader() -> None:

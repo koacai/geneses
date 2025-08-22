@@ -24,16 +24,16 @@ from torchmetrics.audio.sdr import SignalDistortionRatio
 from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
 from utmosv2._core.create import UTMOSv2Model
 
-from ditse.metrics.lsd import lsd_metric
-from ditse.metrics.mcd import mcd_metric
-from ditse.metrics.speech_bert_score import (
+from flowditse.metrics.lsd import lsd_metric
+from flowditse.metrics.mcd import mcd_metric
+from flowditse.metrics.speech_bert_score import (
     SpeechBERTScore,
     speech_bert_score_metric,
 )
-from ditse.model.components import MMDiT
-from ditse.model.dacvae import DACVAE
-from ditse.model.ssl_feature_extractor import SSLFeatureExtractor
-from ditse.util.util import create_mask
+from flowditse.model.components import MMDiT
+from flowditse.model.dacvae import DACVAE
+from flowditse.model.ssl_feature_extractor import SSLFeatureExtractor
+from flowditse.util.util import create_mask
 
 
 class WrappedModel(ModelWrapper):

@@ -5,7 +5,7 @@ import pyroomacoustics as pra
 import torch
 import torchaudio
 
-from ditse.data.degrations import align_codec_waveform, clipping
+from flowditse.data.degrations import align_codec_waveform, clipping
 
 
 @torch.inference_mode()

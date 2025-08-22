@@ -4,8 +4,8 @@ import pytest
 import torch
 from hydra import compose, initialize
 
-from ditse.data.datamodule import DiTSEDataModule
-from ditse.model.lightning_module import DiTSELightningModule
+from flowditse.data.datamodule import DiTSEDataModule
+from flowditse.model.lightning_module import DiTSELightningModule
 
 
 class TestDialogueSeparatorLightningModule:
