@@ -7,7 +7,6 @@ import pandas as pd
 import torch
 import torchaudio
 import utmosv2
-import wandb
 from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import ODESolver
@@ -24,6 +23,7 @@ from torchmetrics.audio.sdr import SignalDistortionRatio
 from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
 from utmosv2._core.create import UTMOSv2Model
 
+import wandb
 from flowditse.metrics.lsd import lsd_metric
 from flowditse.metrics.mcd import mcd_metric
 from flowditse.metrics.speech_bert_score import (
@@ -431,7 +431,7 @@ class FlowDiTSELightningModule(LightningModule):
 
         vae_size = (
             ssl_merged.size(0),
-            333,  # 20秒の音声のVAEは長さ333（ハードコーディング）
+            500,  # 20秒の音声のVAEは長さ500（ハードコーディング）
             self.cfg.model.vae.hidden_size,
         )
 
