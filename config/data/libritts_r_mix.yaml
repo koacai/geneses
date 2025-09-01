@@ -25,7 +25,7 @@ preprocess_datamodule:
     ckpt_path: /groups/gag51394/users/asai/dacvae_l16_librittsr.pt
     hidden_size: 16
     max_duration: 20
-    sample_rate: 16000
+    sample_rate: 24000
     noise_amp: 1e-4 # 0 paddingでは再構成できないため、微小なノイズを付与している
 
   ssl_model:

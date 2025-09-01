@@ -399,18 +399,21 @@ class PreprocessDataModule(LightningDataModule):
             )
 
             _clean, sr = sample["clean"]
+            _noisy, sr = sample["noisy"]
             if sr != self.cfg.vae.sample_rate:
                 _clean = torchaudio.functional.resample(
                     _clean, sr, self.cfg.vae.sample_rate
                 )
-            clean_wav[i, : _clean.shape[-1]] = _clean
-
-            _noisy, sr = sample["noisy"]
-            if sr != self.cfg.ssl_model.sample_rate:
                 _noisy = torchaudio.functional.resample(
                     _noisy, sr, self.cfg.vae.sample_rate
                 )
+            clean_wav[i, : _clean.shape[-1]] = _clean
             noisy_wav.append(_noisy.squeeze(0))
+
+            if sr != self.cfg.ssl_model.sample_rate:
+                _noisy = torchaudio.functional.resample(
+                    _noisy, sr, self.cfg.ssl_model.sample_rate
+                )
 
             _wav_ssl_input = F.pad(_noisy, (40, 40), mode="constant", value=0)
             wav_ssl_input.append(_wav_ssl_input)
