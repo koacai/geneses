@@ -22,7 +22,7 @@ preprocess_datamodule:
     test: 30
 
   vae:
-    ckpt_path: /groups/gag51394/users/asai/dacvae_l16_libristtsr.pt
+    ckpt_path: /groups/gag51394/users/asai/dacvae_l16_librittsr.pt
     hidden_size: 16
     max_duration: 20
     sample_rate: 16000
