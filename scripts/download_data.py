@@ -60,7 +60,7 @@ def main(cfg: DictConfig) -> None:
             valid_sink.write(sample)
         elif cut.custom["subset"] == "test_clean":
             test_sink.write(sample)
-        elif cut.custom["subset"] in ["train_clean-100", "train_clean_360"]:
+        elif cut.custom["subset"] in ["train_clean_100", "train_clean_360"]:
             train_sink.write(sample)
 
     train_sink.close()
