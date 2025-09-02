@@ -34,7 +34,7 @@ def main(cfg: DictConfig) -> None:
             audio = torch.from_numpy(cut.load_audio())
             torchaudio.save(buf, audio, cut.sampling_rate, format="flac")
 
-            sample = {"__key__": uuid.uuid1().hex, "audio.flac": buf.getvalue()}
+            sample = {"__key__": uuid.uuid1().hex, "audio": buf.getvalue()}
             sink.write(sample)
 
         sink.close()
