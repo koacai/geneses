@@ -6,6 +6,7 @@ import torch
 import torchaudio
 
 from flowditse.data.degrations import align_codec_waveform, clipping
+from flowditse.data.util import get_rir_start_sample
 
 
 @torch.inference_mode()
@@ -205,5 +206,39 @@ def convolve_rir_pra(
     )
     assert new_sample[reverb_key][0].ndim == 2
     assert new_sample[direct_key][0].ndim == 2
+
+    return new_sample
+
+
+@torch.inference_mode()
+def convolve_rir_raw(
+    sample: dict[str, Any],
+    input_key: str,
+    reverb_key: str,
+    rir_ds: Any,
+) -> dict[str, Any]:
+    rir_sample = next(rir_ds)
+    rir_key = [k for k in rir_sample.keys() if "audio" in k][0]
+    rir, rir_sr = rir_sample[rir_key]
+    if rir.ndim == 1:
+        rir = rir.unsqueeze(0)
+
+    start = get_rir_start_sample(rir)
+    rir = rir[:, start:]
+
+    x, sr = sample[input_key]
+    x = x.view(1, -1)
+
+    rir = torchaudio.functional.resample(rir, rir_sr, sr)
+
+    rir_convolved = torchaudio.functional.fftconvolve(x, rir)[:, : x.size(1)]
+    original_maximum_amp = x.abs().max()
+    convolved_maximum_amp = rir_convolved.abs().max().item()
+    rir_convolved = (rir_convolved / convolved_maximum_amp) * original_maximum_amp
+
+    new_sample = sample.copy()
+    new_sample[reverb_key] = (rir_convolved, sr)
+
+    assert new_sample[reverb_key][0].ndim == 2
 
     return new_sample

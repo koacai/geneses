@@ -7,10 +7,22 @@ dataset:
     valid: 30
     test: 30
 
+test_noise_dataset:
+  shar_dir: /groups/gag51394/users/asai/shar/demand/
+  shard_dir: /groups/gag51394/users/asai/flowditse/demand
+  shard_maxcount: 10
+
+test_rir_dataset:
+  shar_dir: /groups/gag51394/users/asai/shar/mit_environmental_impulse_responses/
+  shard_dir: /groups/gag51394/users/asai/flowditse/mit_environmental_impulse_responses
+  shard_maxcount: 10
+
 preprocess_datamodule:
   shard_dir: ${data.dataset.shard_dir}
   noise_dir: /groups/gag51394/users/asai/dataset_stripe/noise/
   rir_dir: /groups/gag51394/users/asai/dataset_stripe/rir/dns5_fullband/
+  test_noise_dir: ${data.test_noise_dataset.shard_dir}
+  test_rir_dir: ${data.test_rir_dataset.shard_dir}
 
   batch_size: 1
   num_workers: 32

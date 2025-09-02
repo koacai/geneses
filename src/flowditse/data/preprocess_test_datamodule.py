@@ -16,16 +16,16 @@ from flowditse.data.functional_degrations import (
     band_limit,
     clip,
     codec,
-    convolve_rir_pra,
+    convolve_rir_raw,
     packet_loss,
     random_apply,
 )
 from flowditse.data.util import glob_wds
 
 
-class PreprocessDataModule(LightningDataModule):
+class PreprocessTestDataModule(LightningDataModule):
     def __init__(self, cfg: DictConfig) -> None:
-        super(PreprocessDataModule, self).__init__()
+        super(PreprocessTestDataModule, self).__init__()
         self.cfg = cfg
         self.processor = AutoFeatureExtractor.from_pretrained(cfg.ssl_model.name)
 
@@ -34,14 +34,14 @@ class PreprocessDataModule(LightningDataModule):
 
         noise_dataset = (
             wds.WebDataset(
-                glob_wds(self.cfg.noise_dir),
+                glob_wds(self.cfg.test_noise_dir),
                 shardshuffle=False,
                 nodesplitter=lambda x: x,
                 workersplitter=False,
                 repeat=True,
                 empty_check=True,
             )
-            .decode(wds.torch_audio)
+            .decode(wds.autodecode.basichandlers, wds.torch_audio)
             .compose(
                 partial(self.random_crop, n_crops=30, seconds=self.cfg.vae.max_duration)
             )
@@ -50,34 +50,22 @@ class PreprocessDataModule(LightningDataModule):
         )
         rir_dataset = (
             wds.WebDataset(
-                glob_wds(self.cfg.rir_dir),
+                glob_wds(self.cfg.test_rir_dir),
                 shardshuffle=False,
                 nodesplitter=lambda x: x,
                 workersplitter=False,
                 repeat=True,
                 empty_check=True,
             )
-            .decode(wds.torch_audio)
+            .decode(wds.autodecode.basichandlers, wds.torch_audio)
             .shuffle(10)
             .repeat()
         )
 
-        self.train_dataset = self.setup_dataset_pipeline(
+        self.test_dataset = self.setup_dataset_pipeline(
             wds.WebDataset(
-                glob_wds(f"{self.cfg.shard_dir}/train"),
+                glob_wds(f"{self.cfg.shard_dir}/test"),
                 shardshuffle=100,
-                nodesplitter=lambda x: x,
-                workersplitter=wds.split_by_worker,
-                repeat=True,
-            ),
-            rir_dataset,
-            noise_dataset,
-            self.cfg.batch_size,
-        )
-        self.valid_dataset = self.setup_dataset_pipeline(
-            wds.WebDataset(
-                glob_wds(f"{self.cfg.shard_dir}/valid"),
-                shardshuffle=False,
                 nodesplitter=lambda x: x,
                 workersplitter=wds.split_by_worker,
                 repeat=True,
@@ -164,9 +152,8 @@ class PreprocessDataModule(LightningDataModule):
                 partial(
                     random_apply,
                     prob=0.5,
-                    transform_fn=convolve_rir_pra,
+                    transform_fn=convolve_rir_raw,
                     input_key="clean",
-                    direct_key="clean",
                     reverb_key="noisy",
                     rir_ds=iter(rir_dataset),
                 )
@@ -234,19 +221,9 @@ class PreprocessDataModule(LightningDataModule):
 
         return dataset
 
-    def train_dataloader(self) -> wds.WebLoader:
+    def test_dataloader(self) -> wds.WebLoader:
         return wds.WebLoader(
-            self.train_dataset,
-            num_workers=self.cfg.num_workers,
-            pin_memory=True,
-            shuffle=False,
-            collate_fn=lambda x: x[0],
-            drop_last=True,
-        )
-
-    def val_dataloader(self) -> wds.WebLoader:
-        return wds.WebLoader(
-            self.valid_dataset,
+            self.test_dataset,
             num_workers=self.cfg.num_workers,
             pin_memory=True,
             shuffle=False,
