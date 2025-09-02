@@ -86,18 +86,6 @@ class PreprocessDataModule(LightningDataModule):
             noise_dataset,
             self.cfg.batch_size,
         )
-        self.test_dataset = self.setup_dataset_pipeline(
-            wds.WebDataset(
-                glob_wds(f"{self.cfg.shard_dir}/test"),
-                shardshuffle=False,
-                nodesplitter=lambda x: x,
-                workersplitter=wds.split_by_worker,
-                repeat=True,
-            ),
-            rir_dataset,
-            noise_dataset,
-            self.cfg.batch_size,
-        )
 
     def setup_dataset_pipeline(
         self,
@@ -259,16 +247,6 @@ class PreprocessDataModule(LightningDataModule):
     def val_dataloader(self) -> wds.WebLoader:
         return wds.WebLoader(
             self.valid_dataset,
-            num_workers=self.cfg.num_workers,
-            pin_memory=True,
-            shuffle=False,
-            collate_fn=lambda x: x[0],
-            drop_last=True,
-        )
-
-    def test_dataloader(self) -> wds.WebLoader:
-        return wds.WebLoader(
-            self.test_dataset,
             num_workers=self.cfg.num_workers,
             pin_memory=True,
             shuffle=False,

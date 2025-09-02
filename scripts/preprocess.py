@@ -20,13 +20,6 @@ def main(cfg: DictConfig) -> None:
         num_writers=NUM_WRITERS,
         shard_maxcount=cfg.data.preprocess_datamodule.shard_maxcount.valid,
     )
-    print("\n--- Starting Test Set Processing ---")
-    run_parallel_writing(
-        dataloader=datamodule.test_dataloader(),
-        output_dir=f"{cfg.data.preprocess_datamodule.out_dir}/test",
-        num_writers=NUM_WRITERS,
-        shard_maxcount=cfg.data.preprocess_datamodule.shard_maxcount.test,
-    )
     print("--- Starting Training Set Processing ---")
     run_parallel_writing(
         dataloader=datamodule.train_dataloader(),
