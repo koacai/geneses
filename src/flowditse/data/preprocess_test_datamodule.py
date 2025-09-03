@@ -83,12 +83,11 @@ class PreprocessTestDataModule(LightningDataModule):
         batch_size: int,
     ) -> wds.WebDataset:
         dataset = self.init_dataset(dataset)
-        for _ in range(self.cfg.noise_pipeline_times):
-            dataset = self.add_noise(
-                dataset,
-                rir_dataset,
-                noise_dataset,
-            )
+        dataset = self.add_noise(
+            dataset,
+            rir_dataset,
+            noise_dataset,
+        )
         dataset = (
             dataset.map(
                 partial(
