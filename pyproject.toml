@@ -10,6 +10,7 @@ requires-python = ">=3.12"
 dependencies = [
     "discrete-speech-metrics",
     "fastdtw>=0.3.4",
+    "faster-whisper>=1.2.0",
     "flow-matching>=1.0.10",
     "lhotse-dataset",
     "lightning[extra]>=2.5.1.post0",
