@@ -1,8 +1,7 @@
 import hydra
 import lightning as L
 import torch
-from dotenv import load_dotenv
-from litmodels import download_model
+from huggingface_hub import hf_hub_download
 from omegaconf import DictConfig
 
 from flowditse.data.datamodule import FlowDiTSEDataModule
@@ -11,12 +10,12 @@ from flowditse.model.lightning_module import FlowDiTSELightningModule
 
 @hydra.main(config_path="../config", config_name="default", version_base=None)
 def main(cfg: DictConfig) -> None:
-    load_dotenv()
-
-    ckpt_paths = download_model(
-        name="koacai/speech/dialogue-separator", download_dir="model_ckpt"
+    # ckpt_path = hf_hub_download(
+    #     repo_id="koacai/flowditse", filename="only_bg_noise/epoch=8-step=136863.ckpt"
+    # )
+    ckpt_path = hf_hub_download(
+        repo_id="koacai/flowditse", filename="complex_noise/epoch=20-step=151515.ckpt"
     )
-    assert len(ckpt_paths) == 1
 
     torch.set_float32_matmul_precision("medium")
 
@@ -24,15 +23,13 @@ def main(cfg: DictConfig) -> None:
 
     trainer = L.Trainer(limit_test_batches=1)
 
-    dialogue_separator = FlowDiTSELightningModule.load_from_checkpoint(
-        f"model_ckpt/{ckpt_paths[0]}",
-    )
+    flowditse = FlowDiTSELightningModule.load_from_checkpoint(ckpt_path)
     datamodule = FlowDiTSEDataModule(cfg.data.datamodule)
 
     datamodule.setup("test")
 
     trainer.test(
-        dialogue_separator,
+        flowditse,
         dataloaders=datamodule.test_dataloader(),
     )
 
