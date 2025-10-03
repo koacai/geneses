@@ -24,7 +24,6 @@ from torchmetrics.audio.nisqa import (
 from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
 from torchmetrics.audio.sdr import SignalDistortionRatio
 from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
-from utmosv2._core.create import UTMOSv2Model
 
 import wandb
 from flowditse.metrics.lsd import lsd_metric
@@ -275,15 +274,6 @@ class FlowDiTSELightningModule(LightningModule):
             )
 
             df_without_ref, df_with_ref = self.evaluation_metrics(
-                self.dnsmos,
-                self.nisqa,
-                self.utmos,
-                self.pesq,
-                self.estoi,
-                self.sdr,
-                self.speech_bert_score,
-                self.whisper,
-                self.xvector,
                 wav_1,
                 wav_2,
                 decoded_1,
@@ -298,17 +288,8 @@ class FlowDiTSELightningModule(LightningModule):
             df_without_ref.to_csv(metrics_dir / "without_ref.csv", index=False)
             df_with_ref.to_csv(metrics_dir / "with_ref.csv", index=False)
 
-    @staticmethod
     def evaluation_metrics(
-        dnsmos: DeepNoiseSuppressionMeanOpinionScore,
-        nisqa: NonIntrusiveSpeechQualityAssessment,
-        utmos: UTMOSv2Model,
-        pesq: PerceptualEvaluationSpeechQuality,
-        estoi: ShortTimeObjectiveIntelligibility,
-        sdr: SignalDistortionRatio,
-        speech_bert_score: SpeechBERTScore,
-        whisper: WhisperModel,
-        xvector: EncoderClassifier,
+        self,
         wav_1: torch.Tensor,
         wav_2: torch.Tensor,
         decoded_1: torch.Tensor,
@@ -335,11 +316,11 @@ class FlowDiTSELightningModule(LightningModule):
 
         without_ref = []
         for name, (wav, path, transcription) in wav_dict.items():
-            _dnsmos = dnsmos(wav)[-1].item()
-            _nisqa = nisqa(wav)[0].item()
+            _dnsmos = self.dnsmos(wav)[-1].item()
+            _nisqa = self.nisqa(wav)[0].item()
             with torch.no_grad():
-                _utmos = utmos.predict(input_path=path)
-            segments, _ = whisper.transcribe(str(path))
+                _utmos = self.utmos.predict(input_path=path)
+            segments, _ = self.whisper.transcribe(str(path))
             _text = ""
             for segment in segments:
                 _text += segment.text
@@ -382,13 +363,13 @@ class FlowDiTSELightningModule(LightningModule):
                 ref_resample = ref
                 inf_resample = inf
 
-            _pesq = pesq(ref_resample, inf_resample).item()
-            _estoi = estoi(ref, inf).item()
-            _sdr = sdr(ref, inf).item()
+            _pesq = self.pesq(ref_resample, inf_resample).item()
+            _estoi = self.estoi(ref, inf).item()
+            _sdr = self.sdr(ref, inf).item()
             _mcd = mcd_metric(ref, inf, wav_sr)
             _lsd = lsd_metric(ref, inf, wav_sr)
-            _sbs = speech_bert_score_metric(speech_bert_score, ref, inf, wav_sr)
-            _spk_sim = spk_sim_metric(xvector, ref_resample, inf_resample)
+            _sbs = speech_bert_score_metric(self.speech_bert_score, ref, inf, wav_sr)
+            _spk_sim = spk_sim_metric(self.xvector, ref_resample, inf_resample)
             with_ref.append(
                 dict(
                     key=name,
