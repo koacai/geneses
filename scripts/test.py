@@ -21,7 +21,7 @@ def main(cfg: DictConfig) -> None:
 
     L.seed_everything(42)
 
-    trainer = L.Trainer(limit_test_batches=1)
+    trainer = L.Trainer()
 
     flowditse = FlowDiTSELightningModule.load_from_checkpoint(ckpt_path)
     datamodule = FlowDiTSEDataModule(cfg.data.datamodule)
