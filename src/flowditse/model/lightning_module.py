@@ -86,6 +86,24 @@ class FlowDiTSELightningModule(LightningModule):
     def on_test_start(self) -> None:
         self.dacvae.to(self.device)
 
+        wav_sr = self.cfg.model.vae.sample_rate
+        self.dnsmos = DeepNoiseSuppressionMeanOpinionScore(
+            fs=wav_sr, personalized=False
+        )
+        self.nisqa = NonIntrusiveSpeechQualityAssessment(fs=wav_sr)
+        self.utmos = utmosv2.create_model(pretrained=True, device=self.device)
+        self.pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode="wb")
+        self.estoi = ShortTimeObjectiveIntelligibility(fs=wav_sr, extended=True)
+        self.sdr = SignalDistortionRatio().to(device=self.device)
+        self.speech_bert_score = SpeechBERTScore(self.device)
+        self.speech_bert_score.speech_bert_score.model.eval()
+        self.whisper = WhisperModel("large-v3", device="cuda", compute_type="float16")
+        xvector = EncoderClassifier.from_hparams(
+            "speechbrain/spkrec-xvect-voxceleb", run_opts={"device": self.device}
+        )
+        assert xvector is not None
+        self.xvector = xvector
+
     def calc_loss(self, batch: dict[str, Any]) -> torch.Tensor:
         with torch.no_grad():
             vae_1 = self.dacvae.encode(batch["raw_wav_1"])
@@ -212,19 +230,6 @@ class FlowDiTSELightningModule(LightningModule):
             estimated_2_all = self.dacvae.decode(est_feature2)
 
         wav_sr = self.cfg.model.vae.sample_rate
-        dnsmos = DeepNoiseSuppressionMeanOpinionScore(fs=wav_sr, personalized=False)
-        nisqa = NonIntrusiveSpeechQualityAssessment(fs=wav_sr)
-        utmos = utmosv2.create_model(pretrained=True, device=self.device)
-        pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode="wb")
-        estoi = ShortTimeObjectiveIntelligibility(fs=wav_sr, extended=True)
-        sdr = SignalDistortionRatio().to(device=self.device)
-        speech_bert_score = SpeechBERTScore(self.device)
-        speech_bert_score.speech_bert_score.model.eval()
-        whisper = WhisperModel("large-v3", device="cuda", compute_type="float16")
-        xvector = EncoderClassifier.from_hparams(
-            "speechbrain/spkrec-xvect-voxceleb", run_opts={"device": self.device}
-        )
-        assert xvector is not None
 
         batch_size = batch["raw_wav_1"].size(0)
         for i in range(batch_size):
@@ -270,15 +275,15 @@ class FlowDiTSELightningModule(LightningModule):
             )
 
             df_without_ref, df_with_ref = self.evaluation_metrics(
-                dnsmos,
-                nisqa,
-                utmos,
-                pesq,
-                estoi,
-                sdr,
-                speech_bert_score,
-                whisper,
-                xvector,
+                self.dnsmos,
+                self.nisqa,
+                self.utmos,
+                self.pesq,
+                self.estoi,
+                self.sdr,
+                self.speech_bert_score,
+                self.whisper,
+                self.xvector,
                 wav_1,
                 wav_2,
                 decoded_1,
