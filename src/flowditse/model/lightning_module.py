@@ -16,6 +16,7 @@ from jiwer import wer
 from lightning.pytorch import LightningModule, loggers
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRSchedulerConfig
 from omegaconf import DictConfig
+from speechbrain.inference.speaker import EncoderClassifier
 from torchmetrics.audio.dnsmos import DeepNoiseSuppressionMeanOpinionScore
 from torchmetrics.audio.nisqa import (
     NonIntrusiveSpeechQualityAssessment,
@@ -32,6 +33,7 @@ from flowditse.metrics.speech_bert_score import (
     SpeechBERTScore,
     speech_bert_score_metric,
 )
+from flowditse.metrics.spk_sim import spk_sim_metric
 from flowditse.model.components import MMDiT
 from flowditse.model.dacvae import DACVAE
 from flowditse.model.ssl_feature_extractor import SSLFeatureExtractor
@@ -219,6 +221,10 @@ class FlowDiTSELightningModule(LightningModule):
         speech_bert_score = SpeechBERTScore(self.device)
         speech_bert_score.speech_bert_score.model.eval()
         whisper = WhisperModel("large-v3", device="cuda", compute_type="float16")
+        xvector = EncoderClassifier.from_hparams(
+            "speechbrain/spkrec-xvect-voxceleb", run_opts={"device": self.device}
+        )
+        assert xvector is not None
 
         batch_size = batch["raw_wav_1"].size(0)
         for i in range(batch_size):
@@ -272,6 +278,7 @@ class FlowDiTSELightningModule(LightningModule):
                 sdr,
                 speech_bert_score,
                 whisper,
+                xvector,
                 wav_1,
                 wav_2,
                 decoded_1,
@@ -296,6 +303,7 @@ class FlowDiTSELightningModule(LightningModule):
         sdr: SignalDistortionRatio,
         speech_bert_score: SpeechBERTScore,
         whisper: WhisperModel,
+        xvector: EncoderClassifier,
         wav_1: torch.Tensor,
         wav_2: torch.Tensor,
         decoded_1: torch.Tensor,
@@ -375,6 +383,7 @@ class FlowDiTSELightningModule(LightningModule):
             _mcd = mcd_metric(ref, inf, wav_sr)
             _lsd = lsd_metric(ref, inf, wav_sr)
             _sbs = speech_bert_score_metric(speech_bert_score, ref, inf, wav_sr)
+            _spk_sim = spk_sim_metric(xvector, ref_resample, inf_resample)
             with_ref.append(
                 dict(
                     key=name,
@@ -384,6 +393,7 @@ class FlowDiTSELightningModule(LightningModule):
                     mcd=_mcd,
                     lsd=_lsd,
                     speech_bert_score=_sbs,
+                    spk_sim=_spk_sim,
                 )
             )
         df_with_ref = pd.DataFrame(with_ref)

@@ -23,6 +23,7 @@ dependencies = [
     "pyroomacoustics>=0.8.4",
     "pysptk>=1.0.1",
     "python-dotenv>=1.1.1",
+    "speechbrain>=1.0.3",
     "torch>=2.6.0",
     "torchaudio>=2.6.0",
     "torchmetrics[audio]>=1.7.1",
