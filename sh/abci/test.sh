@@ -6,5 +6,7 @@
 #PBS -j oe
 #PBS -k oed
 
+export LD_LIBRARY_PATH=".venv/lib/python3.13/site-packages/nvidia/cudnn/lib"
+
 cd ${PBS_O_WORKDIR}
 uv run scripts/test.py

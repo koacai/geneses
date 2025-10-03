@@ -7,13 +7,16 @@ import pandas as pd
 import torch
 import torchaudio
 import utmosv2
+from faster_whisper import WhisperModel
 from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import ODESolver
 from flow_matching.utils import ModelWrapper
+from jiwer import wer
 from lightning.pytorch import LightningModule, loggers
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRSchedulerConfig
 from omegaconf import DictConfig
+from speechbrain.inference.speaker import EncoderClassifier
 from torchmetrics.audio.dnsmos import DeepNoiseSuppressionMeanOpinionScore
 from torchmetrics.audio.nisqa import (
     NonIntrusiveSpeechQualityAssessment,
@@ -30,6 +33,7 @@ from flowditse.metrics.speech_bert_score import (
     SpeechBERTScore,
     speech_bert_score_metric,
 )
+from flowditse.metrics.spk_sim import spk_sim_metric
 from flowditse.model.components import MMDiT
 from flowditse.model.dacvae import DACVAE
 from flowditse.model.ssl_feature_extractor import SSLFeatureExtractor
@@ -81,6 +85,24 @@ class FlowDiTSELightningModule(LightningModule):
 
     def on_test_start(self) -> None:
         self.dacvae.to(self.device)
+
+        wav_sr = self.cfg.model.vae.sample_rate
+        self.dnsmos = DeepNoiseSuppressionMeanOpinionScore(
+            fs=wav_sr, personalized=False
+        )
+        self.nisqa = NonIntrusiveSpeechQualityAssessment(fs=wav_sr)
+        self.utmos = utmosv2.create_model(pretrained=True, device=self.device)
+        self.pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode="wb")
+        self.estoi = ShortTimeObjectiveIntelligibility(fs=wav_sr, extended=True)
+        self.sdr = SignalDistortionRatio().to(device=self.device)
+        self.speech_bert_score = SpeechBERTScore(self.device)
+        self.speech_bert_score.speech_bert_score.model.eval()
+        self.whisper = WhisperModel("large-v3", device="cuda", compute_type="float16")
+        xvector = EncoderClassifier.from_hparams(
+            "speechbrain/spkrec-xvect-voxceleb", run_opts={"device": self.device}
+        )
+        assert xvector is not None
+        self.xvector = xvector
 
     def calc_loss(self, batch: dict[str, Any]) -> torch.Tensor:
         with torch.no_grad():
@@ -208,14 +230,6 @@ class FlowDiTSELightningModule(LightningModule):
             estimated_2_all = self.dacvae.decode(est_feature2)
 
         wav_sr = self.cfg.model.vae.sample_rate
-        dnsmos = DeepNoiseSuppressionMeanOpinionScore(fs=wav_sr, personalized=False)
-        nisqa = NonIntrusiveSpeechQualityAssessment(fs=wav_sr)
-        utmos = utmosv2.create_model(pretrained=True, device=self.device)
-        pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode="wb")
-        estoi = ShortTimeObjectiveIntelligibility(fs=wav_sr, extended=True)
-        sdr = SignalDistortionRatio().to(device=self.device)
-        speech_bert_score = SpeechBERTScore(self.device)
-        speech_bert_score.speech_bert_score.model.eval()
 
         batch_size = batch["raw_wav_1"].size(0)
         for i in range(batch_size):
@@ -261,19 +275,23 @@ class FlowDiTSELightningModule(LightningModule):
             )
 
             df_without_ref, df_with_ref = self.evaluation_metrics(
-                dnsmos,
-                nisqa,
-                utmos,
-                pesq,
-                estoi,
-                sdr,
-                speech_bert_score,
+                self.dnsmos,
+                self.nisqa,
+                self.utmos,
+                self.pesq,
+                self.estoi,
+                self.sdr,
+                self.speech_bert_score,
+                self.whisper,
+                self.xvector,
                 wav_1,
                 wav_2,
                 decoded_1,
                 decoded_2,
                 estimated_1,
                 estimated_2,
+                batch["text_1"][i],
+                batch["text_2"][i],
                 wav_sr,
                 sample_dir,
             )
@@ -289,33 +307,57 @@ class FlowDiTSELightningModule(LightningModule):
         estoi: ShortTimeObjectiveIntelligibility,
         sdr: SignalDistortionRatio,
         speech_bert_score: SpeechBERTScore,
+        whisper: WhisperModel,
+        xvector: EncoderClassifier,
         wav_1: torch.Tensor,
         wav_2: torch.Tensor,
         decoded_1: torch.Tensor,
         decoded_2: torch.Tensor,
         estimated_1: torch.Tensor,
         estimated_2: torch.Tensor,
+        text_1: str,
+        text_2: str,
         wav_sr: int,
         sample_dir: Path,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         wav_dict = {
-            "wav_1": (wav_1, sample_dir / "wav_1.wav"),
-            "wav_2": (wav_2, sample_dir / "wav_2.wav"),
-            "decoded_1": (decoded_1, sample_dir / "decoded_1.wav"),
-            "decoded_2": (decoded_2, sample_dir / "decoded_2.wav"),
-            "estimated_1": (estimated_1, sample_dir / "estimated_1.wav"),
-            "estimated_2": (estimated_2, sample_dir / "estimated_2.wav"),
+            "wav_1": (
+                wav_1,
+                sample_dir / "wav_1.wav",
+                text_1,
+            ),
+            "wav_2": (wav_2, sample_dir / "wav_2.wav", text_2),
+            "decoded_1": (decoded_1, sample_dir / "decoded_1.wav", text_1),
+            "decoded_2": (decoded_2, sample_dir / "decoded_2.wav", text_2),
+            "estimated_1": (estimated_1, sample_dir / "estimated_1.wav", text_1),
+            "estimated_2": (estimated_2, sample_dir / "estimated_2.wav", text_2),
         }
 
         without_ref = []
-        for name, (wav, path) in wav_dict.items():
+        for name, (wav, path, transcription) in wav_dict.items():
             _dnsmos = dnsmos(wav)[-1].item()
             _nisqa = nisqa(wav)[0].item()
             with torch.no_grad():
                 _utmos = utmos.predict(input_path=path)
+            segments, _ = whisper.transcribe(str(path))
+            _text = ""
+            for segment in segments:
+                _text += segment.text
+
+            _wer = wer(_text, transcription)
+
             without_ref.append(
-                dict(key=name, dnsmos=_dnsmos, nisqa=_nisqa, utmos=_utmos)
+                dict(
+                    key=name,
+                    dnsmos=_dnsmos,
+                    nisqa=_nisqa,
+                    utmos=_utmos,
+                    wer=_wer,
+                    transcribed_text=_text,
+                    transcription=transcription,
+                )
             )
+
         df_without_ref = pd.DataFrame(without_ref)
 
         wav_pair_dict = {
@@ -346,6 +388,7 @@ class FlowDiTSELightningModule(LightningModule):
             _mcd = mcd_metric(ref, inf, wav_sr)
             _lsd = lsd_metric(ref, inf, wav_sr)
             _sbs = speech_bert_score_metric(speech_bert_score, ref, inf, wav_sr)
+            _spk_sim = spk_sim_metric(xvector, ref_resample, inf_resample)
             with_ref.append(
                 dict(
                     key=name,
@@ -355,6 +398,7 @@ class FlowDiTSELightningModule(LightningModule):
                     mcd=_mcd,
                     lsd=_lsd,
                     speech_bert_score=_sbs,
+                    spk_sim=_spk_sim,
                 )
             )
         df_with_ref = pd.DataFrame(with_ref)
