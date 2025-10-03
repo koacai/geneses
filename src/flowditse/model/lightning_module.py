@@ -7,10 +7,12 @@ import pandas as pd
 import torch
 import torchaudio
 import utmosv2
+from faster_whisper import WhisperModel
 from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import ODESolver
 from flow_matching.utils import ModelWrapper
+from jiwer import wer
 from lightning.pytorch import LightningModule, loggers
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRSchedulerConfig
 from omegaconf import DictConfig
@@ -216,6 +218,7 @@ class FlowDiTSELightningModule(LightningModule):
         sdr = SignalDistortionRatio().to(device=self.device)
         speech_bert_score = SpeechBERTScore(self.device)
         speech_bert_score.speech_bert_score.model.eval()
+        whisper = WhisperModel("large-v3", device="cuda", compute_type="float16")
 
         batch_size = batch["raw_wav_1"].size(0)
         for i in range(batch_size):
@@ -268,12 +271,15 @@ class FlowDiTSELightningModule(LightningModule):
                 estoi,
                 sdr,
                 speech_bert_score,
+                whisper,
                 wav_1,
                 wav_2,
                 decoded_1,
                 decoded_2,
                 estimated_1,
                 estimated_2,
+                batch["text_1"][i],
+                batch["text_2"][i],
                 wav_sr,
                 sample_dir,
             )
@@ -289,33 +295,56 @@ class FlowDiTSELightningModule(LightningModule):
         estoi: ShortTimeObjectiveIntelligibility,
         sdr: SignalDistortionRatio,
         speech_bert_score: SpeechBERTScore,
+        whisper: WhisperModel,
         wav_1: torch.Tensor,
         wav_2: torch.Tensor,
         decoded_1: torch.Tensor,
         decoded_2: torch.Tensor,
         estimated_1: torch.Tensor,
         estimated_2: torch.Tensor,
+        text_1: str,
+        text_2: str,
         wav_sr: int,
         sample_dir: Path,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         wav_dict = {
-            "wav_1": (wav_1, sample_dir / "wav_1.wav"),
-            "wav_2": (wav_2, sample_dir / "wav_2.wav"),
-            "decoded_1": (decoded_1, sample_dir / "decoded_1.wav"),
-            "decoded_2": (decoded_2, sample_dir / "decoded_2.wav"),
-            "estimated_1": (estimated_1, sample_dir / "estimated_1.wav"),
-            "estimated_2": (estimated_2, sample_dir / "estimated_2.wav"),
+            "wav_1": (
+                wav_1,
+                sample_dir / "wav_1.wav",
+                text_1,
+            ),
+            "wav_2": (wav_2, sample_dir / "wav_2.wav", text_2),
+            "decoded_1": (decoded_1, sample_dir / "decoded_1.wav", text_1),
+            "decoded_2": (decoded_2, sample_dir / "decoded_2.wav", text_2),
+            "estimated_1": (estimated_1, sample_dir / "estimated_1.wav", text_1),
+            "estimated_2": (estimated_2, sample_dir / "estimated_2.wav", text_2),
         }
 
         without_ref = []
-        for name, (wav, path) in wav_dict.items():
+        for name, (wav, path, transcription) in wav_dict.items():
             _dnsmos = dnsmos(wav)[-1].item()
             _nisqa = nisqa(wav)[0].item()
             with torch.no_grad():
                 _utmos = utmos.predict(input_path=path)
+            segments, _ = whisper.transcribe(str(path))
+            _text = ""
+            for segment in segments:
+                _text += segment.text
+
+            _wer = wer(_text, transcription)
+
             without_ref.append(
-                dict(key=name, dnsmos=_dnsmos, nisqa=_nisqa, utmos=_utmos)
+                dict(
+                    key=name,
+                    dnsmos=_dnsmos,
+                    nisqa=_nisqa,
+                    utmos=_utmos,
+                    wer=_wer,
+                    transcribed_text=_text,
+                    transcription=transcription,
+                )
             )
+
         df_without_ref = pd.DataFrame(without_ref)
 
         wav_pair_dict = {
