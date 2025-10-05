@@ -16,8 +16,9 @@ if __name__ == "__main__":
 
     combined_df = pd.concat(all_dfs, ignore_index=True)
 
-    metrics = ["dnsmos", "nisqa", "utmos"]
+    metrics = ["dnsmos", "nisqa", "utmos", "wer"]
     grouped_averages = combined_df.groupby("key")[metrics].mean()
+    grouped_averages.to_csv(test_dir / "without_ref.csv")
 
     print("\nAverage scores grouped by key:")
     print("-" * 50)
@@ -33,8 +34,9 @@ if __name__ == "__main__":
 
     combined_df = pd.concat(all_dfs, ignore_index=True)
 
-    metrics = ["pesq", "estoi", "sdr", "mcd", "lsd", "speech_bert_score"]
+    metrics = ["pesq", "estoi", "sdr", "mcd", "lsd", "speech_bert_score", "spk_sim"]
     grouped_averages = combined_df.groupby("key")[metrics].mean()
+    grouped_averages.to_csv(test_dir / "with_ref.csv")
 
     print("\nAverage scores grouped by key:")
     print("-" * 50)
