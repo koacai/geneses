@@ -5,6 +5,7 @@ import hydra
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn.functional as F
 import torchaudio
 import utmosv2
 from faster_whisper import WhisperModel
@@ -24,6 +25,7 @@ from torchmetrics.audio.nisqa import (
 from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
 from torchmetrics.audio.sdr import SignalDistortionRatio
 from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
+from transformers import AutoFeatureExtractor
 
 import wandb
 from flowditse.metrics.lsd import lsd_metric
@@ -484,3 +486,42 @@ class FlowDiTSELightningModule(LightningModule):
     def log_audio(self, audio: np.ndarray, name: str, sampling_rate: int) -> None:
         if isinstance(self.logger, loggers.WandbLogger):
             wandb.log({name: wandb.Audio(audio, sample_rate=sampling_rate)})
+
+    def separate_and_enhance(
+        self, noisy_mixed_wav: torch.Tensor, sr: int
+    ) -> tuple[torch.Tensor, torch.Tensor, int]:
+        if noisy_mixed_wav.size(-1) > sr * 20:
+            raise ValueError("max length of audio is 20 seconds.")
+
+        if sr != self.cfg.data.preprocess_datamodule.ssl_model.sample_rate:
+            noisy_mixed_wav = torchaudio.functional.resample(
+                noisy_mixed_wav,
+                sr,
+                self.cfg.data.preprocess_datamodule.ssl_model.sample_rate,
+            )
+
+        noisy_mixed_wav = F.pad(noisy_mixed_wav, (40, 40), mode="constant", value=0)
+
+        processor = AutoFeatureExtractor.from_pretrained(
+            self.cfg.data.preprocess_datamodule.ssl_model.name
+        )
+
+        ssl_input = processor(
+            noisy_mixed_wav.cpu().numpy(),
+            sampling_rate=self.cfg.data.preprocess_datamodule.ssl_model.sample_rate,
+            return_tensors="pt",
+        )
+
+        ssl_input = ssl_input.to(self.device)
+
+        vae_1, vae_2 = self.forward({"ssl_input": ssl_input})
+
+        self.dacvae.to(self.device)
+        wav_1 = self.dacvae.decode(vae_1)
+        wav_2 = self.dacvae.decode(vae_2)
+
+        return (
+            wav_1.cpu().squeeze(0),
+            wav_2.cpu().squeeze(0),
+            self.cfg.model.vae.sample_rate,
+        )
