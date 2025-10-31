@@ -48,19 +48,6 @@ class PreprocessDataModule(LightningDataModule):
             .shuffle(10)
             .repeat()
         )
-        rir_dataset = (
-            wds.WebDataset(
-                glob_wds(self.cfg.rir_dir),
-                shardshuffle=False,
-                nodesplitter=lambda x: x,
-                workersplitter=False,
-                repeat=True,
-                empty_check=True,
-            )
-            .decode(wds.torch_audio)
-            .shuffle(10)
-            .repeat()
-        )
 
         self.train_dataset = self.setup_dataset_pipeline(
             wds.WebDataset(
@@ -70,7 +57,6 @@ class PreprocessDataModule(LightningDataModule):
                 workersplitter=wds.split_by_worker,
                 repeat=True,
             ),
-            rir_dataset,
             noise_dataset,
             self.cfg.batch_size,
         )
@@ -82,7 +68,6 @@ class PreprocessDataModule(LightningDataModule):
                 workersplitter=wds.split_by_worker,
                 repeat=True,
             ),
-            rir_dataset,
             noise_dataset,
             self.cfg.batch_size,
         )
@@ -90,14 +75,12 @@ class PreprocessDataModule(LightningDataModule):
     def setup_dataset_pipeline(
         self,
         dataset: wds.WebDataset,
-        rir_dataset: wds.WebDataset,
         noise_dataset: wds.WebDataset,
         batch_size: int,
     ) -> wds.WebDataset:
         dataset = self.init_dataset(dataset)
         dataset = self.add_noise(
             dataset,
-            rir_dataset,
             noise_dataset,
         )
         dataset = (
@@ -145,7 +128,6 @@ class PreprocessDataModule(LightningDataModule):
     def add_noise(
         self,
         dataset: wds.WebDataset,
-        rir_dataset: wds.WebDataset,
         noise_dataset: wds.WebDataset,
     ) -> wds.WebDataset:
         dataset = (
@@ -167,7 +149,6 @@ class PreprocessDataModule(LightningDataModule):
                     input_key="clean",
                     direct_key="clean",
                     reverb_key="noisy",
-                    rir_ds=iter(rir_dataset),
                 )
             )
             .compose(

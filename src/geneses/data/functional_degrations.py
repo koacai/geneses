@@ -131,9 +131,7 @@ def convolve_rir_pra(
     input_key: str,
     direct_key: str,
     reverb_key: str,
-    rir_ds=None,
 ) -> dict[str, Any]:
-    del rir_ds
     x, sr = sample[input_key]
     x = x.view(1, -1)
     rt60 = random.uniform(0.1, 2.0)

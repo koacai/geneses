@@ -29,7 +29,6 @@ test_rir_dataset:
 preprocess_datamodule:
   shard_dir: ${data.dataset.shard_dir}
   noise_dir: /groups/gcb50354/kohei_asai/dataset_stripe/noise/
-  rir_dir: /groups/gcb50354/kohei_asai/dataset_stripe/rir/dns5_fullband/
   test_noise_dir: ${data.test_noise_dataset.shard_dir}
   test_rir_dir: ${data.test_rir_dataset.shard_dir}
 
