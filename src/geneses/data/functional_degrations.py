@@ -5,8 +5,8 @@ import pyroomacoustics as pra
 import torch
 import torchaudio
 
-from flowditse.data.degrations import align_codec_waveform, clipping
-from flowditse.data.util import get_rir_start_sample
+from geneses.data.degrations import align_codec_waveform, clipping
+from geneses.data.util import get_rir_start_sample
 
 
 @torch.inference_mode()

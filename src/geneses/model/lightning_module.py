@@ -28,17 +28,17 @@ from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
 from transformers import AutoFeatureExtractor
 
 import wandb
-from flowditse.metrics.lsd import lsd_metric
-from flowditse.metrics.mcd import mcd_metric
-from flowditse.metrics.speech_bert_score import (
+from geneses.metrics.lsd import lsd_metric
+from geneses.metrics.mcd import mcd_metric
+from geneses.metrics.speech_bert_score import (
     SpeechBERTScore,
     speech_bert_score_metric,
 )
-from flowditse.metrics.spk_sim import spk_sim_metric
-from flowditse.model.components import MMDiT
-from flowditse.model.dacvae import DACVAE
-from flowditse.model.ssl_feature_extractor import SSLFeatureExtractor
-from flowditse.util.util import create_mask
+from geneses.metrics.spk_sim import spk_sim_metric
+from geneses.model.components import MMDiT
+from geneses.model.dacvae import DACVAE
+from geneses.model.ssl_feature_extractor import SSLFeatureExtractor
+from geneses.util.util import create_mask
 
 
 class WrappedModel(ModelWrapper):
@@ -51,9 +51,9 @@ class WrappedModel(ModelWrapper):
         return torch.stack([res_1, res_2], dim=1)
 
 
-class FlowDiTSELightningModule(LightningModule):
+class GenesesLightningModule(LightningModule):
     def __init__(self, cfg: DictConfig) -> None:
-        super(FlowDiTSELightningModule, self).__init__()
+        super(GenesesLightningModule, self).__init__()
         self.cfg = cfg
 
         self.mmdit = MMDiT(**cfg.model.mmdit)

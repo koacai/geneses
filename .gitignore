@@ -17,3 +17,4 @@ wheels/
 .env
 /model_ckpt
 /flowditse
+/geneses

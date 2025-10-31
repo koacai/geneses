@@ -1,6 +1,6 @@
 import torch
 
-from flowditse.model.components import MMDiT
+from geneses.model.components import MMDiT
 
 
 def test_mmdit() -> None:
