@@ -23,8 +23,6 @@ from torchmetrics.audio.dnsmos import DeepNoiseSuppressionMeanOpinionScore
 from torchmetrics.audio.nisqa import (
     NonIntrusiveSpeechQualityAssessment,
 )
-from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
-from torchmetrics.audio.sdr import SignalDistortionRatio
 from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
 from transformers import AutoFeatureExtractor
 
@@ -95,9 +93,7 @@ class GenesesLightningModule(LightningModule):
         )
         self.nisqa = NonIntrusiveSpeechQualityAssessment(fs=wav_sr)
         self.utmos = utmosv2.create_model(pretrained=True, device=self.device)
-        self.pesq = PerceptualEvaluationSpeechQuality(fs=16000, mode="wb")
         self.estoi = ShortTimeObjectiveIntelligibility(fs=wav_sr, extended=True)
-        self.sdr = SignalDistortionRatio().to(device=self.device)
         self.speech_bert_score = SpeechBERTScore(self.device)
         self.speech_bert_score.speech_bert_score.model.eval()
         self.whisper = WhisperModel("large-v3", device="cuda", compute_type="float16")
@@ -367,9 +363,7 @@ class GenesesLightningModule(LightningModule):
                 ref_resample = ref
                 inf_resample = inf
 
-            _pesq = self.pesq(ref_resample, inf_resample).item()
             _estoi = self.estoi(ref, inf).item()
-            _sdr = self.sdr(ref, inf).item()
             _mcd = mcd_metric(ref, inf, wav_sr)
             _lsd = lsd_metric(ref, inf, wav_sr)
             _sbs = speech_bert_score_metric(self.speech_bert_score, ref, inf, wav_sr)
@@ -377,9 +371,7 @@ class GenesesLightningModule(LightningModule):
             with_ref.append(
                 dict(
                     key=name,
-                    pesq=_pesq,
                     estoi=_estoi,
-                    sdr=_sdr,
                     mcd=_mcd,
                     lsd=_lsd,
                     speech_bert_score=_sbs,
