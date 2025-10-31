@@ -2,7 +2,7 @@
 
 - [Hugging Face](https://huggingface.co/koacai/geneses)
 
-## Training
+## Usage
 
 ### Setup LibriTTS-R Mix
 
