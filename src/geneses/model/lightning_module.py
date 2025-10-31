@@ -13,6 +13,7 @@ from flow_matching.path import AffineProbPath
 from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import ODESolver
 from flow_matching.utils import ModelWrapper
+from huggingface_hub import hf_hub_download
 from jiwer import wer
 from lightning.pytorch import LightningModule, loggers
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRSchedulerConfig
@@ -59,11 +60,12 @@ class GenesesLightningModule(LightningModule):
         self.mmdit = MMDiT(**cfg.model.mmdit)
         self.path = AffineProbPath(scheduler=CondOTScheduler())
 
-        self.dacvae = DACVAE(cfg.model.vae.ckpt_path)
+        ckpt_path = hf_hub_download(
+            repo_id=cfg.model.vae.hf_hub.repo_id, filename=cfg.model.vae.hf_hub.filename
+        )
+        self.dacvae = DACVAE(ckpt_path)
         self.ssl_feature_extractor = SSLFeatureExtractor(
-            cfg.model.ssl_model.name,
-            cfg.model.ssl_model.layer,
-            cfg.model.ssl_model.fine_tuning_mode,
+            cfg.model.ssl_model.name, cfg.model.ssl_model.layer
         )
 
         self.save_hyperparameters(cfg)
