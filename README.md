@@ -8,7 +8,7 @@
 
 ### Setup LibriTTS-R Mix
 
-1. Fix the download directory in `[config/data/libritts_r_mix.yaml](https://github.com/koacai/geneses/blob/main/config/data/libritts_r_mix.yaml)`
+1. Fix the download directory in [config/data/libritts_r_mix.yaml](https://github.com/koacai/geneses/blob/main/config/data/libritts_r_mix.yaml)
 
 ```libritts_r_mix.yaml
 dataset:
