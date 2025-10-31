@@ -1487,7 +1487,7 @@ wheels = [
 [[package]]
 name = "lhotse-dataset"
 version = "0.1.0"
-source = { git = "ssh://github.com/koacai/lhotse-dataset.git#46297ab7f41faa69fc471469b5a23671cf5b8d4d" }
+source = { git = "ssh://github.com/koacai/lhotse-dataset.git#5ec2eb486fdaf354ecdead60ccbe9e558f4db181" }
 dependencies = [
     { name = "datasets" },
     { name = "gdown" },
