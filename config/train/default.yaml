@@ -14,7 +14,7 @@ trainer:
   gradient_clip_algorithm: norm
   callbacks:
     - _target_: litmodels.integrations.LightningModelCheckpoint
-      model_registry: koacai/speech/flowditse
+      model_registry: koacai/speech/geneses
     - _target_: lightning.pytorch.callbacks.early_stopping.EarlyStopping
       monitor: validation_loss
       mode: min
