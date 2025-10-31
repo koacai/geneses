@@ -35,3 +35,27 @@ dataset:
 ```sh
 uv run scripts/setup_libritts_r_mix.py
 ```
+
+### Setup Noise & RIR Dataset for Test
+
+1. Fix the download directory in [`config/data/libritts_r_mix.yaml`](https://github.com/koacai/geneses/blob/main/config/data/libritts_r_mix.yaml)
+
+```libritts_r_mix.yaml
+test_noise_dataset:
+  corpus:
+    _target_: lhotse_dataset.DEMAND
+  shard_dir: /groups/gag51394/users/asai/geneses/demand # NEED TO CHANGE
+  shard_maxcount: 10
+
+test_rir_dataset:
+  corpus:
+    _target_: lhotse_dataset.MITEnvironmentalImpulseResponses
+  shard_dir: /groups/gag51394/users/asai/geneses/mit_environmental_impulse_responses # NEED TO CHANGE
+  shard_maxcount: 10
+```
+
+2. Run
+
+```sh
+uv run scripts/setup_noise_rir.py
+```

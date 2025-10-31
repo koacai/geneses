@@ -17,13 +17,15 @@ dataset:
     test: 30
 
 test_noise_dataset:
-  shar_dir: /groups/gag51394/users/asai/shar/demand/
-  shard_dir: /groups/gag51394/users/asai/flowditse/demand
+  corpus:
+    _target_: lhotse_dataset.DEMAND
+  shard_dir: /groups/gag51394/users/asai/geneses/demand
   shard_maxcount: 10
 
 test_rir_dataset:
-  shar_dir: /groups/gag51394/users/asai/shar/mit_environmental_impulse_responses/
-  shard_dir: /groups/gag51394/users/asai/flowditse/mit_environmental_impulse_responses
+  corpus:
+    _target_: lhotse_dataset.MITEnvironmentalImpulseResponses
+  shard_dir: /groups/gag51394/users/asai/geneses/mit_environmental_impulse_responses
   shard_maxcount: 10
 
 preprocess_datamodule:
