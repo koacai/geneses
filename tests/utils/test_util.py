@@ -1,6 +1,6 @@
 import torch
 
-from flowditse.util.util import create_mask
+from geneses.util.util import create_mask
 
 
 def test_create_mask() -> None:

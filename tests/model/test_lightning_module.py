@@ -4,8 +4,8 @@ import pytest
 import torch
 from hydra import compose, initialize
 
-from flowditse.data.datamodule import GenesesDataModule
-from flowditse.model.lightning_module import GenesesLightningModule
+from geneses.data.datamodule import GenesesDataModule
+from geneses.model.lightning_module import GenesesLightningModule
 
 
 class TestDialogueSeparatorLightningModule:

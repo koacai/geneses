@@ -1,7 +1,7 @@
 import torch
 from dotenv import load_dotenv
 
-from flowditse.metrics.lps import LevenshteinPhonemeSimilarity, lps_metrics
+from geneses.metrics.lps import LevenshteinPhonemeSimilarity, lps_metrics
 
 
 def test_lps() -> None:

@@ -2,7 +2,7 @@ import itertools
 
 from hydra import compose, initialize
 
-from flowditse.data.datamodule import GenesesDataModule
+from geneses.data.datamodule import GenesesDataModule
 
 
 def test_augment_datamodule_test_dataloader() -> None:

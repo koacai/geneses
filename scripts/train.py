@@ -4,8 +4,8 @@ import torch
 from dotenv import load_dotenv
 from omegaconf import DictConfig
 
-from flowditse.data.datamodule import GenesesDataModule
-from flowditse.model.lightning_module import GenesesLightningModule
+from geneses.data.datamodule import GenesesDataModule
+from geneses.model.lightning_module import GenesesLightningModule
 
 
 @hydra.main(config_path="../config", config_name="default", version_base=None)

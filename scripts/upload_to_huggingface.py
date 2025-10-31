@@ -5,7 +5,7 @@ from pathlib import Path
 from huggingface_hub import HfApi
 
 if __name__ == "__main__":
-    ckpt_path = "flowditse/6df5kvvo/checkpoints/epoch=20-step=151515.ckpt"
+    ckpt_path = "geneses/6df5kvvo/checkpoints/epoch=20-step=151515.ckpt"
     config_path = "outputs/2025-09-24/10-52-37/.hydra/config.yaml"
     metadata_path = "wandb/run-20250924_105313-6df5kvvo/files/wandb-metadata.json"
 
@@ -41,19 +41,19 @@ if __name__ == "__main__":
     api.upload_file(
         path_or_fileobj=ckpt_path,
         path_in_repo=f"{dir}/{Path(ckpt_path).name}",
-        repo_id="koacai/flowditse",
+        repo_id="koacai/geneses",
         repo_type="model",
     )
     api.upload_file(
         path_or_fileobj=config_path,
         path_in_repo=f"{dir}/config.yaml",
-        repo_id="koacai/flowditse",
+        repo_id="koacai/geneses",
         repo_type="model",
     )
     api.upload_file(
         path_or_fileobj=tmp_metadata_path,
         path_in_repo=f"{dir}/metadata.json",
-        repo_id="koacai/flowditse",
+        repo_id="koacai/geneses",
         repo_type="model",
     )
 

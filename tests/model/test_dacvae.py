@@ -1,6 +1,6 @@
 import torch
 
-from flowditse.model.dacvae import DACVAE
+from geneses.model.dacvae import DACVAE
 
 
 def test_dacvae_encode_decode() -> None:

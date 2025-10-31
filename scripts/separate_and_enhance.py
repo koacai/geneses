@@ -5,7 +5,7 @@ import torchaudio
 from huggingface_hub import hf_hub_download
 from lhotse import CutSet
 
-from flowditse.model.lightning_module import GenesesLightningModule
+from geneses.model.lightning_module import GenesesLightningModule
 
 if __name__ == "__main__":
     shar_dir = Path("/groups/gcb50354/kohei_asai/shar/callhome_en/")
@@ -16,9 +16,9 @@ if __name__ == "__main__":
     cuts = CutSet.from_shar({"cuts": cut_paths, "recording": recording_paths})
 
     ckpt_path = hf_hub_download(
-        repo_id="koacai/flowditse", filename="complex_noise/epoch=20-step=151515.ckpt"
+        repo_id="koacai/geneses", filename="complex_noise/epoch=20-step=151515.ckpt"
     )
-    flowditse = GenesesLightningModule.load_from_checkpoint(ckpt_path)
+    geneses = GenesesLightningModule.load_from_checkpoint(ckpt_path)
 
     for i, cut in enumerate(cuts.data):
         if i == 0:
@@ -35,7 +35,7 @@ if __name__ == "__main__":
             "noisy_mixed_wav.wav", noisy_mixed_wav.unsqueeze(0), cut.sampling_rate
         )
 
-        wav_1, wav_2, sr = flowditse.separate_and_enhance(
+        wav_1, wav_2, sr = geneses.separate_and_enhance(
             noisy_mixed_wav, cut.sampling_rate
         )
 
