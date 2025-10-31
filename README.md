@@ -119,3 +119,15 @@ preprocess_datamodule:
 uv run scripts/preprocess.py # train and val dataset
 uv run scripts/preprocess_test.py # test dataset
 ```
+
+### Training
+
+```sh
+uv run scripts/train.py 
+```
+
+### Test
+
+```sh
+uv run scripts/test.py 
+```
