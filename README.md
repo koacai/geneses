@@ -12,7 +12,7 @@
 
 <details>
 
-<summary>`libritts_r_mix.yaml`</summary>
+<summary>libritts_r_mix.yaml</summary>
 
 ```libritts_r_mix.yaml
 dataset:
@@ -48,7 +48,7 @@ uv run scripts/setup_libritts_r_mix.py
 
 <details>
 
-<summary>`libritts_r_mix.yaml`</summary>
+<summary>libritts_r_mix.yaml</summary>
 
 ```libritts_r_mix.yaml
 test_noise_dataset:
@@ -78,7 +78,7 @@ uv run scripts/setup_noise_rir.py
 
 <details>
 
-<summary>`libritts_r_mix.yaml`</summary>
+<summary>libritts_r_mix.yaml</summary>
 
 ```libritts_r_mix.yaml
 preprocess_datamodule:
