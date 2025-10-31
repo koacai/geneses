@@ -4,7 +4,7 @@ trainer:
   max_epochs: 3300
   logger:
     _target_: lightning.pytorch.loggers.WandbLogger
-    project: flowditse
+    project: geneses
   check_val_every_n_epoch: 1
   precision: 16-mixed
   strategy:
