@@ -10,9 +10,9 @@ from torch.nn.utils.rnn import pad_sequence
 from flowditse.data.util import glob_wds
 
 
-class FlowDiTSEDataModule(LightningDataModule):
+class GenesesDataModule(LightningDataModule):
     def __init__(self, cfg: DictConfig) -> None:
-        super(FlowDiTSEDataModule, self).__init__()
+        super(GenesesDataModule, self).__init__()
         self.cfg = cfg
 
     def setup(self, stage: str) -> None:

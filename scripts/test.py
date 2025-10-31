@@ -4,8 +4,8 @@ import torch
 from huggingface_hub import hf_hub_download
 from omegaconf import DictConfig
 
-from flowditse.data.datamodule import FlowDiTSEDataModule
-from flowditse.model.lightning_module import FlowDiTSELightningModule
+from flowditse.data.datamodule import GenesesDataModule
+from flowditse.model.lightning_module import GenesesLightningModule
 
 
 @hydra.main(config_path="../config", config_name="default", version_base=None)
@@ -23,13 +23,13 @@ def main(cfg: DictConfig) -> None:
 
     trainer = L.Trainer()
 
-    flowditse = FlowDiTSELightningModule.load_from_checkpoint(ckpt_path)
-    datamodule = FlowDiTSEDataModule(cfg.data.datamodule)
+    geneses = GenesesLightningModule.load_from_checkpoint(ckpt_path)
+    datamodule = GenesesDataModule(cfg.data.datamodule)
 
     datamodule.setup("test")
 
     trainer.test(
-        flowditse,
+        geneses,
         dataloaders=datamodule.test_dataloader(),
     )
 

@@ -4,8 +4,8 @@ import pytest
 import torch
 from hydra import compose, initialize
 
-from flowditse.data.datamodule import FlowDiTSEDataModule
-from flowditse.model.lightning_module import FlowDiTSELightningModule
+from flowditse.data.datamodule import GenesesDataModule
+from flowditse.model.lightning_module import GenesesLightningModule
 
 
 class TestDialogueSeparatorLightningModule:
@@ -13,8 +13,8 @@ class TestDialogueSeparatorLightningModule:
     def init(self) -> None:
         with initialize(config_path="../../config", version_base=None):
             cfg = compose(config_name="default")
-            self.lightning_module = FlowDiTSELightningModule(cfg)
-            self.datamodule = FlowDiTSEDataModule(cfg.data.datamodule)
+            self.lightning_module = GenesesLightningModule(cfg)
+            self.datamodule = GenesesDataModule(cfg.data.datamodule)
             self.datamodule.setup("fit")
 
     def test_calc_loss(self, init) -> None:
