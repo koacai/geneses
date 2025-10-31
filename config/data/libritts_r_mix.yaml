@@ -34,6 +34,8 @@ preprocess_datamodule:
   test_noise_dir: ${data.test_noise_dataset.shard_dir}
   test_rir_dir: ${data.test_rir_dataset.shard_dir}
 
+  only_bg: true
+
   batch_size: 1
   num_workers: 32
 

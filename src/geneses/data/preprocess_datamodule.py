@@ -79,10 +79,7 @@ class PreprocessDataModule(LightningDataModule):
         batch_size: int,
     ) -> wds.WebDataset:
         dataset = self.init_dataset(dataset)
-        dataset = self.add_noise(
-            dataset,
-            noise_dataset,
-        )
+        dataset = self.add_noise(dataset, noise_dataset, only_bg=self.cfg.only_bg)
         dataset = (
             dataset.map(
                 partial(
@@ -126,10 +123,21 @@ class PreprocessDataModule(LightningDataModule):
         return dataset
 
     def add_noise(
-        self,
-        dataset: wds.WebDataset,
-        noise_dataset: wds.WebDataset,
+        self, dataset: wds.WebDataset, noise_dataset: wds.WebDataset, only_bg: bool
     ) -> wds.WebDataset:
+        if only_bg:
+            dataset = dataset.compose(
+                partial(
+                    random_apply,
+                    prob=1.0,
+                    transform_fn=add_non_parametric_noise,
+                    input_key="noisy",
+                    output_key="noisy",
+                    noise_ds=iter(noise_dataset),
+                )
+            )
+            return dataset
+
         dataset = (
             dataset.compose(
                 partial(
