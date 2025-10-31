@@ -1,6 +1,15 @@
 dataset:
-  shar_dir: /groups/gag51394/users/asai/shar/libritts_r_mix_large/
-  shard_dir: /groups/gag51394/users/asai/flowditse/libritts_r_mix_raw
+  libritts_r_shar_dir: /groups/gcb50354/kohei_asai/shar/libritts_r
+
+  libritts_r_mix:
+    _target_: lhotse_dataset.LibriTTSRMixLarge
+    libritts_r_shar_dir: ${data.dataset.libritts_r_shar_dir},
+    num_test_clean: 5000
+    num_dev_clean: 5000
+    num_train_clean_100: 100000
+    num_train_clean_360: 300000
+
+  shard_dir: /groups/gag51394/users/asai/geneses/libritts_r_mix_raw
 
   shard_maxcount:
     train: 1000
