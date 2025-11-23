@@ -8,6 +8,29 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "discrete-speech-metrics",
+    "fastdtw>=0.3.4",
+    "faster-whisper>=1.2.1",
+    "flow-matching>=1.0.10",
+    "jiwer>=4.0.0",
+    "lhotse-dataset",
+    "librosa>=0.11.0",
+    "lightning[extra]>=2.5.6",
+    "matplotlib>=3.10.7",
+    "mmdit>=0.2.2",
+    "peft>=0.18.0",
+    "phonemizer>=3.3.0",
+    "pyroomacoustics>=0.8.6",
+    "pysptk>=1.0.1",
+    "soundfile>=0.13.1",
+    "speechbrain>=1.0.3",
+    "torch>=2.9.1",
+    "torchaudio>=2.9.1",
+    "torchmetrics[audio]>=1.8.2",
+    "transformers>=4.57.1",
+    "utmosv2",
+    "wandb>=0.23.0",
+    "webdataset>=1.0.2",
 ]
 
 [build-system]
