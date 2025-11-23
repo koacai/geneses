@@ -8,27 +8,6 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "discrete-speech-metrics",
-    "fastdtw>=0.3.4",
-    "faster-whisper>=1.2.0",
-    "flow-matching>=1.0.10",
-    "jiwer>=4.0.0",
-    "lhotse-dataset",
-    "lightning[extra]>=2.5.1.post0",
-    "matplotlib>=3.10.3",
-    "mmdit>=0.2.2",
-    "peft>=0.16.0",
-    "phonemizer>=3.3.0",
-    "pyroomacoustics>=0.8.4",
-    "pysptk>=1.0.1",
-    "speechbrain>=1.0.3",
-    "torch>=2.6.0",
-    "torchaudio>=2.6.0",
-    "torchmetrics[audio]>=1.7.1",
-    "transformers>=4.52.3",
-    "utmosv2",
-    "wandb>=0.19.10",
-    "webdataset>=0.2.111",
 ]
 
 [build-system]
@@ -37,8 +16,8 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3.5",
-    "ruff>=0.11.7",
+    "pytest>=9.0.1",
+    "ruff>=0.14.6",
 ]
 
 [tool.ruff]
