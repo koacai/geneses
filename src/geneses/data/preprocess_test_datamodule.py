@@ -87,6 +87,7 @@ class PreprocessTestDataModule(LightningDataModule):
             dataset,
             rir_dataset,
             noise_dataset,
+            list(self.cfg.degradations),
         )
         dataset = (
             dataset.map(
@@ -135,88 +136,106 @@ class PreprocessTestDataModule(LightningDataModule):
         dataset: wds.WebDataset,
         rir_dataset: wds.WebDataset,
         noise_dataset: wds.WebDataset,
+        degradations: list[str],
     ) -> wds.WebDataset:
-        dataset = (
-            dataset.compose(
-                partial(
-                    random_apply,
-                    prob=0.5,
-                    transform_fn=add_non_parametric_noise,
-                    input_key="noisy",
-                    output_key="noisy",
-                    noise_ds=iter(noise_dataset),
+        """Apply degradations specified in the degradations list.
+
+        Available degradations:
+        - "noise": Add non-parametric noise
+        - "reverb": Convolve with room impulse response
+        - "band_limit": Apply band limiting
+        - "clip": Apply clipping distortion
+        - "codec": Apply codec compression artifacts
+        - "packet_loss": Simulate packet loss
+        """
+        for degradation in degradations:
+            if degradation == "noise":
+                dataset = dataset.compose(
+                    partial(
+                        random_apply,
+                        prob=0.5,
+                        transform_fn=add_non_parametric_noise,
+                        input_key="noisy",
+                        output_key="noisy",
+                        noise_ds=iter(noise_dataset),
+                    )
                 )
-            )
-            .compose(
-                partial(
-                    random_apply,
-                    prob=0.5,
-                    transform_fn=convolve_rir_raw,
-                    input_key="clean",
-                    reverb_key="noisy",
-                    rir_ds=iter(rir_dataset),
+            elif degradation == "reverb":
+                dataset = dataset.compose(
+                    partial(
+                        random_apply,
+                        prob=0.5,
+                        transform_fn=convolve_rir_raw,
+                        input_key="clean",
+                        reverb_key="noisy",
+                        rir_ds=iter(rir_dataset),
+                    )
                 )
-            )
-            .compose(
-                partial(
-                    random_apply,
-                    prob=0.5,
-                    transform_fn=band_limit,
-                    candidate_srs=[8000, 16000, 22050, 24000, 44100, 48000],
-                    output_key="noisy",
-                    input_key="noisy",
+            elif degradation == "band_limit":
+                dataset = dataset.compose(
+                    partial(
+                        random_apply,
+                        prob=0.5,
+                        transform_fn=band_limit,
+                        candidate_srs=[8000, 16000, 22050, 24000, 44100, 48000],
+                        output_key="noisy",
+                        input_key="noisy",
+                    )
                 )
-            )
-            .compose(
-                partial(
-                    random_apply,
-                    prob=0.5,
-                    transform_fn=clip,
-                    input_key="noisy",
-                    output_key="noisy",
+            elif degradation == "clip":
+                dataset = dataset.compose(
+                    partial(
+                        random_apply,
+                        prob=0.5,
+                        transform_fn=clip,
+                        input_key="noisy",
+                        output_key="noisy",
+                    )
                 )
-            )
-            .compose(
-                partial(
-                    random_apply,
-                    prob=0.5,
-                    transform_fn=codec,
-                    codec_effectors=[
-                        torchaudio.io.AudioEffector(
-                            format="mp3",
-                            codec_config=torchaudio.io.CodecConfig(qscale=10),
-                        ),
-                        torchaudio.io.AudioEffector(
-                            format="mp3",
-                            codec_config=torchaudio.io.CodecConfig(qscale=8),
-                        ),
-                        torchaudio.io.AudioEffector(
-                            format="mp3",
-                            codec_config=torchaudio.io.CodecConfig(qscale=4),
-                        ),
-                        torchaudio.io.AudioEffector(
-                            format="mp3",
-                            codec_config=torchaudio.io.CodecConfig(qscale=2),
-                        ),
-                        torchaudio.io.AudioEffector(
-                            format="mp3",
-                            codec_config=torchaudio.io.CodecConfig(qscale=1),
-                        ),
-                    ],
-                    input_key="noisy",
-                    output_key="noisy",
+            elif degradation == "codec":
+                dataset = dataset.compose(
+                    partial(
+                        random_apply,
+                        prob=0.5,
+                        transform_fn=codec,
+                        codec_effectors=[
+                            torchaudio.io.AudioEffector(
+                                format="mp3",
+                                codec_config=torchaudio.io.CodecConfig(qscale=10),
+                            ),
+                            torchaudio.io.AudioEffector(
+                                format="mp3",
+                                codec_config=torchaudio.io.CodecConfig(qscale=8),
+                            ),
+                            torchaudio.io.AudioEffector(
+                                format="mp3",
+                                codec_config=torchaudio.io.CodecConfig(qscale=4),
+                            ),
+                            torchaudio.io.AudioEffector(
+                                format="mp3",
+                                codec_config=torchaudio.io.CodecConfig(qscale=2),
+                            ),
+                            torchaudio.io.AudioEffector(
+                                format="mp3",
+                                codec_config=torchaudio.io.CodecConfig(qscale=1),
+                            ),
+                        ],
+                        input_key="noisy",
+                        output_key="noisy",
+                    )
                 )
-            )
-            .compose(
-                partial(
-                    random_apply,
-                    prob=0.5,
-                    transform_fn=packet_loss,
-                    input_key="noisy",
-                    output_key="noisy",
+            elif degradation == "packet_loss":
+                dataset = dataset.compose(
+                    partial(
+                        random_apply,
+                        prob=0.5,
+                        transform_fn=packet_loss,
+                        input_key="noisy",
+                        output_key="noisy",
+                    )
                 )
-            )
-        )
+            else:
+                raise ValueError(f"Unknown degradation type: {degradation}")
 
         return dataset
 
