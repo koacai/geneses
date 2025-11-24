@@ -34,9 +34,15 @@ preprocess_datamodule:
   test_noise_dir: ${data.test_noise_dataset.shard_dir}
   test_rir_dir: ${data.test_rir_dataset.shard_dir}
 
-  out_dir: /groups/gag51394/users/asai/geneses/libritts_r_mix_complex
+  out_dir: /groups/gag51394/users/asai/geneses/libritts_r_mix_preprocess
 
-  only_bg: false
+  degradations:
+    - noise
+    - reverb
+    - band_limit
+    - clip
+    - codec
+    - packet_loss
 
   batch_size: 1
   num_workers: 32
