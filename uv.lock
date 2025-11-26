@@ -1686,7 +1686,7 @@ wheels = [
 
 [[package]]
 name = "lhotse"
-version = "1.32.0"
+version = "1.32.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "audioread" },
@@ -1703,15 +1703,15 @@ dependencies = [
     { name = "torch", version = "2.8.0+cu126", source = { registry = "https://download.pytorch.org/whl/cu126" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/07/a6/8efb0017f2bc9237af127f8d396b98e0bf5a049b0deb28e475f0da22dbf2/lhotse-1.32.0.tar.gz", hash = "sha256:557aadf2faad0f5f8ade928863f06b4b6a3a9a771261b9402cdc3a25beea443f", size = 674381, upload-time = "2025-11-21T20:04:04.585Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2e/fd/32baf46d238f029a22b2c1762fc717ebdb85515fb48bafa395d3de5da0f5/lhotse-1.32.1.tar.gz", hash = "sha256:8b0e946d1bd2c695b09df831ea612913f1a1f103b1aea36a4b43a8778be0a3d5", size = 674412, upload-time = "2025-11-24T16:42:25.511Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0a/9a/80cd92e52c417ae6ea3632e470d21c2875aa006a4e57ecc16f0703de4e5a/lhotse-1.32.0-py3-none-any.whl", hash = "sha256:fa45307f9fd35de1cda4c2ffa5a88dce6596aaedb8aa5d8dbe5b4597879171e4", size = 893068, upload-time = "2025-11-21T20:04:02.743Z" },
+    { url = "https://files.pythonhosted.org/packages/e6/90/9c8e26e4d56c93784503f53e68673d9bf6ea588a36f69aa48a20e99f94b0/lhotse-1.32.1-py3-none-any.whl", hash = "sha256:f2013832c568c146a0dbc76b922afa7776c13749a67c7e685f5988fac09472d0", size = 893069, upload-time = "2025-11-24T16:42:23.806Z" },
 ]
 
 [[package]]
 name = "lhotse-dataset"
 version = "0.1.0"
-source = { git = "ssh://github.com/koacai/lhotse-dataset.git#2351bafd5268ccd367139fc36c45905192b8ea3a" }
+source = { git = "ssh://github.com/koacai/lhotse-dataset.git#fe19de527685c1b3a7b288a88fa222d604d8905b" }
 dependencies = [
     { name = "datasets" },
     { name = "gdown" },

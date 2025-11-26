@@ -3,7 +3,7 @@ dataset:
 
   libritts_r_mix:
     _target_: lhotse_dataset.LibriTTSRMixLarge
-    libritts_r_shar_dir: ${data.dataset.libritts_r_shar_dir},
+    libritts_r_shar_dir: ${data.dataset.libritts_r_shar_dir}
     num_test_clean: 5000
     num_dev_clean: 5000
     num_train_clean_100: 100000
