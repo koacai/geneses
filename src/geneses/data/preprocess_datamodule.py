@@ -79,7 +79,7 @@ class PreprocessDataModule(LightningDataModule):
         batch_size: int,
     ) -> wds.WebDataset:
         dataset = self.init_dataset(dataset)
-        dataset = self.add_noise(dataset, noise_dataset, list(self.cfg.degradations))
+        dataset = self.add_noise(dataset, noise_dataset, self.cfg.degradations)
         dataset = (
             dataset.map(
                 partial(

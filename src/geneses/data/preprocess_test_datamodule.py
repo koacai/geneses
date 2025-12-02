@@ -87,7 +87,7 @@ class PreprocessTestDataModule(LightningDataModule):
             dataset,
             rir_dataset,
             noise_dataset,
-            list(self.cfg.degradations),
+            self.cfg.degradations,
         )
         dataset = (
             dataset.map(
