@@ -126,7 +126,7 @@ class PreprocessDataModule(LightningDataModule):
         self,
         dataset: wds.WebDataset,
         noise_dataset: wds.WebDataset,
-        degradations: list[str],
+        degradations: dict[str, float],
     ) -> wds.WebDataset:
         """Apply degradations specified in the degradations list.
 
@@ -138,12 +138,12 @@ class PreprocessDataModule(LightningDataModule):
         - "codec": Apply codec compression artifacts
         - "packet_loss": Simulate packet loss
         """
-        for degradation in degradations:
+        for degradation, prob in degradations.items():
             if degradation == "noise":
                 dataset = dataset.compose(
                     partial(
                         random_apply,
-                        prob=0.5,
+                        prob=prob,
                         transform_fn=add_non_parametric_noise,
                         input_key="noisy",
                         output_key="noisy",
@@ -154,7 +154,7 @@ class PreprocessDataModule(LightningDataModule):
                 dataset = dataset.compose(
                     partial(
                         random_apply,
-                        prob=0.5,
+                        prob=prob,
                         transform_fn=convolve_rir_pra,
                         input_key="clean",
                         direct_key="clean",
@@ -165,7 +165,7 @@ class PreprocessDataModule(LightningDataModule):
                 dataset = dataset.compose(
                     partial(
                         random_apply,
-                        prob=0.5,
+                        prob=prob,
                         transform_fn=band_limit,
                         candidate_srs=[8000, 16000, 22050, 24000, 44100, 48000],
                         output_key="noisy",
@@ -176,7 +176,7 @@ class PreprocessDataModule(LightningDataModule):
                 dataset = dataset.compose(
                     partial(
                         random_apply,
-                        prob=0.5,
+                        prob=prob,
                         transform_fn=clip,
                         input_key="noisy",
                         output_key="noisy",
@@ -186,7 +186,7 @@ class PreprocessDataModule(LightningDataModule):
                 dataset = dataset.compose(
                     partial(
                         random_apply,
-                        prob=0.5,
+                        prob=prob,
                         transform_fn=codec,
                         codec_effectors=[
                             torchaudio.io.AudioEffector(
@@ -218,7 +218,7 @@ class PreprocessDataModule(LightningDataModule):
                 dataset = dataset.compose(
                     partial(
                         random_apply,
-                        prob=0.5,
+                        prob=prob,
                         transform_fn=packet_loss,
                         input_key="noisy",
                         output_key="noisy",
