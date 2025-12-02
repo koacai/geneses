@@ -3,7 +3,7 @@ dataset:
 
   libritts_r_mix:
     _target_: lhotse_dataset.LibriTTSRMixLarge
-    libritts_r_shar_dir: ${data.dataset.libritts_r_shar_dir},
+    libritts_r_shar_dir: ${data.dataset.libritts_r_shar_dir}
     num_test_clean: 5000
     num_dev_clean: 5000
     num_train_clean_100: 100000
@@ -34,9 +34,15 @@ preprocess_datamodule:
   test_noise_dir: ${data.test_noise_dataset.shard_dir}
   test_rir_dir: ${data.test_rir_dataset.shard_dir}
 
-  out_dir: /groups/gag51394/users/asai/geneses/libritts_r_mix_complex
+  out_dir: /groups/gag51394/users/asai/geneses/libritts_r_mix_preprocess
 
-  only_bg: false
+  degradations:
+    noise: 0.5
+    reverb: 0.5
+    band_limit: 0.5
+    clip: 0.5
+    codec: 0.5
+    packet_loss: 0.5
 
   batch_size: 1
   num_workers: 32
