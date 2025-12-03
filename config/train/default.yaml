@@ -16,7 +16,7 @@ trainer:
     - _target_: lightning.pytorch.callbacks.early_stopping.EarlyStopping
       monitor: validation_loss
       mode: min
-      patience: 30
+      patience: 3
       verbose: true
       min_delta: 0.001
   fast_dev_run: false
