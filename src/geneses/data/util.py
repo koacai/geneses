@@ -10,6 +10,36 @@ def glob_wds(dir: str) -> list[str]:
     return wds_paths
 
 
+def glob_wds_split(dir: str, split_idx: int, array_num: int) -> list[str]:
+    """Get a subset of shards for parallel processing.
+
+    Args:
+        dir: Directory containing the shards
+        split_idx: Index of the current job (0 to array_num-1)
+        array_num: Total number of parallel jobs
+
+    Returns:
+        List of shard paths for this job
+    """
+    all_shards = glob_wds(dir)
+    all_shards = sorted(all_shards)  # Ensure consistent ordering
+
+    # Split shards across jobs
+    shards_per_job = len(all_shards) // array_num
+    remainder = len(all_shards) % array_num
+
+    # Calculate start and end indices for this job
+    if split_idx < remainder:
+        # First 'remainder' jobs get one extra shard
+        start_idx = split_idx * (shards_per_job + 1)
+        end_idx = start_idx + shards_per_job + 1
+    else:
+        start_idx = split_idx * shards_per_job + remainder
+        end_idx = start_idx + shards_per_job
+
+    return all_shards[start_idx:end_idx]
+
+
 def get_rir_start_sample(h, level_ratio=1e-1):
     """Finds start sample in a room impulse response.
 

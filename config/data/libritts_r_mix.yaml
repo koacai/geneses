@@ -45,7 +45,7 @@ preprocess_datamodule:
     packet_loss: 0.5
 
   batch_size: 1
-  num_workers: 32
+  num_workers: 1
 
   shard_maxcount:
     train: 1000
@@ -64,6 +64,9 @@ preprocess_datamodule:
   ssl_model:
     name: facebook/w2v-bert-2.0
     sample_rate: 16000
+
+  split_idx: 0 # 上書きされる
+  array_num: 100 # 上書きされる
 
 datamodule:
   train:
