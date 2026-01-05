@@ -4,10 +4,10 @@ dataset:
   libritts_r_mix:
     _target_: lhotse_dataset.LibriTTSRMixLarge
     libritts_r_shar_dir: ${data.dataset.libritts_r_shar_dir}
-    num_test_clean: 5000
+    num_test_clean: 1000
     num_dev_clean: 5000
-    num_train_clean_100: 100000
-    num_train_clean_360: 300000
+    num_train_clean_100: 500000
+    num_train_clean_360: 1500000
 
   shard_dir: /groups/gag51394/users/asai/geneses/libritts_r_mix_raw
 
@@ -68,12 +68,12 @@ preprocess_datamodule:
 datamodule:
   train:
     dataset_dir: ${data.preprocess_datamodule.out_dir}/train/
-    batch_size: 16
+    batch_size: 32
   valid:
     dataset_dir: ${data.preprocess_datamodule.out_dir}/valid/
-    batch_size: 4
+    batch_size: 16
   test:
     dataset_dir: ${data.preprocess_datamodule.out_dir}/test/
     batch_size: 32
   num_workers: 8
-  use_ddp: false
+  use_ddp: true
