@@ -4,10 +4,10 @@ dataset:
   libritts_r_mix:
     _target_: lhotse_dataset.LibriTTSRMixLarge
     libritts_r_shar_dir: ${data.dataset.libritts_r_shar_dir}
-    num_test_clean: 5000
+    num_test_clean: 1000
     num_dev_clean: 5000
-    num_train_clean_100: 100000
-    num_train_clean_360: 300000
+    num_train_clean_100: 500000
+    num_train_clean_360: 1500000
 
   shard_dir: /groups/gag51394/users/asai/geneses/libritts_r_mix_raw
 
@@ -45,7 +45,7 @@ preprocess_datamodule:
     packet_loss: 0.5
 
   batch_size: 1
-  num_workers: 32
+  num_workers: 1
 
   shard_maxcount:
     train: 1000
@@ -65,15 +65,18 @@ preprocess_datamodule:
     name: facebook/w2v-bert-2.0
     sample_rate: 16000
 
+  split_idx: 0 # 上書きされる
+  array_num: 100 # 上書きされる
+
 datamodule:
   train:
     dataset_dir: ${data.preprocess_datamodule.out_dir}/train/
-    batch_size: 16
+    batch_size: 32
   valid:
     dataset_dir: ${data.preprocess_datamodule.out_dir}/valid/
-    batch_size: 4
+    batch_size: 16
   test:
     dataset_dir: ${data.preprocess_datamodule.out_dir}/test/
     batch_size: 32
   num_workers: 8
-  use_ddp: false
+  use_ddp: true

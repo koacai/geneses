@@ -10,6 +10,7 @@ def main(cfg: DictConfig) -> None:
     """Run the parallel preprocessing and writing for train and validation sets."""
     NUM_WRITERS = 1
 
+    # Pass split_idx and array_num from top-level config to preprocess_datamodule
     split_idx = None
     if "split_idx" in cfg:
         split_idx = cfg.split_idx
@@ -20,18 +21,20 @@ def main(cfg: DictConfig) -> None:
     datamodule = PreprocessDataModule(cfg.data.preprocess_datamodule)
     datamodule.setup()
 
+    # Determine output directory based on whether parallel processing is enabled
     base_out_dir = cfg.data.preprocess_datamodule.out_dir
     if split_idx is not None:
-        train_out_dir = f"{base_out_dir}/train/job_{split_idx:03d}"
+        # Each job writes to its own subdirectory
+        valid_out_dir = f"{base_out_dir}/valid/job_{split_idx:03d}"
     else:
-        train_out_dir = f"{base_out_dir}/train"
+        valid_out_dir = f"{base_out_dir}/valid"
 
-    print("--- Starting Training Set Processing ---")
+    print("\n--- Starting Validation Set Processing ---")
     run_parallel_writing(
-        dataloader=datamodule.train_dataloader(),
-        output_dir=train_out_dir,
+        dataloader=datamodule.val_dataloader(),
+        output_dir=valid_out_dir,
         num_writers=NUM_WRITERS,
-        shard_maxcount=cfg.data.preprocess_datamodule.shard_maxcount.train,
+        shard_maxcount=cfg.data.preprocess_datamodule.shard_maxcount.valid,
     )
 
     print("\nAll processing and writing complete.")

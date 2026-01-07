@@ -20,7 +20,7 @@ from geneses.data.functional_degrations import (
     packet_loss,
     random_apply,
 )
-from geneses.data.util import glob_wds
+from geneses.data.util import glob_wds, glob_wds_split
 
 
 class PreprocessDataModule(LightningDataModule):
@@ -28,6 +28,9 @@ class PreprocessDataModule(LightningDataModule):
         super(PreprocessDataModule, self).__init__()
         self.cfg = cfg
         self.processor = AutoFeatureExtractor.from_pretrained(cfg.ssl_model.name)
+        # For parallel processing
+        self.split_idx = cfg.get("split_idx", None)
+        self.array_num = cfg.get("array_num", None)
 
     def setup(self, stage: str | None = None) -> None:
         _ = stage
@@ -49,10 +52,27 @@ class PreprocessDataModule(LightningDataModule):
             .repeat()
         )
 
+        # Use split function if parallel processing is enabled
+        use_parallel = self.split_idx is not None and self.array_num is not None
+        if use_parallel:
+            train_shards = glob_wds_split(
+                f"{self.cfg.shard_dir}/train", self.split_idx, self.array_num
+            )
+            valid_shards = glob_wds_split(
+                f"{self.cfg.shard_dir}/valid", self.split_idx, self.array_num
+            )
+            print(
+                f"[Parallel Processing] Job {self.split_idx + 1}/{self.array_num}: "
+                f"Processing {len(train_shards)} train shards and {len(valid_shards)} valid shards"
+            )
+        else:
+            train_shards = glob_wds(f"{self.cfg.shard_dir}/train")
+            valid_shards = glob_wds(f"{self.cfg.shard_dir}/valid")
+
         self.train_dataset = self.setup_dataset_pipeline(
             wds.WebDataset(
-                glob_wds(f"{self.cfg.shard_dir}/train"),
-                shardshuffle=100,
+                train_shards,
+                shardshuffle=100 if not use_parallel else False,
                 nodesplitter=lambda x: x,
                 workersplitter=wds.split_by_worker,
                 repeat=True,
@@ -62,7 +82,7 @@ class PreprocessDataModule(LightningDataModule):
         )
         self.valid_dataset = self.setup_dataset_pipeline(
             wds.WebDataset(
-                glob_wds(f"{self.cfg.shard_dir}/valid"),
+                valid_shards,
                 shardshuffle=False,
                 nodesplitter=lambda x: x,
                 workersplitter=wds.split_by_worker,
